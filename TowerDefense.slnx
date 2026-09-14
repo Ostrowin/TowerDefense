@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="TowerDefense.Core.Tests/TowerDefense.Core.Tests.csproj" />
+  <Project Path="TowerDefense.Core/TowerDefense.Core.csproj" />
+  <Project Path="TowerDefense.DesktopGL/TowerDefense.DesktopGL.csproj" />
+</Solution>

@@ -47,7 +47,7 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 ### D9 — Robotnik-zbieracz w M1 (rozszerzenie zakresu)
 **Decyzja:** sterowalny robotnik zbiera surowce z węzłów i buduje.
 **Dlaczego:** robotnik był w wizji od początku. Świadome rozszerzenie ponad rekomendację (i CEO, i Codex sugerowali cięcie). Pociąga maszynerię: ruch, cykl gather→return, maszyna stanu, UI rozkazów — zapisane jako część zakresu M1. Ruch bezpośredni do celu (bez A*).
-**Status:** aktywna.
+**Status:** ZASTĄPIONA przez D14.
 
 ### D10 — Pooling odroczony (cross-model, zmiana rekomendacji)
 **Decyzja:** czysta alokacja teraz; object pooling dopiero gdy profiling na Androidzie pokaże churn.
@@ -68,3 +68,8 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 **Decyzja:** całe solution celuje w `net10.0`.
 **Dlaczego:** MonoGame 3.8.4.1 wymaga min .NET 9, a .NET 10 jest wspierany; plan mówił .NET 8 (moja wiedza ze stycznia 2026), ale to już poniżej minimum MonoGame. Maszyna ma SDK 10.0.401 — zero instalacji.
 **Status:** aktywna. Zastępuje wcześniejsze założenie „.NET 8".
+
+### D14 — Robotnik „warhammerowy": buduje wydobywacze na złożach, reszta automat (zastępuje D9)
+**Decyzja:** robotnik nie nosi surowców (brak gather→return). Jego rola: iść na węzeł surowca i postawić na nim **Extractor** (wydobywacz), który potem **automatycznie** generuje surowce w czasie (ciągnąc z węzła). Model jak Dawn of War / Company of Heroes.
+**Dlaczego:** prościej (znika cykl noszenia i maszyna stanu carry/return), lepiej pasuje do serca „ekonomia = build-order" (agencja gracza = które złoża zająć i kiedy), reużywa `ResourceNode.Extract`. Uproszczenie zakresu M1 bez utraty „gracz coś stawia palcem".
+**Status:** aktywna. FSM robotnika upraszcza się do: GoToNode → Build → Idle (zaktualizować ARCHITECTURE.md przy budowie robotnika).

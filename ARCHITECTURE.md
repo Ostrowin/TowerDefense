@@ -7,12 +7,13 @@ TowerDefense.sln
 ├── TowerDefense.Core          biblioteka: symulacja + logika, ZERO renderu
 │   ├── SimState               cały stan gry (serializowalny, referencje przez ID)
 │   ├── ISimEntity             Update(fixedDt)
-│   ├── Worker                 maszyna stanu: zbieranie + budowa
-│   ├── ProductionBuilding     spawnuje Unit co interwał
+│   ├── Worker                 maszyna stanu: idzie na złoże i stawia Extractor
+│   ├── Extractor              postawiony na złożu; automatyczny dochód z węzła
+│   ├── ProductionBuilding     spawnuje Unit co interwał (płaci surowcami)
 │   ├── Unit                   podąża za waypointami
 │   ├── Tower                  namierza + strzela do jednostek w zasięgu
 │   ├── Base / EnemyBase       HP, warunek win/lose
-│   ├── ResourceNode           źródło surowców dla robotnika
+│   ├── ResourceNode           złoże; Extractor z niego ciągnie
 │   └── Tick(fixedDt)          fixed-step, ustalona kolejność systemów
 ├── TowerDefense.Core.Tests    xUnit (60 s sim headless + edge cases)
 ├── TowerDefense.DesktopGL      harness dev na Windows: render + input   ← ~90% czasu tu
@@ -41,22 +42,19 @@ EconomyTick   WorkerUpdate   ProductionSpawn    MovementUpdate      (obie strony
 
 Fixed timestep: akumulator kroków; rozważ clamp (max frame skip), żeby wolna klatka nie wywołała spirali. Render osobno, może interpolować między dwoma stanami sim.
 
-## Maszyna stanu robotnika
+## Maszyna stanu robotnika (model D14 — buduje wydobywacze)
 
 ```
-                 tap: węzeł surowca
-        Idle ───────────────────────► GoToNode ──dotarł──► Gather
-         ▲                                                    │
-         │                                              pełny │
-         │                          Deposit ◄──dotarł── Return
-         │                            │
-         └────────────────────────────┘
-         │
-         │ tap: plac budowy
-         └──────────────► GoToBuild ──dotarł──► Build ──gotowe──► Idle
+        rozkaz gracza: OrderBuildOn(node)
+  Idle ──────────────────────────────► GoingToNode ──dotarł──► Building
+    ▲                                                             │
+    │                            buildTime minął (tworzy Extractor na węźle)
+    └─────────────────────────────────────────────────────────────┘
 ```
 
-Ruch bezpośredni do celu (lerp/krok w stronę), teren bazy otwarty → bez A*. Gdyby baza miała przeszkody, dopiero wtedy pathfinding.
+Robotnik NIE nosi surowców. Stawia `Extractor` na złożu, a ten dalej ciągnie z węzła
+automatycznie (model Dawn of War). Ruch bezpośredni do celu (bez A*). Po zbudowaniu wraca
+do Idle i czeka na kolejny rozkaz.
 
 ## Model encji
 
