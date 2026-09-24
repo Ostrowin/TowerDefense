@@ -1,6 +1,6 @@
 class_name Settings
 extends RefCounted
-## Ustawienia gracza (głośność, rozmiar interfejsu), zapis w ConfigFile.
+## Ustawienia gracza (głośność, rozmiar interfejsu, licznik FPS), zapis w ConfigFile.
 ## Głośności działają przez szyny audio „SFX" i „Music" tworzone w `apply_audio`.
 
 const UI_SCALES: Array[float] = [1.0, 1.15, 1.3]
@@ -10,6 +10,7 @@ static var path := "user://settings.cfg"
 static var sfx_volume := 0.8
 static var music_volume := 0.5
 static var ui_scale_index := 0
+static var show_perf := false
 
 
 static func load_all() -> void:
@@ -19,6 +20,7 @@ static func load_all() -> void:
 	sfx_volume = cfg.get_value("audio", "sfx", sfx_volume)
 	music_volume = cfg.get_value("audio", "music", music_volume)
 	ui_scale_index = clampi(cfg.get_value("ui", "scale", ui_scale_index), 0, UI_SCALES.size() - 1)
+	show_perf = cfg.get_value("ui", "perf", show_perf)
 
 
 static func save_all() -> void:
@@ -26,6 +28,7 @@ static func save_all() -> void:
 	cfg.set_value("audio", "sfx", sfx_volume)
 	cfg.set_value("audio", "music", music_volume)
 	cfg.set_value("ui", "scale", ui_scale_index)
+	cfg.set_value("ui", "perf", show_perf)
 	cfg.save(path)
 
 

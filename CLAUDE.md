@@ -1,6 +1,6 @@
 # CLAUDE.md — TowerDefense (Godot)
 
-Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** (nie nauka). Silnik: **Godot 4.7 + GDScript**. Cel wysyłki: **Android**. Historia decyzji: [DECISIONS.md](DECISIONS.md) (D15–D19; D15–D16 zastępują ustalenia z ery MonoGame). Budowa kodu: [ARCHITECTURE.md](ARCHITECTURE.md).
+Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** (nie nauka). Silnik: **Godot 4.7 + GDScript**. Cel wysyłki: **Android**. Historia decyzji: [DECISIONS.md](DECISIONS.md) (D15–D20; D15–D16 zastępują ustalenia z ery MonoGame). Budowa kodu: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Struktura
 - `scripts/cfg.gd` (`Cfg`) — balans i konfiguracja (jednostki, budynki, umiejętności, fale). Strojenie = zmiana liczb tutaj.
@@ -19,6 +19,8 @@ Godot z wingeta (nie ma go w PATH):
 - same mechaniki (szybko, ~1 s): `... bot_test.gd -- --mechanics`
 - same mecze botów (strojenie): `--headless --path . --script res://tests/bot_test.gd -- --balance`
 - smoke widoku: `--headless --path . --fixed-fps 60 --script res://tests/ui_smoke_test.gd` (szukaj `SCRIPT ERROR`)
+- wydajność późnej gry: `--headless --path . --script res://tests/perf_test.gd -- --map 2 --minutes 10` (bez `--fixed-fps` — mierzy prawdziwy czas klatki; pusta scena headless to ~7 ms, to narzut silnika)
+- w grze: F3 = licznik FPS i czasów (sim / rysowanie / HUD)
 
 Po zmianie balansu odpal `-- --balance` i porównaj tabelę wyników. Po zmianie mapy (`Levels`) odpal pełny bot_test — sprawdza, czy nic nie ląduje na ścieżce, a pętle ścieżki nie nachodzą na siebie.
 Wydajność mierz na TRWAJĄCEJ partii (`sim.result == 0`) — skończona partia nie liczy kroków i daje fałszywie niskie czasy.

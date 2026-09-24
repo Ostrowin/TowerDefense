@@ -102,3 +102,13 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 **Dlaczego:** kolejne mapy bez zmian w kodzie; sprytny wróg nagradza obronę wszystkich ścieżek i karze zostawienie jednej pustej; umiejętności dają agencję w grze, w której armia maszeruje sama (D4 nadal obowiązuje — to dodatek, nie mikro).
 **Lekcja:** wcześniejszy pomiar „0,43 ms na krok" był błędny (partia w teście już się skończyła, sim stał). Realnie ~11 ms przy ~275 jednostkach. Po siatce przestrzennej, polach zamiast słowników i warstwie terenu: sim ~2 ms, render ~5,5 ms. Pomiary wydajności robimy na trwającej partii (`result == 0`) i sprawdzamy, co robią jednostki.
 **Status:** aktywna.
+
+### D20 — Limity populacji, furia wroga, sim 30 Hz z interpolacją, budżet klatki (2026-09-24)
+**Decyzja:** armia gracza max `MAX_ARMY` = 200, wrogów na mapie max `MAX_ENEMIES` = 150, kolejka fali max `MAX_SPAWN_QUEUE` = 40. Od fali 40 „furia": HP i obrażenia nowych wrogów +6% na falę. Symulacja liczy 30 kroków/s (było 60), render interpoluje pozycje. Pętla kroków ma budżet 10 ms na klatkę — po przekroczeniu porzuca zaległości. W dużej bitwie jednostki rysowane uproszczone, efekty mają limity.
+**Dlaczego:** użytkownikowi „wieszał się PC pod koniec partii". Benchmark (`tests/perf_test.gd`) pokazał, że jednostek przybywało bez końca (fala 50: ~2800), koszt rósł liniowo, a przy x3 wolna klatka wymuszała jeszcze więcej kroków w następnej (spiral of death). Pamięć stała — to nie był wyciek.
+**Strojenie limitów (boty, 3 mapy × 3 trudności):**
+- limity 120/150 → paty po 25 min na Trudnym i na Przesmyku: gracz z niższym limitem nie przełamywał obrony, wróg nie przełamywał gracza;
+- wzrost obrażeń wroga od 1. fali → psuł środek gry (Normalny przestał być wygrywalny) — odrzucone; furia dopiero od fali 40 rozstrzyga paty bez ruszania wczesnej gry;
+- limit gracza 150 → Przesmyk (jeden most) nie do przełamania; 200 > 150 wroga naprawia;
+- kolejka 150 → baza wroga miała niekończące się posiłki na miejscu, Trudny nie do wygrania; kolejka 40 → Trudny znów wygrywalny (6–7 min).
+**Status:** aktywna.

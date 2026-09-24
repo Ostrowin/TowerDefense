@@ -68,6 +68,7 @@ class Unit:
 	var s: float  ## odległość od bazy gracza wzdłuż ścieżki
 	var on_path := true  ## false = zszedł ze ścieżki (walka), musi na nią wrócić
 	var pos: Vector2
+	var prev_pos: Vector2  ## pozycja z poprzedniego kroku — render interpoluje między nimi
 	var lane_offset: float  ## przesunięcie w bok od osi ścieżki
 	var hp: float
 	var max_hp: float
@@ -112,6 +113,7 @@ class Shot:
 	var kind: String  ## arrow / cannonball / rock / frost
 	var start: Vector2
 	var pos: Vector2
+	var prev_pos: Vector2
 	var target_pos: Vector2
 	var target_unit: Unit
 	var target_building: Building
@@ -161,6 +163,9 @@ var result := 0  ## 0 = gra trwa, 1 = wygrana, -1 = przegrana
 var events: Array[Dictionary] = []
 var stats := {"kills": 0, "units_made": 0, "gold_earned": 0.0, "towers_razed": 0, "buildings_lost": 0, "abilities_used": 0}
 var rng := RandomNumberGenerator.new()
+## Profilowanie faz kroku (benchmark tests/perf_test.gd): czasy w µs, sumowane.
+var profile := false
+var prof_data := {}
 var _next_id := 1
 ## Siatka przestrzenna jednostek per drużyna: Vector2i komórki → Array[Unit].
 ## Przebudowywana raz na krok; jednostki przesuwają się w kroku o ~1–2 px, więc
@@ -168,6 +173,11 @@ var _next_id := 1
 var _grid: Array[Dictionary] = [{}, {}]
 ## To samo dla budynków (bez działek baz) — jednostki szukają budynków przy ścieżce co krok.
 var _bgrid: Array[Dictionary] = [{}, {}]
+## Żywe jednostki per drużyna (liczone przy budowie siatki) — do limitów populacji.
+var team_count: Array[int] = [0, 0]
+## Rośnie przy każdej zmianie listy budynków — widok po nim unieważnia pamięć podręczną
+## (np. wolne pola budowy).
+var layout_version := 0
 
 
 func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0) -> void:
@@ -370,6 +380,11 @@ func lane_defense(lane_index: int) -> float:
 	return total
 
 
+## Mnożnik HP i obrażeń nowych wrogów w późnej grze (1.0 do fali ENEMY_FURY_WAVE).
+func enemy_fury() -> float:
+	return 1.0 + Cfg.ENEMY_FURY_PER_WAVE * maxi(wave - Cfg.ENEMY_FURY_WAVE, 0)
+
+
 func ability_ready(ability: String) -> bool:
 	return ability_cd.get(ability, INF) <= 0.0
 
@@ -425,6 +440,7 @@ func sell(b: Building) -> bool:
 	gold += sell_value(b)
 	b.hp = 0.0
 	buildings.erase(b)
+	layout_version += 1
 	events.append({"type": "sell", "pos": b.pos, "amount": sell_value(b)})
 	return true
 
@@ -445,6 +461,8 @@ func set_stance(s: String) -> void:
 func use_ability(ability: String, at := Vector2.ZERO) -> bool:
 	if result != 0 or not ability_ready(ability) or not ability_target_ok(ability, at):
 		return false
+	if ability == "levy" and team_count[0] >= Cfg.MAX_ARMY:
+		return false
 	var cfg: Dictionary = Cfg.ABILITIES[ability]
 	match ability:
 		"arrows":
@@ -452,7 +470,7 @@ func use_ability(ability: String, at := Vector2.ZERO) -> bool:
 		"levy":
 			var lane_i := nearest_lane(at)
 			var s := lanes[lane_i].offset_of(at)
-			for i in cfg["count"]:
+			for i in mini(cfg["count"], Cfg.MAX_ARMY - team_count[0]):
 				_spawn_unit(0, cfg["unit"], 1, 1.0, lane_i, s + (i - 1.5) * 14.0)
 		"repair":
 			for b in buildings:
@@ -477,19 +495,37 @@ func step(dt: float) -> void:
 
 	for a in ability_cd:
 		ability_cd[a] = maxf(0.0, ability_cd[a] - dt)
+	for u in units:
+		u.prev_pos = u.pos
+	for s in shots:
+		s.prev_pos = s.pos
+	var events_at_start := events.size()
+	var t := Time.get_ticks_usec() if profile else 0
 	_update_strikes(dt)
 	_update_waves(dt)
+	t = _prof("fale", t)
 	_rebuild_grid()
+	t = _prof("siatka", t)
 	for b in buildings:
 		_update_building(b, dt)
+	t = _prof("budynki", t)
 	for u in units:
 		if u.hp > 0:
 			_update_unit(u, dt)
+	t = _prof("jednostki", t)
 	_update_shots(dt)
+	t = _prof("pociski", t)
 
 	units = units.filter(func(u: Unit) -> bool: return u.hp > 0)
+	var building_count := buildings.size()
 	buildings = buildings.filter(func(b: Building) -> bool: return b.hp > 0)
+	if buildings.size() != building_count:
+		layout_version += 1
 	shots = shots.filter(func(s: Shot) -> bool: return not s.done)
+	t = _prof("sprzątanie", t)
+	if profile:
+		prof_data["zdarzenia"] = prof_data.get("zdarzenia", 0) + events.size() - events_at_start
+		prof_data["kroki"] = prof_data.get("kroki", 0) + 1
 
 	if base_hp[1] <= 0:
 		result = 1
@@ -497,6 +533,15 @@ func step(dt: float) -> void:
 		result = -1
 	if result != 0:
 		events.append({"type": "end", "result": result})
+
+
+## Profiler faz kroku (tylko gdy `profile`): dopisuje czas od `t0` w µs do `prof_data[key]`.
+func _prof(key: String, t0: int) -> int:
+	if not profile:
+		return 0
+	var now := Time.get_ticks_usec()
+	prof_data[key] = prof_data.get(key, 0) + now - t0
+	return now
 
 
 func _update_strikes(dt: float) -> void:
@@ -530,12 +575,14 @@ func _update_waves(dt: float) -> void:
 		var wave_lanes := next_wave_lanes
 		for i in comp.size():
 			spawn_queue.append({"kind": comp[i], "lane": wave_lanes[i % wave_lanes.size()]})
-		events.append({"type": "wave", "n": wave, "boss": comp.has("warlord"), "count": comp.size(), "lanes": wave_lanes})
+		if spawn_queue.size() > Cfg.MAX_SPAWN_QUEUE:
+			spawn_queue.resize(Cfg.MAX_SPAWN_QUEUE)  # nadmiar najnowszej fali przepada
+		events.append({"type": "wave", "n": wave, "boss": comp.has("warlord"), "count": comp.size(), "lanes": wave_lanes, "fury": wave == Cfg.ENEMY_FURY_WAVE})
 		next_wave_lanes = _plan_lanes(wave + 1)
 		if wave % Cfg.ENEMY_BUILD_EVERY == 0:
 			_enemy_build()
 
-	var hp_mult: float = difficulty["enemy_hp"] * (1.0 + Cfg.ENEMY_HP_PER_WAVE * maxi(wave - 1, 0))
+	var hp_mult: float = difficulty["enemy_hp"] * (1.0 + Cfg.ENEMY_HP_PER_WAVE * maxi(wave - 1, 0)) * enemy_fury()
 	spawn_cd -= dt
 	if spawn_cd <= 0 and not spawn_queue.is_empty():
 		# Każda ścieżka wypuszcza po jednej jednostce naraz — inaczej przy dzielonych
@@ -544,8 +591,8 @@ func _update_waves(dt: float) -> void:
 		var used: Array[int] = []
 		var rest: Array[Dictionary] = []
 		for e in spawn_queue:
-			if used.has(e["lane"]):
-				rest.append(e)
+			if used.has(e["lane"]) or team_count[1] >= Cfg.MAX_ENEMIES:
+				rest.append(e)  # ścieżka już wypuściła jednostkę albo wróg jest na limicie
 			else:
 				used.append(e["lane"])
 				_spawn_unit(1, e["kind"], 1, hp_mult, e["lane"])
@@ -555,7 +602,8 @@ func _update_waves(dt: float) -> void:
 		trickle_timer -= dt
 		if trickle_timer <= 0:
 			trickle_timer = Cfg.ENEMY_TRICKLE
-			_spawn_unit(1, "grunt", 1, hp_mult, rng.randi_range(0, lanes.size() - 1))
+			if team_count[1] < Cfg.MAX_ENEMIES:
+				_spawn_unit(1, "grunt", 1, hp_mult, rng.randi_range(0, lanes.size() - 1))
 
 
 ## Wybiera ścieżki dla fali n: im dalej, tym na więcej ścieżek dzieli się fala.
@@ -631,8 +679,10 @@ func _update_building(b: Building, dt: float) -> void:
 		s.slow = ts["slow"]
 		s.slow_time = ts["slow_time"]
 	elif Cfg.is_production(b.kind):
-		b.timer += dt
-		if b.timer >= production_period(b.kind, b.level):
+		var period := production_period(b.kind, b.level)
+		b.timer = minf(b.timer + dt, period)
+		# na limicie armii budynek czeka z gotową jednostką, aż zwolni się miejsce
+		if b.timer >= period and team_count[b.team] < Cfg.MAX_ARMY:
 			b.timer = 0.0
 			_spawn_unit(b.team, Cfg.BUILDINGS[b.kind]["unit"], b.level, 1.0, b.lane)
 
@@ -778,8 +828,12 @@ func _spawn_unit(team: int, kind: String, lvl: int, hp_mult: float, lane_index: 
 	u.max_hp = unit_hp(kind, lvl) * hp_mult
 	u.hp = u.max_hp
 	u.dmg = unit_dmg(kind, lvl)
+	if team == 1:
+		u.dmg *= enemy_fury()
 	u.building_dmg = st.get("building_dmg", 0.0) * (1.0 + Cfg.UNIT_DMG_PER_LEVEL * (lvl - 1))
+	u.prev_pos = u.pos
 	units.append(u)
+	team_count[team] += 1
 	if team == 0:
 		stats["units_made"] += 1
 	events.append({"type": "spawn", "pos": u.pos, "team": team, "kind": kind})
@@ -793,6 +847,7 @@ func _fire(team: int, kind: String, from: Vector2, to: Vector2, dmg: float, spla
 	s.kind = kind
 	s.start = from
 	s.pos = from
+	s.prev_pos = from
 	s.target_pos = to
 	s.dmg = dmg
 	s.splash = splash
@@ -905,9 +960,11 @@ func _earn(amount: int, at: Vector2) -> void:
 func _rebuild_grid() -> void:
 	_grid = [{}, {}]
 	_bgrid = [{}, {}]
+	team_count = [0, 0]
 	for u in units:
 		if u.hp > 0:
 			_grid_add(_grid[u.team], u.pos, u)
+			team_count[u.team] += 1
 	for b in buildings:
 		if b.hp > 0 and b.kind != "basegun":
 			_grid_add(_bgrid[b.team], b.pos, b)
@@ -975,6 +1032,7 @@ func _add_building(team: int, kind: String, pos: Vector2) -> Building:
 	b.max_hp = INF if kind == "basegun" else Cfg.BUILDINGS[kind]["hp"]
 	b.hp = b.max_hp
 	buildings.append(b)
+	layout_version += 1
 	return b
 
 

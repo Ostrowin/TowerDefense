@@ -43,7 +43,7 @@ Każdy budynek ma 3 poziomy; sprzedaż zwraca 60% włożonego złota; uszkodzone
 
 Umiejętności (z cooldownem): **Deszcz strzał** (3 salwy w wybrany obszar), **Pobór** (4 piechurów przy wskazanej ścieżce na Twojej połowie), **Naprawa** (budynki +40%, baza +80).
 
-Wrogowie: ork, goblin (szybki), ogr (gruby), tarczownik (blokuje 60% obrażeń od strzał), nietoperz (leci na skróty nad mapą), **wódz** co 10 fal. Fale idą zapowiedzianymi ścieżkami — chętniej słabo bronionymi; od fali 6 dzielą się na dwie, od 12 idą wszystkimi. Co 4 fale wróg stawia lub odbudowuje wieże.
+Wrogowie: ork, goblin (szybki), ogr (gruby), tarczownik (blokuje 60% obrażeń od strzał), nietoperz (leci na skróty nad mapą), **wódz** co 10 fal. Limity populacji: Twoja armia do 200, wrogów na mapie do 150. Od fali 40 wróg wpada w **furię** — każda fala silniejsza, więc długa obrona w końcu przegrywa. Fale idą zapowiedzianymi ścieżkami — chętniej słabo bronionymi; od fali 6 dzielą się na dwie, od 12 idą wszystkimi. Co 4 fale wróg stawia lub odbudowuje wieże.
 
 ## Sterowanie
 
@@ -52,7 +52,7 @@ Wrogowie: ork, goblin (szybki), ogr (gruby), tarczownik (blokuje 60% obrażeń o
 - **Klik w swój budynek** — panel: ulepsz / sprzedaj / **ścieżka produkcji**.
 - **Umiejętność → klik na mapie** (Naprawa działa od razu).
 - **Mapa**: przeciągnij, żeby przesunąć · kółko albo dwa palce, żeby przybliżyć · „Mapa” wraca do całości · minimapa po przybliżeniu.
-- Skróty: `1`–`6` budowa · `Q`/`E`/`R` umiejętności · `Spacja` postawa · `U` ulepsz · `Del` sprzedaj · `Tab` ścieżka · `F` prędkość · `WASD` przesuwanie · `+`/`−` zoom · `C` cała mapa · `M` dźwięk · `Esc`/`P` pauza.
+- Skróty: `1`–`6` budowa · `Q`/`E`/`R` umiejętności · `Spacja` postawa · `U` ulepsz · `Del` sprzedaj · `Tab` ścieżka · `F` prędkość · `WASD` przesuwanie · `+`/`−` zoom · `C` cała mapa · `M` dźwięk · `F3` licznik FPS · `Esc`/`P` pauza.
 
 ## Uruchamianie i testy
 

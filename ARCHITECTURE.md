@@ -14,6 +14,7 @@ scripts/progress.gd      Progress — rekordy i gwiazdki per mapa × trudność,
 scripts/settings.gd      Settings — głośności, skala interfejsu (user://settings.cfg)
 tests/bot_test.gd        testy mechanik + geometrii map + mecze botów (`-- --mechanics`, `-- --balance`)
 tests/ui_smoke_test.gd   odpala prawdziwą scenę, steruje nią zdarzeniami wejścia, gra do końca partii
+tests/perf_test.gd       benchmark późnej gry: prawdziwa scena + bot, czas rzeczywisty, czasy klatki i faz
 ```
 
 ## Zasada podziału
@@ -25,24 +26,34 @@ salwa, atak na budynek…), którą widok opróżnia co klatkę i zamienia na cz
 drgania ekranu i dźwięk. Dzięki temu całą grę da się puścić headless (boty, testy).
 
 ```
- input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/60) ──▶ stan (units, buildings, shots, gold…)
+ input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
               ▲                        │
               │                        └──▶ events ──▶ main.gd: efekty + Sfx
               └──────────── _draw() czyta stan ◀────────┘
 ```
 
-Pętla ma **stały krok 1/60 s** z akumulatorem (x1/x2/x3 = więcej kroków na klatkę,
-limit 24 kroków na klatkę chroni przed spiralą śmierci).
+Pętla ma **stały krok 1/30 s** z akumulatorem (x1/x2/x3 = więcej kroków na klatkę).
+Render interpoluje pozycje jednostek i pocisków między krokami (`prev_pos` → `pos`,
+`render_alpha`). Kroki w klatce mają **budżet 10 ms** — po przekroczeniu zaległości
+przepadają (gra chwilowo zwalnia zamiast wpaść w spiralę śmierci).
 
-## Wydajność (zmierzone na desktopie, ~275 jednostek)
+## Wydajność
 
-- `Sim.step`: ~2,1 ms. Cele szukane przez siatkę przestrzenną (`_grid`/`_bgrid`, komórki
-  150 px, przebudowa raz na krok) zamiast O(n²); statystyki jednostki kopiowane do pól
-  przy spawnie; `slot_at` to jedno `sample_baked_with_rotation`; jednostka na ścieżce
-  (`on_path`) nie sprawdza co krok, czy z niej zeszła.
-- Render: ~5,5 ms, głównie jednostki (~7 wywołań `draw_*` na sztukę). Statyczny teren
-  jest na osobnej warstwie (`terrain`, z_index −1) rysowanej tylko przy zmianie mapy;
-  obiekty poza kadrem są pomijane.
+Najgorszy przypadek jest ograniczony **limitami populacji** (`Cfg.MAX_ARMY` 200,
+`Cfg.MAX_ENEMIES` 150, `MAX_SPAWN_QUEUE` 40) — bez nich w długiej partii jednostek
+przybywało bez końca (fala 50: ~2800) i to było przyczyną „wieszania się" pod koniec gry.
+
+- Sim: cele szukane przez siatkę przestrzenną (`_grid`/`_bgrid`, komórki 150 px,
+  przebudowa raz na krok) zamiast O(n²); statystyki jednostki skopiowane do pól przy
+  spawnie; `slot_at` to jedno `sample_baked_with_rotation`; jednostka na ścieżce
+  (`on_path`) nie sprawdza co krok, czy z niej zeszła. Profil faz: `sim.profile = true`.
+- Render: statyczny teren na osobnej warstwie (`terrain`) rysowanej przy zmianie mapy;
+  podświetlenia ścieżek to węzły `Line2D` (geometria raz, co klatkę tylko widoczność);
+  wolne pola budowy liczone po zmianie `sim.layout_version`; obiekty poza kadrem
+  pomijane; powyżej `LOD_UNITS` jednostek (widok całej mapy) rysunek uproszczony;
+  limity iskier, napisów i efektów trafień na klatkę.
+- Pomiar: `tests/perf_test.gd` (prawdziwa scena, bot, Trudny, x3, czas rzeczywisty)
+  i licznik F3 w grze. Pusta scena headless to ~7 ms/klatkę — narzut silnika, nie gry.
 - Na telefonie spodziewaj się ×3–5 — do zmierzenia przy teście na Androidzie (TODO P2).
 
 ## Mapy (`Levels`) i ścieżki
@@ -83,7 +94,8 @@ właściwe miejsce.
 ```
 dochód → umiejętności (cooldowny, salwy)
        → fale wroga (ścieżki ważone słabością obrony, każda ścieżka spawnuje równolegle,
-                     dopływ orków, budowa wież co 4 fale)
+                     dopływ orków, budowa wież co 4 fale, limity populacji,
+                     od fali 40 „furia": HP i obrażenia nowych wrogów rosną)
        → siatka przestrzenna
        → budynki (regeneracja, wieże/działka strzelają, produkcja na swoją ścieżkę)
        → jednostki (decyzja niżej) → pociski (lot, trafienie, obszar, spowolnienie)

@@ -19,8 +19,12 @@ extends Node2D
 
 enum State { MENU, PLAY, PAUSED, OVER }
 
-const STEP := 1.0 / 60.0
-const MAX_STEPS_PER_FRAME := 24
+## Krok symulacji: 30 razy na sekundę (połowa kosztu 60 Hz). Render interpoluje
+## pozycje jednostek i pocisków między krokami (`render_alpha`), więc ruch jest płynny.
+## Testy (bot_test) liczą balans na tym samym kroku.
+const STEP := 1.0 / 30.0
+## Maks. czas symulacji na klatkę (ms). Po przekroczeniu gra porzuca zaległe kroki.
+const SIM_BUDGET_MS := 10.0
 const TEAM_COLORS: Array[Color] = [Color(0.35, 0.62, 1.0), Color(1.0, 0.36, 0.3)]
 ## Kolory rozróżniające ścieżki (plakietki budynków, przyciski, podświetlenie).
 const LANE_COLORS: Array[Color] = [Color(1.0, 0.78, 0.3), Color(0.55, 0.92, 0.5), Color(0.8, 0.6, 1.0)]
@@ -32,7 +36,14 @@ const FROST_COLOR := Color(0.6, 0.85, 1.0)
 const PATH_COLOR := Color(0.45, 0.38, 0.27)
 const HEAL_COLOR := Color(0.45, 1.0, 0.55)
 const OVER_DELAY := 1.6
-const MAX_SPARKS := 600
+## Limity efektów — każda iskra i napis to osobne wywołania rysowania co klatkę.
+const MAX_SPARKS := 250
+const MAX_TEXTS := 24
+const GOLD_TEXTS_MAX := 10  ## „+6 zł" pokazujemy tylko, gdy napisów jest mało
+const HIT_FX_PER_FRAME := 6
+const DEATH_FX_PER_FRAME := 8
+## Powyżej tylu jednostek (przy widoku całej mapy) rysujemy je uproszczone.
+const LOD_UNITS := 120
 const TAP_SLOP := 12.0
 const ZOOM_MAX := 2.0
 const KEY_PAN_SPEED := 700.0
@@ -80,6 +91,16 @@ var speed_mult := 1
 var accum := 0.0
 var time := 0.0
 var over_delay := 0.0
+## Licznik wydajności (F3): wygładzone czasy sekcji klatki w ms + kroki sima.
+var perf := {"sim": 0.0, "events": 0.0, "hud": 0.0, "draw": 0.0, "steps": 0}
+var perf_visible := false
+## Ułamek kroku sima, który upłynął od ostatniego kroku (0..1) — do interpolacji renderu.
+var render_alpha := 1.0
+## Uproszczone rysowanie jednostek w dużej bitwie (ustawiane co klatkę w _draw).
+var low_detail := false
+## Wolne pola budowy — liczone tylko, gdy zmieni się układ budynków (`sim.layout_version`).
+var _build_cells := PackedVector2Array()
+var _build_cells_version := -1
 var new_record := false
 
 # samouczek
@@ -120,6 +141,8 @@ var grass: Array[Vector3] = []  ## x, y, rodzaj
 var trees: Array[Vector3] = []  ## x, y, promień
 
 var terrain: Node2D  ## warstwa statycznego terenu, przerysowywana przy zmianie mapy
+var warn_lines: Array[Line2D] = []  ## podświetlenie ścieżki nadchodzącej fali (per ścieżka)
+var pick_lines: Array[Line2D] = []  ## podświetlenie wybranej ścieżki produkcji (per ścieżka)
 var sfx: Sfx
 var font: Font
 
@@ -132,6 +155,8 @@ var minimap: Control
 var gold_label: Label
 var income_label: Label
 var wave_label: Label
+var perf_label: Label
+var perf_button: Button
 var stance_button: Button
 var speed_button: Button
 var mute_button: Button
@@ -246,28 +271,45 @@ func _process(delta: float) -> void:
 	time += delta
 	if state == State.PLAY:
 		accum += delta * speed_mult
+		var t0 := Time.get_ticks_usec()
 		var steps := 0
-		while accum >= STEP and steps < MAX_STEPS_PER_FRAME:
+		while accum >= STEP:
 			sim.step(STEP)
 			accum -= STEP
 			steps += 1
-		if steps >= MAX_STEPS_PER_FRAME:
-			accum = 0.0  # anty spiral-of-death: przy zadyszce gra zwalnia zamiast się dławić
+			if Time.get_ticks_usec() - t0 > SIM_BUDGET_MS * 1000.0:
+				# Zadyszka: porzuć zaległe kroki. Gra chwilowo zwalnia, ale klatka ma
+				# ograniczony czas — bez tego wolna klatka wymuszała jeszcze więcej kroków
+				# w następnej i gra się „zawieszała" (spiral of death).
+				accum = minf(accum, STEP)
+				break
+		_perf_sample("sim", t0)
+		perf["steps"] = steps
+		render_alpha = clampf(accum / STEP, 0.0, 1.0)
+		t0 = Time.get_ticks_usec()
 		_consume_events()
 		if sim.result != 0:
 			_on_game_end()
 		_key_pan(delta)
 		_update_tutorial(delta)
+		_perf_sample("events", t0)
 	if state == State.PLAY or state == State.OVER:
 		_update_effects(delta)
 	if state == State.OVER and over_delay > 0:
 		over_delay -= delta
+	var t_hud := Time.get_ticks_usec()
 	_update_hud()
+	_update_lane_fx()
+	_perf_sample("hud", t_hud)
 	camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
 	queue_redraw()
 	fx_canvas.queue_redraw()
 	if minimap.visible:
 		minimap.queue_redraw()
+
+
+func _perf_sample(key: String, t0: int) -> void:
+	perf[key] = lerpf(perf[key], (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
 
 
 func _on_game_end() -> void:
@@ -304,22 +346,31 @@ func _on_game_end() -> void:
 # ================================================================ zdarzenia sim → efekty i dźwięk
 
 func _consume_events() -> void:
+	# W dużej bitwie trafień i śmierci są setki na sekundę — efekty dla każdego
+	# z nich kosztowały więcej niż cała symulacja. Limit na klatkę; reszta bez iskier.
+	var hits_left := HIT_FX_PER_FRAME
+	var deaths_left := DEATH_FX_PER_FRAME
 	for e in sim.events:
 		var pos: Vector2 = e.get("pos", Vector2.ZERO)
 		match e["type"]:
 			"shot":
 				sfx.play(e["kind"], 0.07)
 			"hit":
-				_burst(pos, 3, Color(1, 0.9, 0.6), 60.0, 0.25)
+				if hits_left > 0:
+					hits_left -= 1
+					_burst(pos, 3, Color(1, 0.9, 0.6), 60.0, 0.25)
 				sfx.play("hit", 0.06)
 			"death":
-				_burst(pos, 10, TEAM_COLORS[e["team"]], 110.0)
+				if deaths_left > 0 or e["kind"] == "warlord":
+					deaths_left -= 1
+					_burst(pos, 10, TEAM_COLORS[e["team"]], 110.0)
 				sfx.play("death", 0.05)
 				if e["kind"] == "warlord":
 					shake = maxf(shake, 12.0)
 					_banner("Wódz pokonany!", "")
 			"gold":
-				_float_text(pos, "+%d" % e["amount"], GOLD_COLOR)
+				if texts.size() < GOLD_TEXTS_MAX:
+					_float_text(pos, "+%d" % e["amount"], GOLD_COLOR)
 				sfx.play("coin", 0.08)
 			"explosion":
 				_burst(pos, 14, Color(1, 0.62, 0.2), 150.0, 0.45)
@@ -356,6 +407,10 @@ func _consume_events() -> void:
 				if e["boss"]:
 					_banner("Fala %d — %s" % [e["n"], where], "Nadciąga WÓDZ! (%d wrogów)" % e["count"])
 					shake = maxf(shake, 8.0)
+					sfx.play("boss", 0.0)
+				elif e.get("fury", false):
+					_banner("Fala %d — %s" % [e["n"], where], "Wróg wpada w furię — od teraz każda fala silniejsza!")
+					shake = maxf(shake, 6.0)
 					sfx.play("boss", 0.0)
 				else:
 					_banner("Fala %d — %s" % [e["n"], where], "%d wrogów" % e["count"])
@@ -407,6 +462,8 @@ func _burst(at: Vector2, n: int, color: Color, speed := 100.0, life := 0.5) -> v
 
 
 func _ring(at: Vector2, radius: float, color: Color) -> void:
+	if sparks.size() >= MAX_SPARKS:
+		return
 	var s := Spark.new()
 	s.pos = at
 	s.ring = true
@@ -433,6 +490,8 @@ func _arrow_rain(at: Vector2, radius: float) -> void:
 
 
 func _float_text(at: Vector2, text: String, color: Color) -> void:
+	if texts.size() >= MAX_TEXTS:
+		texts.pop_front()  # ważne komunikaty wypierają najstarsze
 	var f := FloatText.new()
 	f.pos = at + Vector2(randf_range(-6, 6), -10)
 	f.text = text
@@ -703,6 +762,8 @@ func _on_key(key: int) -> void:
 		KEY_P:
 			if overlay == "":
 				_set_paused(state == State.PLAY)
+		KEY_F3:
+			_toggle_perf()
 	if state != State.PLAY or overlay != "":
 		return
 	if ABILITY_KEYS.has(key):
@@ -788,7 +849,10 @@ func _use_targeted(p: Vector2) -> void:
 	if sim.use_ability(ability, p):
 		mode = ""
 	else:
-		_float_text(p, "Tylko przy ścieżce, na Twojej połowie" if ability == "levy" else "Jeszcze nie", WARN_COLOR)
+		var why := "Jeszcze nie"
+		if ability == "levy":
+			why = "Limit armii" if sim.team_count[0] >= Cfg.MAX_ARMY else "Tylko przy ścieżce, na Twojej połowie"
+		_float_text(p, why, WARN_COLOR)
 		sfx.play("error", 0.1)
 
 
@@ -852,6 +916,11 @@ func _close_overlay() -> void:
 	overlay = ""
 
 
+func _toggle_perf() -> void:
+	Settings.show_perf = not Settings.show_perf
+	Settings.save_all()
+
+
 func _cycle_ui_scale() -> void:
 	Settings.ui_scale_index = (Settings.ui_scale_index + 1) % Settings.UI_SCALES.size()
 	Settings.save_all()
@@ -892,6 +961,7 @@ func _build_ui() -> void:
 	gold_label = _label("", 30, info, GOLD_COLOR)
 	income_label = _label("", 16, info)
 	wave_label = _label("", 16, info)
+	perf_label = _label("", 13, info, Color(0.7, 1.0, 0.7))
 
 	# prawy górny róg: sterowanie grą
 	var top := HBoxContainer.new()
@@ -1051,6 +1121,8 @@ func _build_settings(ui: Control) -> void:
 		Settings.apply_audio())
 	_label("Interfejs", 18, grid)
 	scale_button = _button("", Vector2(300, 48), _cycle_ui_scale, grid)
+	_label("Licznik FPS (F3)", 18, grid)
+	perf_button = _button("", Vector2(300, 48), _toggle_perf, grid)
 	for entry in [["Pokaż samouczek ponownie", _reset_tutorial], ["Wróć", _close_overlay]]:
 		var b := _button(entry[0], Vector2(320, 50), entry[1], box)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -1098,9 +1170,15 @@ func _update_hud() -> void:
 		_update_menu()
 	if settings_layer.visible:
 		scale_button.text = Settings.UI_SCALE_NAMES[Settings.ui_scale_index]
+		perf_button.text = "wł." if Settings.show_perf else "wył."
 
 	gold_label.text = "%d zł" % int(sim.gold)
-	income_label.text = "+%.1f zł/s · armia %d" % [sim.income(), sim.army_size(0)]
+	income_label.text = "+%.1f zł/s · armia %d/%d" % [sim.income(), sim.army_size(0), Cfg.MAX_ARMY]
+	perf_label.visible = Settings.show_perf
+	if perf_label.visible:
+		perf_label.text = "FPS %d · sim %.1f ms (%d kr.) · rys. %.1f ms · HUD %.1f ms · jedn. %d · efekty %d" % [
+			Engine.get_frames_per_second(), perf["sim"], perf["steps"], perf["draw"], perf["hud"],
+			sim.units.size(), sparks.size() + texts.size()]
 	if not sim.spawn_queue.is_empty():
 		wave_label.text = "Fala %d nadciąga! (zostało %d)" % [sim.wave, sim.spawn_queue.size()]
 	else:
@@ -1171,6 +1249,8 @@ func _fill_selection_panel(b: Sim.Building) -> void:
 		lines.append("%s poz. %d co %.1f s → %s" % [Cfg.UNITS[unit]["name"], b.level,
 			sim.production_period(b.kind, b.level), sim.lanes[b.lane].name])
 		lines.append("Jednostka: HP %d · obr. %d" % [sim.unit_hp(unit, b.level), sim.unit_dmg(unit, b.level)])
+		if sim.team_count[0] >= Cfg.MAX_ARMY:
+			lines.append("Limit armii (%d) — produkcja czeka na miejsce" % Cfg.MAX_ARMY)
 		if has_next:
 			lines.append("Poz. %d: co %.1f s · HP %d · obr. %d" % [next_level, sim.production_period(b.kind, next_level),
 				sim.unit_hp(unit, next_level), sim.unit_dmg(unit, next_level)])
@@ -1365,6 +1445,43 @@ func _make_terrain() -> void:
 		trees.append(Vector3(p.x, p.y, rnd.randf_range(12, 22)))
 	terrain.queue_redraw()
 
+	# podświetlenia ścieżek (ostrzeżenie fali, wybrana ścieżka produkcji) jako Line2D —
+	# geometria liczona raz tutaj; co klatkę zmieniamy tylko widoczność i jasność
+	for line in warn_lines + pick_lines:
+		line.queue_free()
+	warn_lines.clear()
+	pick_lines.clear()
+	for i in lane_points.size():
+		warn_lines.append(_lane_line(lane_points[i], PATH_COLOR.lerp(WARN_COLOR, 0.3)))
+	for i in lane_points.size():
+		pick_lines.append(_lane_line(lane_points[i], PATH_COLOR.lerp(LANE_COLORS[i], 0.35)))
+
+
+func _lane_line(points: PackedVector2Array, color: Color) -> Line2D:
+	var line := Line2D.new()
+	line.points = points
+	line.width = Cfg.PATH_HALF * 2
+	line.default_color = color
+	line.joint_mode = Line2D.LINE_JOINT_ROUND
+	line.z_index = -1  # nad terenem (dodana później), pod wszystkim z main._draw
+	line.visible = false
+	add_child(line)
+	return line
+
+
+func _update_lane_fx() -> void:
+	var warn := _warn_lanes()
+	var pulse := 0.85 + 0.15 * sin(time * 6.0)
+	var pick := -1
+	if selected != null and selected.team == 0 and Cfg.is_production(selected.kind) and sim.is_alive(selected):
+		pick = selected.lane
+	elif _is_build_mode() and Cfg.is_production(mode) and (pointer_active or dragging) and state == State.PLAY:
+		pick = sim.nearest_lane(Cfg.snap(_to_world(pointer_screen)))
+	for i in warn_lines.size():
+		warn_lines[i].visible = warn.has(i)
+		warn_lines[i].modulate = Color(pulse, pulse, pulse)
+		pick_lines[i].visible = i == pick
+
 
 func _clear_of_paths(p: Vector2, margin: float, river: Curve2D) -> bool:
 	for lane in sim.lanes:
@@ -1386,7 +1503,9 @@ func _near_any(p: Vector2, points: Array[Vector2], dist: float) -> bool:
 ## (`terrain`, z_index -1), przerysowywaną tylko przy zmianie mapy. Obiekty poza
 ## kadrem są pomijane.
 func _draw() -> void:
+	var t0 := Time.get_ticks_usec()
 	var view := Rect2(_to_world(Vector2.ZERO), Cfg.VIEW / camera.zoom.x).grow(60.0)
+	low_detail = sim.units.size() > LOD_UNITS and not _is_zoomed_in()
 	_draw_overlays()
 	for n in sim.nodes:
 		_draw_resource_node(n)
@@ -1423,6 +1542,7 @@ func _draw() -> void:
 		draw_string(font, f.pos - Vector2(100, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 200, 18, Color(f.color, alpha))
 	_draw_selection()
 	_draw_ghost()
+	_perf_sample("draw", t0)
 
 
 ## Statyczny teren bieżącej mapy — rysowany na warstwie `terrain` tylko przy zmianie mapy.
@@ -1476,39 +1596,41 @@ func _draw_terrain() -> void:
 
 ## Zmienne nakładki na terenie: ostrzeżenia fal, wybrana ścieżka, strefa budowy, zbiórka.
 func _draw_overlays() -> void:
-	# ostrzeżenie: ścieżki nadchodzącej fali pulsują na czerwono
+	# ostrzeżenie: ścieżka nadchodzącej fali — samo podświetlenie to Line2D (_update_lane_fx)
 	var pulse := 0.5 + 0.5 * sin(time * 6.0)
 	for i in _warn_lanes():
-		draw_polyline(lane_points[i], PATH_COLOR.lerp(WARN_COLOR, 0.15 + 0.15 * pulse), Cfg.PATH_HALF * 2, true)
 		var lane := sim.lanes[i]
 		var mark := lane.point_at(lane.length - 150.0)
 		draw_circle(mark, 16 + 3 * pulse, Color(WARN_COLOR, 0.9))
 		draw_string(font, mark + Vector2(-20, 9), "!", HORIZONTAL_ALIGNMENT_CENTER, 40, 26, Color.WHITE)
 
-	# podświetlenie ścieżki zaznaczonego budynku produkcyjnego
+	# linia od zaznaczonego budynku produkcyjnego do jego ścieżki
 	if selected != null and selected.team == 0 and Cfg.is_production(selected.kind) and sim.is_alive(selected):
 		var lane := sim.lanes[selected.lane]
-		draw_polyline(lane_points[selected.lane], PATH_COLOR.lerp(LANE_COLORS[selected.lane], 0.35), Cfg.PATH_HALF * 2, true)
 		var entry := lane.point_at(lane.offset_of(selected.pos))
 		draw_dashed_line(selected.pos, entry, Color(LANE_COLORS[selected.lane], 0.9), 3.0, 8.0)
 
-	# podświetlenia są nieprzezroczyste — mosty dorysowane jeszcze raz na wierzch
+	# podświetlenia ścieżek są nieprzezroczyste — mosty dorysowane jeszcze raz na wierzch
 	if not bridge_planks.is_empty():
 		draw_multiline(bridge_planks, Color(0.55, 0.4, 0.25), 5.0)
 	if not bridge_rails.is_empty():
 		draw_multiline(bridge_rails, Color(0.35, 0.24, 0.14), 3.0)
 
-	# strefa budowy: w trybie budowy podświetlone wolne pola
+	# strefa budowy: w trybie budowy podświetlone wolne pola (liczone tylko po zmianie budynków)
 	if _is_build_mode():
-		var y := Cfg.GRID / 2
-		while y <= sim.build_rect.end.y:
-			var x := Cfg.GRID / 2
-			while x <= sim.build_rect.end.x:
-				var c := Vector2(x, y)
-				if sim.can_place(c):
-					draw_rect(Rect2(c - Vector2(18, 18), Vector2(36, 36)), Color(1, 1, 1, 0.07))
-				x += Cfg.GRID
-			y += Cfg.GRID
+		if _build_cells_version != sim.layout_version:
+			_build_cells_version = sim.layout_version
+			_build_cells.clear()
+			var y := Cfg.GRID / 2
+			while y <= sim.build_rect.end.y:
+				var x := Cfg.GRID / 2
+				while x <= sim.build_rect.end.x:
+					if sim.can_place(Vector2(x, y)):
+						_build_cells.append(Vector2(x, y))
+					x += Cfg.GRID
+				y += Cfg.GRID
+		for c in _build_cells:
+			draw_rect(Rect2(c - Vector2(18, 18), Vector2(36, 36)), Color(1, 1, 1, 0.07))
 
 	# linie zbiórki — po jednej na każdej ścieżce
 	if sim.stance == "defend" and state != State.MENU:
@@ -1649,16 +1771,18 @@ func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha:
 			draw_circle(p, 4, Color(0.2, 0.2, 0.2, alpha))
 
 
+## `low_detail`: w dużej bitwie (widok całej mapy) bez cienia, obrysu, podskoku
+## i pasków HP zdrowych jednostek — to połowa wywołań rysowania na jednostkę.
 func _draw_unit(u: Sim.Unit) -> void:
-	var st: Dictionary = Cfg.UNITS[u.kind]
-	var r: float = st["r"]
+	var r := u.radius
 	var dir := 1.0 if u.team == 0 else -1.0
-	var p := u.pos + Vector2(0, sin(time * 12.0 + u.id) * 1.2)
+	var at := u.prev_pos.lerp(u.pos, render_alpha)  # interpolacja między krokami sima
+	var p := at if low_detail else at + Vector2(0, sin(time * 12.0 + u.id) * 1.2)
 	var c := TEAM_COLORS[u.team]
 	if u.flying:
-		draw_circle(u.pos + Vector2(8, 18), r * 0.7, Color(0, 0, 0, 0.18))  # cień daleko = wysoko
-	else:
-		draw_circle(u.pos + Vector2(2, r * 0.7), r * 0.9, Color(0, 0, 0, 0.2))
+		draw_circle(at + Vector2(8, 18), r * 0.7, Color(0, 0, 0, 0.18))  # cień daleko = wysoko
+	elif not low_detail:
+		draw_circle(at + Vector2(2, r * 0.7), r * 0.9, Color(0, 0, 0, 0.2))
 		draw_circle(p, r + 1.5, Color(0, 0, 0, 0.35))  # obrys (koło jest tańsze niż łuk)
 	match u.kind:
 		"soldier":
@@ -1671,7 +1795,7 @@ func _draw_unit(u: Sim.Unit) -> void:
 			draw_rect(Rect2(p - Vector2(r, r * 0.5), Vector2(r * 2, r)), Color(0.5, 0.35, 0.2))
 			draw_circle(p + Vector2(-r * 0.6, r * 0.5), 4, Color(0.2, 0.15, 0.1))
 			draw_circle(p + Vector2(r * 0.6, r * 0.5), 4, Color(0.2, 0.15, 0.1))
-			var swing := clampf(u.cd_left / Cfg.UNITS["catapult"]["cd"], 0.0, 1.0)
+			var swing := clampf(u.cd_left / u.cooldown, 0.0, 1.0)
 			draw_line(p, p + Vector2.from_angle(-PI / 2 - dir * (0.3 + swing)) * r * 1.4, Color(0.65, 0.5, 0.3), 3.0)
 			draw_rect(Rect2(p - Vector2(r, r * 0.5), Vector2(r * 2, r)), c, false, 2.0)
 		"grunt":
@@ -1704,9 +1828,13 @@ func _draw_unit(u: Sim.Unit) -> void:
 				var cx := p + Vector2(-8 + i * 8, -r - 2)
 				draw_colored_polygon(PackedVector2Array([cx + Vector2(-4, 0), cx + Vector2(0, -8), cx + Vector2(4, 0)]), GOLD_COLOR)
 	if u.slow_timer > 0:
-		draw_arc(p, r + 3, 0, TAU, 20, Color(FROST_COLOR, 0.9), 2.0)
+		draw_arc(p, r + 3, 0, TAU, 12 if low_detail else 20, Color(FROST_COLOR, 0.9), 2.0)
 	if u.flash > 0:
 		draw_circle(p, r, Color(1, 1, 1, u.flash * 5.0))
+	if low_detail:
+		if u.hp < u.max_hp * 0.6:
+			_hp_bar(p + Vector2(0, -r - 5), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
+		return
 	for i in u.level - 1:
 		draw_circle(p + Vector2(-3 + i * 6, -r - 10), 2.0, GOLD_COLOR)
 	if u.hp < u.max_hp:
@@ -1714,20 +1842,21 @@ func _draw_unit(u: Sim.Unit) -> void:
 
 
 func _draw_shot(s: Sim.Shot) -> void:
+	var at := s.prev_pos.lerp(s.pos, render_alpha)
 	match s.kind:
 		"arrow":
-			var d := (s.target_pos - s.pos).normalized()
-			draw_line(s.pos - d * 9.0, s.pos, Color(0.95, 0.9, 0.75), 2.0)
+			var d := (s.target_pos - at).normalized()
+			draw_line(at - d * 9.0, at, Color(0.95, 0.9, 0.75), 2.0)
 		"frost":
-			draw_circle(s.pos, 6.0, Color(FROST_COLOR, 0.35))
-			draw_circle(s.pos, 3.0, Color(0.9, 0.97, 1.0))
+			draw_circle(at, 6.0, Color(FROST_COLOR, 0.35))
+			draw_circle(at, 3.0, Color(0.9, 0.97, 1.0))
 		_:
 			var total := s.start.distance_to(s.target_pos)
-			var f := 1.0 - s.pos.distance_to(s.target_pos) / maxf(total, 1.0)
+			var f := 1.0 - at.distance_to(s.target_pos) / maxf(total, 1.0)
 			var h := sin(PI * clampf(f, 0.0, 1.0)) * minf(70.0, total * 0.35)
 			var size := 4.0 if s.kind == "cannonball" else 5.0
-			draw_circle(s.pos, size * 0.8, Color(0, 0, 0, 0.3))
-			draw_circle(s.pos - Vector2(0, h), size, Color(0.15, 0.15, 0.15) if s.kind == "cannonball" else Color(0.55, 0.5, 0.45))
+			draw_circle(at, size * 0.8, Color(0, 0, 0, 0.3))
+			draw_circle(at - Vector2(0, h), size, Color(0.15, 0.15, 0.15) if s.kind == "cannonball" else Color(0.55, 0.5, 0.45))
 
 
 func _draw_selection() -> void:
@@ -1761,9 +1890,6 @@ func _draw_ghost() -> void:
 	_draw_building_shape(mode, cell, TEAM_COLORS[0], 0.0, 0.55)
 	if Cfg.is_tower(mode):
 		draw_arc(cell, sim.tower_stats(mode, 1)["range"], 0, TAU, 64, Color(1, 1, 1, 0.35), 2.0)
-	elif Cfg.is_production(mode):
-		var lane := sim.nearest_lane(cell)
-		draw_polyline(lane_points[lane], PATH_COLOR.lerp(LANE_COLORS[lane], 0.3), Cfg.PATH_HALF * 2, true)
 
 
 func _hp_bar(center: Vector2, width: float, frac: float, height := 5.0) -> void:

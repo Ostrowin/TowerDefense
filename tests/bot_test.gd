@@ -1,9 +1,10 @@
 extends SceneTree
 ## Testy headless + narzędzie do strojenia balansu.
 ##
-##   godot --headless --path . --script res://tests/bot_test.gd                  # wszystko (~6 min)
-##   godot --headless --path . --script res://tests/bot_test.gd -- --mechanics   # tylko mechaniki (~20 s)
-##   godot --headless --path . --script res://tests/bot_test.gd -- --balance     # tylko mecze bota „balanced"
+##   godot --headless --path . --script res://tests/bot_test.gd                  # wszystko (~5 min)
+##   godot --headless --path . --script res://tests/bot_test.gd -- --mechanics   # tylko mechaniki (~15 s)
+##   godot --headless --path . --script res://tests/bot_test.gd -- --balance     # tylko mecze botów
+##       [--maps 0,2] [--diffs 1,2] [--bot balanced|mass|turtle]   — np. kilka procesów równolegle
 ##
 ## 1. Testy mechanik: małe, deterministyczne scenariusze na Sim + geometria każdej mapy.
 ## 2. Mecze botów: bot gra za gracza na każdej mapie i trudności, wypisuje tabelę wyników.
@@ -38,10 +39,14 @@ func _init() -> void:
 	Progress.reset_cache()
 	var args := OS.get_cmdline_user_args()
 	if args.has("--balance"):
+		# opcjonalnie: --maps 0,2 --diffs 1,2 --bot mass (np. żeby puścić kilka procesów równolegle)
+		var maps := _int_list(args, "--maps", Levels.ALL.size())
+		var diffs := _int_list(args, "--diffs", Cfg.DIFFICULTIES.size())
+		var bot := args[args.find("--bot") + 1] if args.has("--bot") else "balanced"
 		_print_header()
-		for lv in Levels.ALL.size():
-			for d in Cfg.DIFFICULTIES.size():
-				_report(lv, d, "balanced")
+		for lv in maps:
+			for d in diffs:
+				_report(lv, d, bot)
 		quit()
 		return
 
@@ -65,6 +70,7 @@ func _init() -> void:
 	_test_frost_slows()
 	_test_abilities()
 	_test_progress()
+	_test_population_caps()
 	_test_wave_composition()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Progress.path))
 
@@ -77,9 +83,23 @@ func _init() -> void:
 				_report(lv, 1, "turtle")
 			for d in Cfg.DIFFICULTIES.size():
 				_report(lv, d, "balanced")
+			_report(lv, 2, "mass")
 
 	print("\n%s" % ("OK" if failures == 0 else "BŁĘDY: %d" % failures))
 	quit(1 if failures > 0 else 0)
+
+
+## Lista liczb z argumentu `--flag 0,2`; bez flagi — 0..count-1.
+func _int_list(args: PackedStringArray, flag: String, count: int) -> Array[int]:
+	var out: Array[int] = []
+	var i := args.find(flag)
+	if i >= 0 and i + 1 < args.size():
+		for part in args[i + 1].split(","):
+			out.append(int(part))
+	else:
+		for k in count:
+			out.append(k)
+	return out
 
 
 func _print_header() -> void:
@@ -96,13 +116,15 @@ func _report(lv: int, d: int, strategy: String) -> void:
 		_check(r.result == -1, "bezczynny gracz musi przegrać (%s)" % where)
 	if strategy == "balanced" and d <= 1:
 		_check(r.result == 1, "bot balanced powinien wygrać (%s)" % where)
+	if strategy == "balanced" or strategy == "mass":
+		_check(r.result != 0, "partia musi się rozstrzygnąć w %d min (%s, %s)" % [MAX_TIME / 60.0, where, strategy])
 
 
 # ================================================================ bot
 
 func _play(lv: int, difficulty: int, strategy: String) -> Sim:
 	var sim := Sim.new(difficulty, 1234, lv)
-	var plan: Array = BALANCED_PLAN if strategy == "balanced" else TURTLE_PLAN
+	var plan: Array = TURTLE_PLAN if strategy == "turtle" else BALANCED_PLAN
 	var plan_i := 0
 	var think := 0.0
 	var node_cooldown := {}  # złoże → czas, do którego bot go nie odbudowuje
@@ -127,18 +149,34 @@ func _play(lv: int, difficulty: int, strategy: String) -> Sim:
 			elif sim.build(plan[plan_i][0], cell):
 				sim.set_lane(sim.building_at(cell, 0), PUSH_LANE)
 				plan_i += 1
-		elif not _upgrade_cheapest(sim) and strategy == "balanced":
+		elif not _upgrade_cheapest(sim) and strategy != "turtle":
 			_expand(sim)
 		_use_abilities(sim)
-		if strategy == "turtle":
+		_set_stance(sim, strategy)
+	return sim
+
+
+## Postawa bota:
+##   turtle   — zawsze obrona
+##   balanced — atak od 10 jednostek, odwrót przy 3 (ciągłe natarcie małymi grupami)
+##   mass     — na początku jak balanced; od 4. minuty zbiera armię w obronie do 70%
+##              limitu i uderza całością (tak gra rozsądny człowiek przy limicie populacji)
+func _set_stance(sim: Sim, strategy: String) -> void:
+	var army := sim.army_size(0)
+	match strategy:
+		"turtle":
 			sim.set_stance("defend")
-		else:
-			var army := sim.army_size(0)
+		"balanced":
 			if army >= 10:
 				sim.set_stance("attack")
 			elif army <= 3:
 				sim.set_stance("defend")
-	return sim
+		"mass":
+			var early := sim.elapsed < 240.0
+			if army >= (10 if early else int(Cfg.MAX_ARMY * 0.7)):
+				sim.set_stance("attack")
+			elif army <= (3 if early else 30):
+				sim.set_stance("defend")
 
 
 func _resolve(sim: Sim, anchor: Variant) -> Vector2:
@@ -538,6 +576,38 @@ func _test_progress() -> void:
 	Progress.reset_cache()  # wymuś odczyt z pliku
 	_check(is_equal_approx(Progress.best("x_test", 1), 250.0), "rekord przetrwał zapis")
 	_check(Progress.stars("x_test") == 1, "gwiazdka za wygraną trudność")
+
+
+## Limity populacji: bez nich w długiej partii jednostek przybywało bez końca.
+func _test_population_caps() -> void:
+	var sim := _empty_sim()
+	sim.gold = 1e6
+	for i in 8:
+		sim.build("barracks", sim.free_cell_near(Vector2(170, 330), 400))
+	sim.base_hp = [1e9, 1e9]
+	sim.set_stance("defend")  # stoją w szyku — nikt nie ginie, liczy się tylko limit
+	for i in 30 * 300:  # 8 koszar × ~0,14 jedn./s → limit po ~180 s
+		sim.step(DT)
+	_check(sim.army_size(0) == Cfg.MAX_ARMY, "armia gracza zatrzymuje się na limicie (%d)" % sim.army_size(0))
+	var waiting := 0
+	for b in sim.buildings:
+		if Cfg.is_production(b.kind) and b.timer >= sim.production_period(b.kind, b.level):
+			waiting += 1
+	_check(waiting > 0, "na limicie budynki czekają z gotową jednostką")
+	_check(not sim.use_ability("levy", sim.lanes[1].point_at(300)), "Pobór nie przekracza limitu armii")
+
+	var foe := Sim.new(1, 3)
+	foe.buildings = foe.buildings.filter(func(b: Sim.Building) -> bool: return b.kind == "basegun" and b.team == 1)
+	foe.base_hp = [1e9, 1e9]
+	foe.wave = 40
+	foe.wave_timer = 0.0
+	var most := 0
+	for i in 30 * 240:
+		foe.step(DT)
+		most = maxi(most, foe.army_size(1))
+		_check(foe.spawn_queue.size() <= Cfg.MAX_SPAWN_QUEUE, "kolejka wroga ma limit")
+	_check(most <= Cfg.MAX_ENEMIES, "wrogów na mapie nigdy więcej niż limit (%d)" % most)
+	_check(most >= Cfg.MAX_ENEMIES - 5, "wróg dochodzi do limitu w późnej grze (%d)" % most)
 
 
 func _test_wave_composition() -> void:

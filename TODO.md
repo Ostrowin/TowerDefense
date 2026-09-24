@@ -4,10 +4,17 @@
 
 - [x] **P0 — prototyp**: jedna mapa, złoto + wydobywacze, koszary/strzelnica/wieża, skryptowane fale wroga, win/loss.
 - [ ] **P1 — czy to jest fajne?**: kilka rund na każdej mapie, strojenie liczb, notatki co nudzi.
-- [ ] **P2 — Android smoke test**: szablony eksportu, APK sideload na telefon, dotyk (szczypanie, przeciąganie, celowanie umiejętności), czytelność HUD (skala interfejsu), **pomiar fps w dużej bitwie** (desktop: ~2 ms sim + ~5,5 ms render przy ~275 jednostkach), czy ★/●/→ renderują się z systemowego fontu.
+- [ ] **P2 — Android smoke test**: szablony eksportu, APK sideload na telefon, dotyk (szczypanie, przeciąganie, celowanie umiejętności), czytelność HUD (skala interfejsu), **pomiar fps w dużej bitwie** (desktop po optymalizacji: klatka ~7 ms przez całą partię, maks. ~350 jednostek dzięki limitom; F3 pokazuje czasy), czy ★/●/→ renderują się z systemowego fontu.
 - [x] **P3 — głębia**: ulepszenia i sprzedaż, armata, mróz, warsztat + katapulta, postawa, umiejętności, nietoperze i tarczownicy, sprytny wybór ścieżek.
 - [x] **P4 — treść**: 3 mapy (Trzy drogi, Przesmyk, Serpentyna) jako dane w `Levels`, wybór w menu, rekordy i gwiazdki.
 - [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren. ✘ sprite'y CC0.
+
+## Sesja 4 (2026-09-24) — wydajność późnej gry
+
+Przyczyna „wieszania się" pod koniec partii: liczba jednostek rosła bez końca (fala 50: ~2800) + spirala kroków przy x3.
+Limity populacji (gracz 200, wróg 150, kolejka 40) · furia wroga od fali 40 (koniec patów) · sim 30 Hz z interpolacją ·
+budżet 10 ms na kroki w klatce · uproszczone rysowanie dużych bitew · limity efektów · Line2D dla podświetleń ścieżek ·
+licznik F3 · benchmark `tests/perf_test.gd`. Wynik: klatka ~7 ms przez całą 10-min partię na Trudnym (było do 130 ms).
 
 ## Sesja 3 (2026-09-24) — mapy, umiejętności, postęp
 

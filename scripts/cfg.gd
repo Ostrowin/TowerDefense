@@ -32,6 +32,15 @@ const ENEMY_BUILD_EVERY := 4
 # ---------------------------------------------------------------- ekonomia
 
 const PASSIVE_INCOME := 3.0
+## Limity populacji. Bez nich w długiej partii jednostek przybywało bez końca
+## (fala 50: ~2800) i gra się zatykała. Armia gracza na limicie = produkcja czeka;
+## wrogowie na limicie = reszta fali czeka w bramie.
+## Strojone botami: gracz musi mieć wyższy limit niż wróg (na Przesmyku przy 150
+## nie przełamywał mostu), a kolejka krótka — przy 150 czekających baza wroga miała
+## niekończące się posiłki na miejscu i Trudny był nie do wygrania.
+const MAX_ARMY := 200
+const MAX_ENEMIES := 150
+const MAX_SPAWN_QUEUE := 40
 const SELL_REFUND := 0.6
 const MAX_LEVEL := 3
 
@@ -127,6 +136,11 @@ const FIRST_WAVE_INTERVAL := 22.0
 const MIN_WAVE_INTERVAL := 12.0
 const WAVE_INTERVAL_DECAY := 0.5
 const ENEMY_HP_PER_WAVE := 0.07
+## „Furia" wroga w późnej grze: od fali ENEMY_FURY_WAVE każda fala dokłada tyle do HP
+## i obrażeń nowych wrogów. Przy limitach populacji partia potrafiła utknąć w pacie na
+## setki fal — furia ją rozstrzyga, nie ruszając balansu wczesnej i środkowej gry.
+const ENEMY_FURY_WAVE := 40
+const ENEMY_FURY_PER_WAVE := 0.06
 ## Odstęp między jednostkami wychodzącymi na tę samą ścieżkę; maleje z każdą falą.
 const SPAWN_GAP := 0.6
 const SPAWN_GAP_DECAY := 0.01
