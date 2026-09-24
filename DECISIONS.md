@@ -85,3 +85,20 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 **Decyzja:** priorytet = grywalność i szybka iteracja nad zabawą. Architektura Core/headless/xUnit z ery MonoGame przestaje obowiązywać.
 **Dlaczego:** decyzja użytkownika, 2026-09-24.
 **Status:** aktywna. Prototyp w jednym `main.gd`; podział na sceny gdy mechaniki się ustabilizują.
+
+### D17 — Sim oddzielony od widoku; balans strojony botami (2026-09-24)
+**Decyzja:** logika w `Sim` (RefCounted, bez węzłów), widok w `main.gd`, konfiguracja w `Cfg`. Sim komunikuje się z widokiem listą zdarzeń. Balans sprawdzamy headless meczami botów (`tests/bot_test.gd`).
+**Dlaczego:** jeden plik przestał się mieścić w głowie przy 10 nowych mechanikach; headless sim daje testy mechanik i szybką pętlę strojenia (9 meczów w ~15 s) bez klikania. To nie jest powrót do rygoru z ery MonoGame — nie ma wymogu 100% pokrycia; testujemy to, co łatwo zepsuć.
+**Status:** aktywna.
+
+### D18 — Trzy kręte ścieżki na krzywych, większa mapa z kamerą (2026-09-24)
+**Decyzja:** mapa 1600×900 (ekran 1280×720, kamera domyślnie pokazuje całość), trzy ścieżki jako `Curve2D` z punktów kontrolnych w `Cfg.LANES`. Jednostka ma pozycję wzdłuż ścieżki `s`, nie tylko x. Wszystko zależne od kształtu mapy (sloty wież wroga, strefa budowy, linie zbiórki, mosty, plan bota) jest wyliczane z krzywych. Produkcja ma przypisaną ścieżkę; fale wroga są zapowiadane i z czasem dzielą się na więcej ścieżek.
+**Dlaczego:** użytkownik chciał wielu dróg do wroga i dłuższych, krętych ścieżek. Krzywe z punktów kontrolnych = mapa jako dane (krótki krok do poziomów jako Resource). Wybór ścieżki natarcia i obrona pozostałych dodaje decyzję strategiczną bez nowego systemu sterowania jednostkami (nadal auto-marsz, zgodnie z D4).
+**Konsekwencje:** każda ścieżka spawnuje wrogów równolegle (inaczej przy dzielonych falach kolejka rosła w nieskończoność i powstawał pat), prędkości jednostek +25% (ścieżki są o ~55% dłuższe). Jednostki atakują budynki przy ścieżce — pozycja wieży to kompromis zasięg/ryzyko.
+**Status:** aktywna.
+
+### D19 — Mapy jako dane, sprytny wróg, umiejętności; wydajność mierzona, nie zakładana (2026-09-24)
+**Decyzja:** geometria map przeniesiona z `Cfg` do `Levels` (słowniki z punktami ścieżek, złożami, slotami); gra ma 3 mapy. Wróg wybiera ścieżki fal losowaniem ważonym słabością obrony gracza. Gracz dostaje 3 umiejętności z cooldownem — pierwszy element sterowania „w trakcie" bitwy. Postęp (rekordy, gwiazdki, samouczek) i ustawienia w `user://` przez `ConfigFile`; testy podmieniają ścieżki plików.
+**Dlaczego:** kolejne mapy bez zmian w kodzie; sprytny wróg nagradza obronę wszystkich ścieżek i karze zostawienie jednej pustej; umiejętności dają agencję w grze, w której armia maszeruje sama (D4 nadal obowiązuje — to dodatek, nie mikro).
+**Lekcja:** wcześniejszy pomiar „0,43 ms na krok" był błędny (partia w teście już się skończyła, sim stał). Realnie ~11 ms przy ~275 jednostkach. Po siatce przestrzennej, polach zamiast słowników i warstwie terenu: sim ~2 ms, render ~5,5 ms. Pomiary wydajności robimy na trwającej partii (`result == 0`) i sprawdzamy, co robią jednostki.
+**Status:** aktywna.

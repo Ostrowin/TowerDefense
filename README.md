@@ -1,28 +1,60 @@
 # TowerDefense
 
-Ekonomiczny lane-pusher: **tower defense + strategia**. Rozbudowujesz ekonomię, stawiasz budynki produkujące armię, która **sama** maszeruje drogą do bazy wroga, i bronisz się wieżami. Serce zabawy = **ekonomia i build-order**.
+Ekonomiczny lane-pusher: **tower defense + strategia**. Rozbudowujesz ekonomię, stawiasz budynki produkujące armię, która **sama** maszeruje jedną z trzech krętych ścieżek do fortecy wroga, i bronisz się wieżami. Serce zabawy = **ekonomia, build-order i wybór ścieżki natarcia**.
 
 > Cel: **fajna gra**. Silnik: **Godot 4.7 + GDScript**. Cel wysyłki: **Android**.
 
 ## Status
 
-**Grywalny prototyp** (jeden skrypt, grafika z prymitywów). Balans wstępny.
+**Grywalny prototyp**: 3 mapy, 3 poziomy trudności, rekordy i gwiazdki, umiejętności, 6 budynków bojowych i produkcyjnych, 7 rodzajów wrogów, samouczek, ustawienia, muzyka i efekty syntezowane w kodzie. Grafika z prymitywów. Balans wstępnie strojony botami.
 
 ## Core loop
 
 ```
-złoto (pasywne + wydobywacze na złożach)  →  koszary / strzelnice / wieże
-   →  jednostki same idą drogą  →  walka z falami wroga i jego wieżami
-   →  zniszcz bazę wroga = WYGRANA / wróg zniszczy Twoją = PRZEGRANA
+złoto (pasywne + wydobywacze; sporne złoża przy ścieżkach wroga dają więcej)
+   →  koszary / strzelnice / warsztaty — każdy wysyła jednostki wybraną ścieżką
+   →  wieże, armaty i mróz bronią ścieżek, którymi nadciągają zapowiedziane fale
+   →  umiejętności ratują sytuację (Deszcz strzał, Pobór, Naprawa)
+   →  katapulty burzą wieże wroga, armia szturmuje fortecę
+   →  zniszcz fortecę wroga = WYGRANA / wróg zniszczy Twoją bazę = PRZEGRANA
 ```
+
+## Mapy
+
+| Mapa | Charakter |
+|---|---|
+| Trzy drogi | trzy kręte ścieżki przez rzekę — klasyka na początek |
+| Przesmyk | wszystkie ścieżki zbiegają się na jednym moście i zamieniają stronami |
+| Serpentyna | krótki Środek, bardzo długa zygzakowata Północ — wieże w zakolach biją kilka pętli |
+
+## Budynki i umiejętności
+
+| Budynek | Koszt | Rola |
+|---|---|---|
+| Wydobywacz | 60 | na złożu, +2,5 / 4 / 5,5 zł/s (sporne złoże ×1,6) |
+| Wieża | 80 | szybkie strzały w pojedynczy cel, trafia latających |
+| Armata | 130 | wolna, obrażenia obszarowe, przebija pancerz — nie trafia latających |
+| Mróz | 110 | spowalnia w obszarze, trafia latających |
+| Koszary | 120 | piechur (wręcz) |
+| Strzelnica | 150 | łucznik (dystans, trafia latających) |
+| Warsztat | 200 | katapulta — burzy wieże i fortecę wroga |
+
+Każdy budynek ma 3 poziomy; sprzedaż zwraca 60% włożonego złota; uszkodzone budynki regenerują się poza walką.
+
+Umiejętności (z cooldownem): **Deszcz strzał** (3 salwy w wybrany obszar), **Pobór** (4 piechurów przy wskazanej ścieżce na Twojej połowie), **Naprawa** (budynki +40%, baza +80).
+
+Wrogowie: ork, goblin (szybki), ogr (gruby), tarczownik (blokuje 60% obrażeń od strzał), nietoperz (leci na skróty nad mapą), **wódz** co 10 fal. Fale idą zapowiedzianymi ścieżkami — chętniej słabo bronionymi; od fali 6 dzielą się na dwie, od 12 idą wszystkimi. Co 4 fale wróg stawia lub odbudowuje wieże.
 
 ## Sterowanie
 
-- **Klik w złoże (●)** — wydobywacz (60 zł, +2,5 zł/s).
-- **Przycisk budynku → klik w siatkę** na swojej połowie (zielone = OK). PPM anuluje.
-- **x1/x2** — prędkość gry.
+- **Klik w złoże (●)** — wydobywacz.
+- **Przycisk budynku → klik/przeciągnij i puść** na swojej połowie (podświetlone pola = wolne). PPM/Esc anuluje.
+- **Klik w swój budynek** — panel: ulepsz / sprzedaj / **ścieżka produkcji**.
+- **Umiejętność → klik na mapie** (Naprawa działa od razu).
+- **Mapa**: przeciągnij, żeby przesunąć · kółko albo dwa palce, żeby przybliżyć · „Mapa” wraca do całości · minimapa po przybliżeniu.
+- Skróty: `1`–`6` budowa · `Q`/`E`/`R` umiejętności · `Spacja` postawa · `U` ulepsz · `Del` sprzedaj · `Tab` ścieżka · `F` prędkość · `WASD` przesuwanie · `+`/`−` zoom · `C` cała mapa · `M` dźwięk · `Esc`/`P` pauza.
 
-## Uruchamianie
+## Uruchamianie i testy
 
 Otwórz folder w edytorze Godot 4.7 (F5) albo:
 
@@ -30,10 +62,14 @@ Otwórz folder w edytorze Godot 4.7 (F5) albo:
 godot --path .
 ```
 
-Godot z wingeta nie trafia do PATH — pełna ścieżka w [CLAUDE.md](CLAUDE.md).
+```bash
+godot --headless --path . --script res://tests/bot_test.gd -- --mechanics
+```
+
+Godot z wingeta nie trafia do PATH — pełna ścieżka i reszta komend w [CLAUDE.md](CLAUDE.md).
 
 ## Dokumenty
 
-- [DECISIONS.md](DECISIONS.md) — log decyzji (D15/D16: przejście na Godot, cel = fajna gra)
+- [DECISIONS.md](DECISIONS.md) — log decyzji
 - [ARCHITECTURE.md](ARCHITECTURE.md) — jak zbudowany jest kod
 - [TODO.md](TODO.md) — roadmapa
