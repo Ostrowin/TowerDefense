@@ -86,4 +86,22 @@ public class SimStateTests
         Assert.True(sim.IsWon);
         Assert.Single(sim.Extractors);      // powstał dokładnie jeden wydobywacz
     }
+
+    [Fact]
+    public void Tower_KillsMarchingUnits_BeforeReachingBase()
+    {
+        var enemyBase = new EnemyBase(id: 1, hp: 100);
+        var sim = new SimState(enemyBase);
+        sim.AddResources(1000);
+
+        var path = new[] { new Vector2(0, 0), new Vector2(20, 0) };
+        sim.Buildings.Add(new ProductionBuilding(spawnInterval: 2f, cost: 10, unitSpeed: 3f, unitDamage: 10, path: path));
+        // wieża w połowie drogi, mocna — jednostki (domyślne 10 HP) giną w jednym strzale
+        sim.Towers.Add(new Tower(id: 1, position: new Vector2(10, 0), range: 3f, damage: 100, fireInterval: 0.5f));
+
+        for (int i = 0; i < 60 * 60; i++)
+            sim.Tick(1f / 60f);
+
+        Assert.Equal(100, enemyBase.Hp);    // wieża wybiła wszystkie — baza nietknięta
+    }
 }

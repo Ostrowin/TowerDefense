@@ -14,12 +14,15 @@ public sealed class Unit
     public float Speed { get; }
     public bool ReachedEnd { get; private set; }
     public int Damage { get; }
+    public int Hp { get; private set; }
+    public bool IsDead => Hp <= 0;
 
-    public Unit(int id, float speed, Vector2[] waypoints,int damage)
+    public Unit(int id, float speed, Vector2[] waypoints,int damage, int hp = 10)
     {
         Id = id;
         Speed = speed;
         Damage = damage;
+        Hp = hp;
         _waypoints = waypoints;
         Position = waypoints[0];
         _targetIndex = 1;
@@ -40,6 +43,13 @@ public sealed class Unit
                 ReachedEnd = true;
             }
         }
+    }
+
+    public void TakeDamage(int amount)
+    {
+        if (amount <= 0) return;
+        Hp -= amount;
+        if (Hp < 0) Hp = 0;
     }
 
 }

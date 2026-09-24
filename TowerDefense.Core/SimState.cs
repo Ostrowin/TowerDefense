@@ -7,6 +7,7 @@ public sealed class SimState
     public List<ProductionBuilding> Buildings { get; } = new();
     public List<Extractor> Extractors { get; } = new();
     public List<Worker> Workers { get; } = new();
+    public List<Tower> Towers { get; } = new();
     private int _nextExtractorId;
     private readonly float _extractorRate;
     private int _nextUnitId;
@@ -55,13 +56,22 @@ public sealed class SimState
         // 2) Ruch
         foreach (var unit in Units)
             unit.Update(dt);
-        
-        // 3) Rozliczenie dojść (od końca — usuwamy w trakcie)
+
+        // COMBAT: wieże strzelają do jednostek w zasięgu
+        foreach (var tower in Towers)
+            tower.Update(dt, Units);
+
+
+        // ROZLICZENIE: martwe (od wież) ORAZ te, co doszły do bazy
         for (int i = Units.Count - 1; i >= 0; i--)
-            if (Units[i].ReachedEnd)
+        {
+            if (Units[i].IsDead)
+                Units.RemoveAt(i);                       // zginęła — NIE bije bazy
+            else if (Units[i].ReachedEnd)
             {
                 EnemyBase.TakeDamage(Units[i].Damage);
                 Units.RemoveAt(i);
             }
+        }
     }
 }

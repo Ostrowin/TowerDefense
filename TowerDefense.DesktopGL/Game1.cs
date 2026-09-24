@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using TowerDefense.Core;
@@ -39,8 +40,8 @@ public class Game1 : Game
         _node = new ResourceNode(id: 1, position: new SimVector2(2, 5), amount:10000);
         _worker = new Worker(id: 1, speed: 3f, buildTime: 2f, position: new SimVector2(0,0));
         _sim.Workers.Add(_worker);
-        _sim.Buildings.Add(new ProductionBuilding(spawnInterval:2f, cost:10, unitSpeed:3f, unitDamage: 10, path: _path));
-
+        _sim.Buildings.Add(new ProductionBuilding(spawnInterval:1f, cost:10, unitSpeed:3f, unitDamage: 10, path: _path));
+        _sim.Towers.Add(new Tower(id: 1, position: new SimVector2(10, 0), range: 3f, damage: 5, fireInterval: 1f));
         base.Initialize();
     }
 
@@ -81,7 +82,14 @@ public class Game1 : Game
         DrawMarker(_node.Position, 16, Color.Gold);            // 1. złoże (spód)
         DrawMarker(_worker.Position, 10, Color.White);         // 2. robotnik
         if (_sim.Extractors.Count > 0)
-            DrawMarker(_node.Position, 14, Color.Orange);      // 3. wydobywacz NA WIERZCHU, 
+            DrawMarker(_node.Position, 14, Color.Orange);      // 3. wydobywacz NA WIERZCHU,
+                                                               // wieże wroga (obrona bazy) + ich zasięg
+        foreach (var tower in _sim.Towers)
+        {
+            DrawCircleOutline(tower.Position, tower.Range, Color.MediumPurple);
+            DrawMarker(tower.Position, 14, Color.BlueViolet);
+        }
+
         foreach (var unit in _sim.Units)
             DrawMarker(unit.Position, 8, Color.DeepSkyBlue);        // jednostki
         DrawMarker(_path[^1], 24, Color.Firebrick);                // baza wroga (koniec ścieżki)
@@ -113,5 +121,19 @@ public class Game1 : Game
     {
         Vector2 rel = (screen - Origin) / Scale;   // cofnij Origin i Scale
         return new SimVector2(rel.X, rel.Y);
+    }
+
+    private void DrawCircleOutline(SimVector2 worldCenter, float worldRadius, Color color)
+    {
+        Vector2 center = WorldToScreen(worldCenter);
+        float radiusPx = worldRadius * Scale;
+        const int segments = 48;
+        for (int i = 0; i < segments; i++)
+        {
+            float angle = MathHelper.TwoPi * i / segments;
+            int x = (int)(center.X + MathF.Cos(angle) * radiusPx);
+            int y = (int)(center.Y + MathF.Sin(angle) * radiusPx);
+            _spriteBatch.Draw(_pixel, new Rectangle(x - 1, y - 1, 2, 2), color);
+        }
     }
 }
