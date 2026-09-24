@@ -73,3 +73,15 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 **Decyzja:** robotnik nie nosi surowców (brak gather→return). Jego rola: iść na węzeł surowca i postawić na nim **Extractor** (wydobywacz), który potem **automatycznie** generuje surowce w czasie (ciągnąc z węzła). Model jak Dawn of War / Company of Heroes.
 **Dlaczego:** prościej (znika cykl noszenia i maszyna stanu carry/return), lepiej pasuje do serca „ekonomia = build-order" (agencja gracza = które złoża zająć i kiedy), reużywa `ResourceNode.Extract`. Uproszczenie zakresu M1 bez utraty „gracz coś stawia palcem".
 **Status:** aktywna. FSM robotnika upraszcza się do: GoToNode → Build → Idle (zaktualizować ARCHITECTURE.md przy budowie robotnika).
+
+---
+
+### D15 — Zmiana silnika: Godot 4 + GDScript (zastępuje D2, D5, D13)
+**Decyzja:** porzucamy MonoGame. Silnik: **Godot 4.7**, język: **GDScript**, renderer GL Compatibility.
+**Dlaczego:** nowy cel (D16) to fajna gra, nie nauka .NET — edytor, UI, sceny i eksport na Androida gratis. GDScript zamiast C#, bo eksport C# na mobile w Godocie jest mniej dojrzały, a GDScript iteruje najszybciej.
+**Status:** aktywna.
+
+### D16 — Cel: fajna gra, nie nauka (zastępuje priorytet nauki z D1/D2)
+**Decyzja:** priorytet = grywalność i szybka iteracja nad zabawą. Architektura Core/headless/xUnit z ery MonoGame przestaje obowiązywać.
+**Dlaczego:** decyzja użytkownika, 2026-09-24.
+**Status:** aktywna. Prototyp w jednym `main.gd`; podział na sceny gdy mechaniki się ustabilizują.

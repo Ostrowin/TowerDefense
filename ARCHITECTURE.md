@@ -1,72 +1,39 @@
-# Architecture — TowerDefense
+# Architecture — TowerDefense (Godot)
 
-## Struktura solution
-
-```
-TowerDefense.sln
-├── TowerDefense.Core          biblioteka: symulacja + logika, ZERO renderu
-│   ├── SimState               cały stan gry (serializowalny, referencje przez ID)
-│   ├── ISimEntity             Update(fixedDt)
-│   ├── Worker                 maszyna stanu: idzie na złoże i stawia Extractor
-│   ├── Extractor              postawiony na złożu; automatyczny dochód z węzła
-│   ├── ProductionBuilding     spawnuje Unit co interwał (płaci surowcami)
-│   ├── Unit                   podąża za waypointami
-│   ├── Tower                  namierza + strzela do jednostek w zasięgu
-│   ├── Base / EnemyBase       HP, warunek win/lose
-│   ├── ResourceNode           złoże; Extractor z niego ciągnie
-│   └── Tick(fixedDt)          fixed-step, ustalona kolejność systemów
-├── TowerDefense.Core.Tests    xUnit (60 s sim headless + edge cases)
-├── TowerDefense.DesktopGL      harness dev na Windows: render + input   ← ~90% czasu tu
-└── TowerDefense.Android        cel wysyłki (dodawany na M2)
-```
-
-Zasada: `Core` nie wie nic o MonoGame. `DesktopGL` i `Android` to cienkie „głowy", które renderują stan Core i przekazują input. Ten sam Core wszędzie → drzwi do przyszłego multiplayera otwarte (przez serializowalny stan).
-
-## Przepływ ticku symulacji
+## Pliki
 
 ```
-[Input] --(rozkazy: buduj, rusz robotnika)--> SimState.Tick(fixedDt)
-                                                     │
-   ┌──────────────┬──────────────┬──────────────────┼──────────────────┐
-   ▼              ▼              ▼                    ▼                  ▼
-EconomyTick   WorkerUpdate   ProductionSpawn    MovementUpdate      (obie strony)
- zasoby +=     FSM stan       co interwał→Unit    waypoint→pozycja
-   │              │              │                    │
-   └──────────────┴──────► CombatUpdate ◄─────────────┘
-                          wieże namierzają → strzał → dmg
-                                   │
-                            WinLossCheck (HP baz)
-                                   │
-                    (render interpoluje stan — OSOBNO, nie w Core)
+project.godot   1280×720, stretch canvas_items/keep, GL Compatibility, dotyk → mysz
+main.tscn       jeden węzeł Node2D ze skryptem main.gd
+main.gd         cała gra: dane, symulacja, input, HUD, rysowanie
 ```
 
-Fixed timestep: akumulator kroków; rozważ clamp (max frame skip), żeby wolna klatka nie wywołała spirali. Render osobno, może interpolować między dwoma stanami sim.
+Prototyp celowo w jednym skrypcie — najszybsza iteracja nad zabawą. Rozbijamy na sceny, gdy mechaniki się ustabilizują (patrz TODO P4).
 
-## Maszyna stanu robotnika (model D14 — buduje wydobywacze)
+## Model danych (main.gd)
+
+- **Stałe konfiguracyjne**: `UNIT_TYPES`, `BUILDINGS`, `BASE_GUN`, pozycje złóż i wież wroga — tu się stroi balans.
+- **Klasy wewnętrzne** (zwykłe obiekty, bez węzłów): `Unit`, `Building`, `Shot`.
+- **Stan**: `gold`, `base_hp[2]`, listy `units` / `buildings` / `shots`, `taken_nodes`, stan fal wroga.
+- Drużyny: `0` = gracz (lewo), `1` = wróg (prawo). Działka baz to ukryte budynki `basegun`.
+
+## Klatka (`_process`)
 
 ```
-        rozkaz gracza: OrderBuildOn(node)
-  Idle ──────────────────────────────► GoingToNode ──dotarł──► Building
-    ▲                                                             │
-    │                            buildTime minął (tworzy Extractor na węźle)
-    └─────────────────────────────────────────────────────────────┘
+dt = delta * speed_mult
+ ├─ złoto += dochód * dt
+ ├─ _update_enemy_script   fale co ~20 s → kolejka spawnu (co 0.7 s)
+ ├─ _update_buildings      wieże/działka strzelają; koszary/strzelnice spawnują
+ ├─ _update_units          wróg w zasięgu? bij : idź do niego | baza w zasięgu? bij bazę : maszeruj
+ ├─ _update_shots          pociski lecą do celu; martwy cel = pocisk znika
+ ├─ usuń martwe jednostki
+ ├─ win/loss
+ └─ HUD + queue_redraw → _draw rysuje wszystko prymitywami
 ```
 
-Robotnik NIE nosi surowców. Stawia `Extractor` na złożu, a ten dalej ciągnie z węzła
-automatycznie (model Dawn of War). Ruch bezpośredni do celu (bez A*). Po zbudowaniu wraca
-do Idle i czeka na kolejny rozkaz.
+## Kierunek rozbicia (gdy przyjdzie czas)
 
-## Model encji
-
-- Zwykłe listy/struktury w `SimState`, każda encja implementuje `ISimEntity.Update(fixedDt)`. **Nie ECS** (dyscyplina zakresu).
-- Każda encja ma **stabilne ID**; inne encje trzymają referencje przez ID (np. cel pocisku, cel wieży), nie przez wskaźnik — żeby serializacja i usuwanie martwych encji były czyste.
-- Usuwanie: oznacz martwe (dead-flag), sprzątaj na końcu ticku w ustalonej kolejności (unikaj modyfikacji kolekcji w trakcie iteracji).
-
-## Render / współrzędne
-
-- Ustal politykę **virtual resolution** (stała logiczna rozdzielczość) + kamera + mapowanie inputu **wcześnie**. Współrzędne sim są logiczne; render/înput skalują do ekranu urządzenia.
-- Bez tego touch placement, zasięgi wież, skalowanie HUD i współrzędne ścieżek trzeba będzie przepisać przy przejściu na Androida.
-
-## Testowalność
-
-`Core` działa bez okna — `Tick(fixedDt)` w pętli to „gra bez ekranu". Stąd test 60 s symulacji headless jest tani i jest pierwszym dowodem, że logika żyje sama. To główny powód podziału Core/head.
+- `Unit`, `Tower`, `Building` jako sceny z własnymi skryptami.
+- Konfiguracja jednostek/budynków jako `Resource` (.tres) — edytowalne w edytorze.
+- Poziom jako scena (mapa, złoża, wieże wroga) + skrypt fal jako Resource.
+- HUD jako osobna scena Control.
