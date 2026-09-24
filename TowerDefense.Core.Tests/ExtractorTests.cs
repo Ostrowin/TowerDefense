@@ -1,40 +1,46 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Xunit;
+using static TowerDefense.Core.Tests.TestHelpers;
 
 namespace TowerDefense.Core.Tests;
 
 public class ExtractorTests
 {
     [Fact]
-    public void Extractor_FundsProduction_WhichDestroysBase()
-    {
-        var enemyBase = new EnemyBase(id: 1, hp: 30);
-        var sim = new SimState(enemyBase);
-
-        var node = new ResourceNode(id: 1, position: new Vector2(0, 5), amount: 1000);
-        sim.Extractors.Add(new Extractor(id: 1, node: node, ratePerSecond: 20f));   // dochód 20/s
-
-        var path = new[] { new Vector2(0, 0), new Vector2(10, 0) };
-        sim.Buildings.Add(new ProductionBuilding(spawnInterval: 2f, cost: 10, unitSpeed: 5f, unitDamage: 10, path: path));
-
-        for (int i = 0; i < 60 * 60; i++)     // 60 s
-            sim.Tick(1f / 60f);
-
-        Assert.True(sim.IsWon);               // złoże → wydobywacz → produkcja → jednostki → baza pada
-    }
-
-
-    [Fact]
     public void Extractor_GeneratesFromNode_UntilDepleted()
     {
         var node = new ResourceNode(id: 1, position: new Vector2(5, 0), amount: 100);
-        var extractor = new Extractor(id: 1, node: node, ratePerSecond: 10f);
+        var extractor = new Extractor(id: 2, node: node, ratePerSecond: 10f);
 
         int total = 0;
         for (int i = 0; i < 60 * 30; i++)     // 30 s (tempo 10/s → chciałby 300, ale w węźle jest 100)
-            total += extractor.Extract(1f / 60f);
+        {
+            extractor.Update(FixedDt);
+            total += extractor.TakeOutput();
+        }
 
         Assert.Equal(100, total);             // wyciągnął DOKŁADNIE tyle, ile było
-        Assert.True(node.IsEmpty);
+        Assert.True(extractor.IsDepleted);
+    }
+
+    [Fact]
+    public void TakeOutput_ReturnsEachResourceOnce()
+    {
+        var node = new ResourceNode(id: 1, position: Vector2.Zero, amount: 100);
+        var extractor = new Extractor(id: 2, node: node, ratePerSecond: 10f);
+
+        extractor.Update(1f);
+        Assert.Equal(10, extractor.TakeOutput());
+        Assert.Equal(0, extractor.TakeOutput());
+    }
+
+    [Fact]
+    public void SecondExtractor_OnSameNode_Throws()
+    {
+        var node = new ResourceNode(id: 1, position: Vector2.Zero, amount: 100);
+        _ = new Extractor(id: 2, node: node, ratePerSecond: 10f);
+
+        Assert.True(node.HasExtractor);
+        Assert.Throws<InvalidOperationException>(() => new Extractor(id: 3, node: node, ratePerSecond: 10f));
     }
 }

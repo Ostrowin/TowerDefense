@@ -1,35 +1,45 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 namespace TowerDefense.Core;
 
-public sealed class ProductionBuilding
+/// <summary>Parametry typu budynku produkcyjnego.</summary>
+public sealed record ProductionBuildingSpec(int BuildCost, float SpawnInterval, int UnitCost, UnitSpec Unit);
+
+public sealed class ProductionBuilding : ISimEntity
 {
     private float _timeSinceLastSpawn;
+    private int _spawnsDue;
 
-    public float SpawnInterval { get; }
-    public float UnitSpeed { get; }
-    public int UnitDamage { get; }
-    public Vector2[] Path { get; }
-    public int Cost { get; }
+    public int Id { get; }
+    public Side Owner { get; }
+    public Vector2 Position { get; }
+    public ProductionBuildingSpec Spec { get; }
 
-    public ProductionBuilding(float spawnInterval, int cost, float unitSpeed, int unitDamage, Vector2[] path)
+    public ProductionBuilding(int id, Side owner, Vector2 position, ProductionBuildingSpec spec)
     {
-        SpawnInterval = spawnInterval;
-        Cost = cost;
-        UnitSpeed = unitSpeed;
-        UnitDamage = unitDamage;
-        Path = path;
+        if (spec.SpawnInterval <= 0f)
+            throw new ArgumentOutOfRangeException(nameof(spec), "SpawnInterval musi być > 0.");
+        Id = id;
+        Owner = owner;
+        Position = position;
+        Spec = spec;
     }
 
-    public bool ReadyToSpawn(float dt)
+    public void Update(float fixedDt)
     {
-        _timeSinceLastSpawn += dt;
-        if (_timeSinceLastSpawn >= SpawnInterval)
+        _timeSinceLastSpawn += fixedDt;
+        while (_timeSinceLastSpawn >= Spec.SpawnInterval)
         {
-            _timeSinceLastSpawn -= SpawnInterval;
-            return true;
+            _timeSinceLastSpawn -= Spec.SpawnInterval;
+            _spawnsDue++;
         }
-        return false;
     }
 
+    /// <summary>True raz na każdy upłynięty interwał. Niewykorzystany cykl (brak surowców) przepada.</summary>
+    public bool TakeSpawnDue()
+    {
+        if (_spawnsDue == 0) return false;
+        _spawnsDue--;
+        return true;
+    }
 }

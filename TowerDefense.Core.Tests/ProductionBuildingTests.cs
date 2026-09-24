@@ -1,39 +1,43 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Xunit;
+using static TowerDefense.Core.Tests.TestHelpers;
 
 namespace TowerDefense.Core.Tests;
 
 public class ProductionBuildingTests
 {
-    private const float FixedDt = 1f / 60f;
-
     [Fact]
-    public void ReadyToSpawn_FiresOncePerInterval()
+    public void SpawnDue_FiresOncePerInterval()
     {
-        var path = new[] { new Vector2(0, 0), new Vector2(10, 0) };
-        var building = new ProductionBuilding(spawnInterval: 1f, cost: 10, unitSpeed: 5f, unitDamage: 10, path: path);
+        var building = new ProductionBuilding(id: 1, owner: Side.Player, position: Vector2.Zero, spec: Barracks(spawnInterval: 1f));
 
         int spawns = 0;
-        for (int i = 0; i < 210; i++)      // 3.5 sekundy
-            if (building.ReadyToSpawn(FixedDt)) spawns++;
+        for (int i = 0; i < 210; i++)         // 3.5 sekundy
+        {
+            building.Update(FixedDt);
+            if (building.TakeSpawnDue()) spawns++;
+        }
 
         Assert.Equal(3, spawns);              // 3 s / 1 s interwał = 3 spawny
     }
 
     [Fact]
-    public void ProductionBuilding_SpawnsUnitsOverTime_AndDestroysBase()
+    public void LongStep_AccumulatesSeveralSpawns()
     {
-        var enemyBase = new EnemyBase(id: 1, hp: 30);
-        var sim = new SimState(enemyBase);
-        sim.AddResources(10000);
+        var building = new ProductionBuilding(id: 1, owner: Side.Player, position: Vector2.Zero, spec: Barracks(spawnInterval: 0.5f));
 
-        var path = new[] { new Vector2(0, 0), new Vector2(10, 0) };
-        // co 5 s produkuje jednostkę 10 dmg — w 60 s z zapasem starczy na 30 HP
-        sim.Buildings.Add(new ProductionBuilding(spawnInterval: 5f, cost: 10, unitSpeed: 5f, unitDamage: 10, path: path));
+        building.Update(1.5f);
 
-        for (int i = 0; i < 60 * 60; i++)     // 60 s, ZERO ręcznie wstawianych jednostek
-            sim.Tick(FixedDt);
+        Assert.True(building.TakeSpawnDue());
+        Assert.True(building.TakeSpawnDue());
+        Assert.True(building.TakeSpawnDue());
+        Assert.False(building.TakeSpawnDue());
+    }
 
-        Assert.True(sim.IsWon);
+    [Fact]
+    public void NonPositiveInterval_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ProductionBuilding(id: 1, owner: Side.Player, position: Vector2.Zero, spec: Barracks(spawnInterval: 0f)));
     }
 }

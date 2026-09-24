@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -7,132 +7,245 @@ using SimVector2 = System.Numerics.Vector2;
 
 namespace TowerDefense.DesktopGL;
 
+/// <summary>
+/// Cienka głowa: input → rozkazy dla SimState, zegar stałego kroku, render stanu (tylko odczyt).
+/// Logika gry żyje w Core.
+/// </summary>
 public class Game1 : Game
 {
-    private GraphicsDeviceManager _graphics;
+    private const int VirtualWidth = 1280;
+    private const int VirtualHeight = 720;
+    private const float PixelsPerUnit = 40f;
+
+    private readonly GraphicsDeviceManager _graphics;
+    private readonly ScreenMapping _mapping = new(VirtualWidth, VirtualHeight, PixelsPerUnit);
+    private readonly FixedStepClock _clock = new();
     private SpriteBatch _spriteBatch = null!;
     private Texture2D _pixel = null!;
     private MouseState _prevMouse;
+    private KeyboardState _prevKeyboard;
 
-    //gra
     private SimState _sim = null!;
-    private ResourceNode _node = null!;
-    private Worker _worker = null!;
-    private SimVector2[] _path = null!;
-    private int _baseStartHp;
-    private const float Scale = 40f;
-    private static readonly Vector2 Origin = new(120f, 220f);
+    private string _lastAction = "Klik: złoże = wydobywacz, siatka = koszary (50)";
 
     public Game1()
     {
-        _graphics = new GraphicsDeviceManager(this);
+        _graphics = new GraphicsDeviceManager(this)
+        {
+            PreferredBackBufferWidth = VirtualWidth,
+            PreferredBackBufferHeight = VirtualHeight,
+            SynchronizeWithVerticalRetrace = true,
+        };
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
+        IsFixedTimeStep = false;                 // krok stały robi FixedStepClock
+        Window.AllowUserResizing = true;
+        Window.ClientSizeChanged += (_, _) => UpdateMapping();
     }
 
     protected override void Initialize()
     {
-        var enemyBase = new EnemyBase(id:1, hp: 60);
-        _baseStartHp = 60;
-        _sim = new SimState(enemyBase, extractorRate: 20f);
-
-        _path = new[] { new SimVector2(0, 0), new SimVector2(12, 0) };
-        _node = new ResourceNode(id: 1, position: new SimVector2(2, 5), amount:10000);
-        _worker = new Worker(id: 1, speed: 3f, buildTime: 2f, position: new SimVector2(0,0));
-        _sim.Workers.Add(_worker);
-        _sim.Buildings.Add(new ProductionBuilding(spawnInterval:1f, cost:10, unitSpeed:3f, unitDamage: 10, path: _path));
-        _sim.Towers.Add(new Tower(id: 1, position: new SimVector2(10, 0), range: 3f, damage: 5, fireInterval: 1f));
+        _sim = Level1.Create();
         base.Initialize();
+        UpdateMapping();
     }
 
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
-        _pixel.SetData(new[] { Color.White });   // jeden biały piksel
+        _pixel.SetData(new[] { Color.White });
     }
+
+    private void UpdateMapping() => _mapping.Resize(Window.ClientBounds.Width, Window.ClientBounds.Height);
+
+    // ── Update: input + stały krok ───────────────────────────────────────────
 
     protected override void Update(GameTime gameTime)
     {
         var mouse = Mouse.GetState();
+        var keyboard = Keyboard.GetState();
 
-        // KLIKNIĘCIE = zbocze: teraz wciśnięty, a w poprzedniej klatce był puszczony
-        bool leftClicked = mouse.LeftButton == ButtonState.Pressed
-                        && _prevMouse.LeftButton == ButtonState.Released;
-
-        if (leftClicked)
+        if (keyboard.IsKeyDown(Keys.Escape)) Exit();
+        if (keyboard.IsKeyDown(Keys.R) && _prevKeyboard.IsKeyUp(Keys.R))
         {
-            SimVector2 world = ScreenToWorld(new Vector2(mouse.X, mouse.Y));
-            if (SimVector2.Distance(world, _node.Position) < 1.0f)   // kliknięto blisko złoża
-                _worker.OrderBuildOn(_node);
+            _sim = Level1.Create();
+            _lastAction = "Restart";
         }
 
-        _prevMouse = mouse;                 // zapamiętaj na następną klatkę
+        bool leftClicked = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
+        if (leftClicked && IsActive)
+            HandleClick(_mapping.ScreenToWorld(new SimVector2(mouse.X, mouse.Y)));
 
-        _sim.Tick(1f / 60f);
+        _prevMouse = mouse;
+        _prevKeyboard = keyboard;
+
+        int steps = _clock.Advance(gameTime.ElapsedGameTime.TotalSeconds);
+        for (int i = 0; i < steps; i++)
+            _sim.Tick(_clock.StepSeconds);
+
+        Window.Title = BuildStatusLine();
         base.Update(gameTime);
     }
 
+    private void HandleClick(SimVector2 world)
+    {
+        foreach (var node in _sim.ResourceNodes)
+        {
+            if (SimVector2.Distance(world, node.Position) >= 1f) continue;
+            _lastAction = _sim.TryOrderBuild(_sim.Workers[0], node)
+                ? "Robotnik idzie budować wydobywacz"
+                : "Złoże zajęte albo puste";
+            return;
+        }
+
+        if (_sim.Grid is { } grid && grid.InBounds(grid.WorldToCell(world)))
+        {
+            var result = _sim.TryPlaceBuilding(grid.WorldToCell(world), Level1.Barracks, out _);
+            _lastAction = result switch
+            {
+                PlacementResult.Ok => "Postawiono koszary",
+                PlacementResult.Occupied => "Pole zajęte",
+                PlacementResult.NotEnoughResources => $"Za mało surowców (koszary: {Level1.Barracks.BuildCost})",
+                _ => result.ToString(),
+            };
+        }
+    }
+
+    private string BuildStatusLine()
+    {
+        string state = _sim.Result switch
+        {
+            GameResult.Won => "WYGRANA! (R = restart)",
+            GameResult.Lost => "PRZEGRANA (R = restart)",
+            _ => _lastAction,
+        };
+        return $"Surowce: {_sim.Resources} | Baza: {_sim.PlayerBase.Hp}/{_sim.PlayerBase.MaxHp} | " +
+               $"Wróg: {_sim.EnemyBase.Hp}/{_sim.EnemyBase.MaxHp} | {_sim.ElapsedSeconds:0}s | {state}";
+    }
+
+    // ── Draw: tylko odczyt stanu, pozycje interpolowane ─────────────────────
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(Color.CornflowerBlue);
-        _spriteBatch.Begin();
+        GraphicsDevice.Clear(Color.Black);      // pasy letterboxa
+        var transform = Matrix.CreateScale(_mapping.ViewScale)
+                      * Matrix.CreateTranslation(_mapping.Offset.X, _mapping.Offset.Y, 0f);
+        _spriteBatch.Begin(transformMatrix: transform, samplerState: SamplerState.PointClamp);
 
-        DrawMarker(_node.Position, 16, Color.Gold);            // 1. złoże (spód)
-        DrawMarker(_worker.Position, 10, Color.White);         // 2. robotnik
-        if (_sim.Extractors.Count > 0)
-            DrawMarker(_node.Position, 14, Color.Orange);      // 3. wydobywacz NA WIERZCHU,
-                                                               // wieże wroga (obrona bazy) + ich zasięg
+        _spriteBatch.Draw(_pixel, new Rectangle(0, 0, VirtualWidth, VirtualHeight), Color.CornflowerBlue);
+        DrawGrid();
+        DrawLane();
+
+        foreach (var node in _sim.ResourceNodes)
+            DrawMarker(node.Position, 16, node.IsEmpty ? Color.DimGray : node.HasExtractor ? Color.Orange : Color.Gold);
+
         foreach (var tower in _sim.Towers)
         {
-            DrawCircleOutline(tower.Position, tower.Range, Color.MediumPurple);
-            DrawMarker(tower.Position, 14, Color.BlueViolet);
+            Color color = tower.Owner == Side.Player ? Color.SteelBlue : Color.BlueViolet;
+            DrawCircleOutline(tower.Position, tower.Range, color * 0.6f);
+            DrawMarker(tower.Position, 14, color);
         }
 
+        foreach (var building in _sim.Buildings)
+            DrawMarker(building.Position, 30, Color.SaddleBrown);
+
+        DrawBase(_sim.PlayerBase, Color.RoyalBlue);
+        DrawBase(_sim.EnemyBase, Color.Firebrick);
+
+        float alpha = _clock.Alpha;
         foreach (var unit in _sim.Units)
-            DrawMarker(unit.Position, 8, Color.DeepSkyBlue);        // jednostki
-        DrawMarker(_path[^1], 24, Color.Firebrick);                // baza wroga (koniec ścieżki)
-        DrawHealthBar(_path[^1], _sim.EnemyBase.Hp, _baseStartHp);
+        {
+            var pos = SimVector2.Lerp(unit.PreviousPosition, unit.Position, alpha);
+            DrawMarker(pos, 10, unit.Owner == Side.Player ? Color.DeepSkyBlue : Color.OrangeRed);
+            DrawHealthBar(pos, unit.Hp, unit.MaxHp, width: 14, yOffset: -10);
+        }
+
+        foreach (var worker in _sim.Workers)
+            DrawMarker(SimVector2.Lerp(worker.PreviousPosition, worker.Position, alpha), 10, Color.White);
+
+        if (_sim.Result != GameResult.Playing)
+        {
+            Color tint = _sim.IsWon ? Color.LimeGreen : Color.DarkRed;
+            _spriteBatch.Draw(_pixel, new Rectangle(0, 0, VirtualWidth, VirtualHeight), tint * 0.35f);
+        }
 
         _spriteBatch.End();
         base.Draw(gameTime);
     }
 
-    // sim -> ekran
-    private Vector2 WorldToScreen(SimVector2 w) => Origin + new Vector2(w.X, w.Y) * Scale;
+    private Vector2 ToVirtual(SimVector2 world)
+    {
+        var v = _mapping.WorldToVirtual(world);
+        return new Vector2(v.X, v.Y);
+    }
+
+    private void DrawGrid()
+    {
+        if (_sim.Grid is not { } grid) return;
+        var mouseWorld = _mapping.ScreenToWorld(new SimVector2(_prevMouse.X, _prevMouse.Y));
+        var hovered = grid.WorldToCell(mouseWorld);
+        int cellPx = (int)(grid.CellSize * PixelsPerUnit);
+
+        for (int x = 0; x < grid.Width; x++)
+        for (int y = 0; y < grid.Height; y++)
+        {
+            var cell = new GridCell(x, y);
+            var center = ToVirtual(grid.CellCenter(cell));
+            var rect = new Rectangle((int)center.X - cellPx / 2 + 1, (int)center.Y - cellPx / 2 + 1, cellPx - 2, cellPx - 2);
+            Color color = Color.White * 0.12f;
+            if (cell == hovered)
+                color = !grid.IsOccupied(cell) && _sim.Resources >= Level1.Barracks.BuildCost
+                    ? Color.LimeGreen * 0.4f
+                    : Color.Red * 0.4f;
+            _spriteBatch.Draw(_pixel, rect, color);
+        }
+    }
+
+    private void DrawLane()
+    {
+        var lane = _sim.Lane;
+        for (int i = 0; i < lane.Count - 1; i++)
+        {
+            Vector2 a = ToVirtual(lane[i]), b = ToVirtual(lane[i + 1]);
+            float length = Vector2.Distance(a, b);
+            float angle = MathF.Atan2(b.Y - a.Y, b.X - a.X);
+            _spriteBatch.Draw(_pixel, a, null, Color.Tan * 0.6f, angle, new Vector2(0f, 0.5f),
+                              new Vector2(length, 12f), SpriteEffects.None, 0f);
+        }
+    }
+
+    private void DrawBase(Base b, Color color)
+    {
+        DrawMarker(b.Position, 36, color);
+        DrawHealthBar(b.Position, b.Hp, b.MaxHp, width: 48, yOffset: -30);
+    }
 
     private void DrawMarker(SimVector2 world, int size, Color color)
     {
-        var s = WorldToScreen(world);
-        _spriteBatch.Draw(_pixel, new Rectangle((int)s.X - size / 2, (int)s.Y - size / 2, size, size), color);
+        var v = ToVirtual(world);
+        _spriteBatch.Draw(_pixel, new Rectangle((int)v.X - size / 2, (int)v.Y - size / 2, size, size), color);
     }
 
-    private void DrawHealthBar(SimVector2 world, int hp, int maxHp)
+    private void DrawHealthBar(SimVector2 world, int hp, int maxHp, int width, int yOffset)
     {
-        var s = WorldToScreen(world);
-        int w = 44, h = 5, x = (int)s.X - w / 2, y = (int)s.Y - 28;
-        _spriteBatch.Draw(_pixel, new Rectangle(x, y, w, h), Color.DarkRed);          // tło paska
-        int fill = (int)(w * (hp / (float)maxHp));
-        _spriteBatch.Draw(_pixel, new Rectangle(x, y, fill, h), Color.LimeGreen);     // życie
-    }
-
-    private SimVector2 ScreenToWorld(Vector2 screen)
-    {
-        Vector2 rel = (screen - Origin) / Scale;   // cofnij Origin i Scale
-        return new SimVector2(rel.X, rel.Y);
+        var v = ToVirtual(world);
+        int x = (int)v.X - width / 2, y = (int)v.Y + yOffset;
+        _spriteBatch.Draw(_pixel, new Rectangle(x, y, width, 4), Color.DarkRed);
+        int fill = maxHp > 0 ? (int)(width * (hp / (float)maxHp)) : 0;
+        _spriteBatch.Draw(_pixel, new Rectangle(x, y, fill, 4), Color.LimeGreen);
     }
 
     private void DrawCircleOutline(SimVector2 worldCenter, float worldRadius, Color color)
     {
-        Vector2 center = WorldToScreen(worldCenter);
-        float radiusPx = worldRadius * Scale;
+        Vector2 center = ToVirtual(worldCenter);
+        float radius = worldRadius * PixelsPerUnit;
         const int segments = 48;
         for (int i = 0; i < segments; i++)
         {
             float angle = MathHelper.TwoPi * i / segments;
-            int x = (int)(center.X + MathF.Cos(angle) * radiusPx);
-            int y = (int)(center.Y + MathF.Sin(angle) * radiusPx);
+            int x = (int)(center.X + MathF.Cos(angle) * radius);
+            int y = (int)(center.Y + MathF.Sin(angle) * radius);
             _spriteBatch.Draw(_pixel, new Rectangle(x - 1, y - 1, 2, 2), color);
         }
     }

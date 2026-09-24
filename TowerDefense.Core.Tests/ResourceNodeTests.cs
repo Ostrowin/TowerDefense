@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Xunit;
 
 namespace TowerDefense.Core.Tests;
@@ -19,5 +19,14 @@ public class ResourceNodeTests
         Assert.True(node.IsEmpty);
 
         Assert.Equal(0, node.Extract(5));      // pusty — zero
+    }
+
+    [Fact]
+    public void Extract_NonPositiveRequest_TakesNothing()
+    {
+        var node = new ResourceNode(id: 1, position: Vector2.Zero, amount: 25);
+        Assert.Equal(0, node.Extract(0));
+        Assert.Equal(0, node.Extract(-4));
+        Assert.Equal(25, node.Amount);
     }
 }
