@@ -107,7 +107,15 @@ właściwe miejsce.
 - Obrażenia mają rodzaj (`arrow`/`melee`/`cannonball`/`rock`/`frost`): pancerz blokuje część
   strzał, w latających trafia tylko `Cfg.ANTI_AIR`, mróz nakłada spowolnienie.
 - Budynek: `level` (1–3), `invested` (zwrot), `lane` (produkcja), `last_hit` (regeneracja).
-- Umiejętności: `ability_cd` (cooldowny), `strikes` (trwające salwy Deszczu strzał).
+- Umiejętności: dane w `Cfg.ABILITIES` z typem efektu (`kind`: `strike`, `summon_units`, `global`);
+  `use_ability(id, at, team)` rozdziela po typie, nie po nazwie. Odnowienia per drużyna
+  (`ability_cd[team][id]`), trwające salwy w `strikes` niosą swoją drużynę i konfigurację —
+  obie strony mogą rzucać naraz (pod dowódców i bossa rywala, P6).
+- Rzeka i mosty: `river` (krzywa z `Levels`, null bez rzeki) i `bridges` (`{lane, s0, s1}` —
+  odcinki ścieżek nad wodą). Widok rysuje z nich teren i deski mostów.
+- Trasa po mapie: `path_to(a, b)` — `AStarGrid2D` (pola 20 px, woda z zapasem zablokowana,
+  pasy mostów przejezdne, bez ścinania rogów), wygładzona jednym przejściem; cel na wodzie →
+  najbliższy ląd. Siatka budowana leniwie przy pierwszym zapytaniu (~10 ms), trasa ~2,5 ms.
 
 ## Krok symulacji (`Sim.step`)
 

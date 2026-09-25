@@ -8,7 +8,8 @@ extends RefCounted
 ##   size                — rozmiar świata
 ##   p_base, e_base      — bazy gracza i wroga (pierwszy/ostatni punkt każdej ścieżki)
 ##   lanes               — ścieżki: {"name", "points"} od bazy gracza do bazy wroga
-##   river               — punkty kontrolne rzeki (tylko wygląd; [] = brak rzeki)
+##   river               — punkty kontrolne rzeki ([] = brak rzeki). Sim liczy z nich krzywą i mosty
+##                         (odcinki ścieżek nad wodą); woda blokuje ruch dowódcy poza mostami
 ##   nodes, richness     — złoża i mnożnik ich wydobycia (>1 = „sporne", przy ścieżce wroga)
 ##   enemy_slots         — sloty wież wroga: (ścieżka, odległość od bazy wroga, strona ±1)
 ##   enemy_start_towers  — ile pierwszych slotów jest zajętych od startu

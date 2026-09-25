@@ -456,8 +456,9 @@ func _consume_events() -> void:
 					"arrows":
 						_ring(pos, Cfg.ABILITIES["arrows"]["radius"], Color.WHITE)
 					"levy":
-						_burst(pos, 20, TEAM_COLORS[0], 140.0, 0.6)
-						_float_text(pos + Vector2(0, -20), "Pobór!", TEAM_COLORS[0].lightened(0.3))
+						var tc := TEAM_COLORS[e.get("team", 0)]
+						_burst(pos, 20, tc, 140.0, 0.6)
+						_float_text(pos + Vector2(0, -20), "Pobór!", tc.lightened(0.3))
 						sfx.play("levy", 0.0)
 					"repair":
 						for b in sim.buildings:
@@ -1287,7 +1288,7 @@ func _update_hud() -> void:
 		b.disabled = sim.gold < cfg["cost"] and mode != key
 	for a in ability_buttons:
 		var b: Button = ability_buttons[a]
-		var cd: float = sim.ability_cd[a]
+		var cd: float = sim.ability_cd[0][a]
 		b.text = "%s\n%s" % [Cfg.ABILITIES[a]["short"], "gotowe" if cd <= 0 else "%d s" % ceili(cd)]
 		b.button_pressed = mode == "ab:" + a
 		b.disabled = cd > 0
@@ -1487,41 +1488,35 @@ func _make_terrain() -> void:
 	trees.clear()
 	for lane in sim.lanes:
 		lane_points.append(lane.curve.get_baked_points())
-	var river: Curve2D = null
-	if not sim.level["river"].is_empty():
-		river = Cfg.smooth_curve(sim.level["river"], 6.0)
-		river_points = river.get_baked_points()
+	if sim.river != null:
+		river_points = sim.river.get_baked_points()
 
-	# mosty: odcinki ścieżek nad rzeką — deski w poprzek, poręcze wzdłuż
-	if river != null:
-		for lane in sim.lanes:
-			var prev_on := false
-			var prev_l := Vector2.ZERO
-			var prev_r := Vector2.ZERO
-			var s := 0.0
-			while s <= lane.length:
-				var p := lane.point_at(s)
-				var on := river.get_closest_point(p).distance_to(p) < Cfg.RIVER_HALF + 10.0
-				if on:
-					var n := lane.normal_at(s)
-					var l := p + n * (Cfg.PATH_HALF + 5.0)
-					var r := p - n * (Cfg.PATH_HALF + 5.0)
-					bridge_planks.append(l)
-					bridge_planks.append(r)
-					if prev_on:
-						for q in [prev_l, l, prev_r, r]:
-							bridge_rails.append(q)
-					prev_l = l
-					prev_r = r
-				prev_on = on
-				s += 7.0
+	# mosty (odcinki ścieżek nad rzeką liczy Sim): deski w poprzek, poręcze wzdłuż
+	for br in sim.bridges:
+		var lane := sim.lanes[br["lane"]]
+		var prev_l := Vector2.ZERO
+		var prev_r := Vector2.ZERO
+		var s: float = br["s0"]
+		while s <= br["s1"] + 0.01:
+			var p := lane.point_at(s)
+			var n := lane.normal_at(s)
+			var l := p + n * (Cfg.PATH_HALF + 5.0)
+			var r := p - n * (Cfg.PATH_HALF + 5.0)
+			bridge_planks.append(l)
+			bridge_planks.append(r)
+			if s > br["s0"]:
+				for q in [prev_l, l, prev_r, r]:
+					bridge_rails.append(q)
+			prev_l = l
+			prev_r = r
+			s += Sim.BRIDGE_STEP
 
 	# trawa i kwiatki tam, gdzie nie ma ścieżek; drzewa poza strefą budowy i ścieżkami
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 7 + sim.level_index
 	while grass.size() < 260:
 		var p := Vector2(rnd.randf_range(10, sim.size.x - 10), rnd.randf_range(10, sim.size.y - 10))
-		if _clear_of_paths(p, Cfg.PATH_HALF + 6.0, river):
+		if _clear_of_paths(p, Cfg.PATH_HALF + 6.0):
 			grass.append(Vector3(p.x, p.y, rnd.randi_range(0, 5)))
 	var slots: Array[Vector2] = []
 	for i in sim.enemy_slot_count():
@@ -1531,7 +1526,7 @@ func _make_terrain() -> void:
 	while trees.size() < 70 and tries < 5000:
 		tries += 1
 		var p := Vector2(rnd.randf_range(0, sim.size.x), rnd.randf_range(0, sim.size.y))
-		if zone.has_point(p) or not _clear_of_paths(p, Cfg.PATH_HALF + 26.0, river):
+		if zone.has_point(p) or not _clear_of_paths(p, Cfg.PATH_HALF + 26.0):
 			continue
 		if p.distance_to(sim.e_base) < 110 or _near_any(p, sim.nodes, 50.0) or _near_any(p, slots, 50.0):
 			continue
@@ -1596,11 +1591,11 @@ func _update_lane_fx() -> void:
 		pick_lines[i].visible = i == pick
 
 
-func _clear_of_paths(p: Vector2, margin: float, river: Curve2D) -> bool:
+func _clear_of_paths(p: Vector2, margin: float) -> bool:
 	for lane in sim.lanes:
 		if lane.distance_to(p) < margin:
 			return false
-	return river == null or river.get_closest_point(p).distance_to(p) > Cfg.RIVER_HALF + 6.0
+	return sim.river_distance(p) > Cfg.RIVER_HALF + 6.0
 
 
 func _near_any(p: Vector2, points: Array[Vector2], dist: float) -> bool:
@@ -1638,7 +1633,7 @@ func _draw() -> void:
 		if u.flying and view.has_point(u.pos):
 			_draw_unit(u)  # latające nad resztą
 	for st in sim.strikes:
-		var r: float = Cfg.ABILITIES["arrows"]["radius"]
+		var r: float = st["cfg"]["radius"]
 		pen.arc(st["pos"], r, 0, TAU, 48, Color(1, 1, 1, 0.5), 2.0)
 	for s in sparks:
 		if not view.has_point(s.pos):

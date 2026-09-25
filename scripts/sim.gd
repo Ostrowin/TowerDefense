@@ -132,6 +132,16 @@ const BUILDING_R := 16.0
 const REJOIN_WINDOW := 150.0
 ## Bok komórki siatki przestrzennej do szukania celów (zamiast przeglądać wszystkie jednostki).
 const GRID_CELL := 150.0
+## Most = odcinek ścieżki, którego oś leży bliżej niż RIVER_HALF + BRIDGE_MARGIN od osi rzeki.
+## Próbkujemy co BRIDGE_STEP wzdłuż ścieżki (widok stawia deskę w każdej próbce).
+const BRIDGE_MARGIN := 10.0
+const BRIDGE_STEP := 7.0
+## Nawigacja po mapie (dowódca): siatka drobniejsza niż siatka budowy. Pole jest wodą, gdy
+## jego środek leży bliżej niż RIVER_HALF + NAV_CLEARANCE od osi rzeki (zapas = promień postaci).
+const NAV_CELL := 20.0
+const NAV_CLEARANCE := 12.0
+## Próbkowanie odcinka trasy przy sprawdzaniu, czy nie wchodzi w wodę.
+const NAV_SAMPLE := 5.0
 
 var level_index: int
 var level: Dictionary
@@ -144,13 +154,19 @@ var build_rect: Rect2
 var rally_s: float
 var difficulty: Dictionary
 var lanes: Array[Lane] = []
+## Rzeka (null na mapie bez rzeki) i mosty: {"lane", "s0", "s1"} — odcinki ścieżek nad wodą.
+## Widok rysuje z nich teren, nawigacja omija wodę poza mostami.
+var river: Curve2D = null
+var bridges: Array[Dictionary] = []
 var gold: float
 var base_hp: Array[float] = [Cfg.BASE_HP[0], Cfg.BASE_HP[1]]
 var units: Array[Unit] = []
 var buildings: Array[Building] = []
 var shots: Array[Shot] = []
-var strikes: Array[Dictionary] = []  ## trwające „Deszcze strzał": {pos, left, timer}
-var ability_cd := {}  ## umiejętność → sekundy do gotowości
+var strikes: Array[Dictionary] = []  ## trwające salwy (typ `strike`): {pos, left, timer, team, cfg}
+## Per drużyna: umiejętność → sekundy do gotowości. Wróg ma na razie ten sam zestaw co gracz
+## (jeszcze go nie używa — przyjdą dowódcy), ale każdy efekt już działa dla obu stron.
+var ability_cd: Array[Dictionary] = [{}, {}]
 var stance := "attack"  ## "attack" albo "defend"
 var elapsed := 0.0
 var wave := 0
@@ -178,6 +194,10 @@ var team_count: Array[int] = [0, 0]
 ## Rośnie przy każdej zmianie listy budynków — widok po nim unieważnia pamięć podręczną
 ## (np. wolne pola budowy).
 var layout_version := 0
+## Siatka nawigacji (A*) — budowana przy pierwszym `path_to`, bo zwykła partia jej nie potrzebuje.
+var _nav: AStarGrid2D = null
+var _nav_bridge := {}  ## Vector2i → indeks ścieżki: pola mostów (przejezdne mimo wody)
+var _nav_near := {}  ## Vector2i → true: pola przy wodzie — tylko tam punkt trzeba sprawdzać dokładnie
 
 
 func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0) -> void:
@@ -197,10 +217,12 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0) 
 	rally_s = level["rally_s"]
 	for l in level["lanes"]:
 		lanes.append(Lane.new(l["name"], l["points"]))
+	_find_bridges()
 	gold = difficulty["start_gold"]
 	wave_timer = difficulty["first_wave"]
-	for a in Cfg.ABILITY_ORDER:
-		ability_cd[a] = 0.0
+	for team in 2:
+		for a in Cfg.ABILITY_ORDER:
+			ability_cd[team][a] = 0.0
 	for team in 2:
 		var gun := _add_building(team, "basegun", base_pos(team))
 		gun.level = Cfg.BASE_GUN_LEVEL[team]
@@ -385,16 +407,22 @@ func enemy_fury() -> float:
 	return 1.0 + Cfg.ENEMY_FURY_PER_WAVE * maxi(wave - Cfg.ENEMY_FURY_WAVE, 0)
 
 
-func ability_ready(ability: String) -> bool:
-	return ability_cd.get(ability, INF) <= 0.0
+func ability_ready(ability: String, team := 0) -> bool:
+	return ability_cd[team].get(ability, INF) <= 0.0
 
 
-## Czy umiejętność da się użyć w tym miejscu (Pobór: tylko przy ścieżce, na swojej połowie).
-func ability_target_ok(ability: String, at: Vector2) -> bool:
-	if ability != "levy":
+## Czy umiejętność da się użyć w tym miejscu (przywołanie: tylko przy ścieżce, na swojej połowie).
+func ability_target_ok(ability: String, at: Vector2, team := 0) -> bool:
+	var cfg: Dictionary = Cfg.ABILITIES[ability]
+	if cfg["kind"] != "summon_units":
 		return true
-	var cfg: Dictionary = Cfg.ABILITIES["levy"]
-	return at.x < size.x / 2.0 and lanes[nearest_lane(at)].distance_to(at) <= cfg["max_lane_dist"]
+	var own_half := at.x < size.x / 2.0 if team == 0 else at.x > size.x / 2.0
+	return own_half and lanes[nearest_lane(at)].distance_to(at) <= cfg["max_lane_dist"]
+
+
+## Limit jednostek drużyny na mapie (gracz: armia, wróg: wrogowie na mapie).
+func unit_cap(team: int) -> int:
+	return Cfg.MAX_ARMY if team == 0 else Cfg.MAX_ENEMIES
 
 
 # ================================================================ rozkazy gracza
@@ -457,29 +485,31 @@ func set_stance(s: String) -> void:
 	stance = s
 
 
-## Używa umiejętności. `at` ignorowane dla umiejętności bez celu (Naprawa).
-func use_ability(ability: String, at := Vector2.ZERO) -> bool:
-	if result != 0 or not ability_ready(ability) or not ability_target_ok(ability, at):
-		return false
-	if ability == "levy" and team_count[0] >= Cfg.MAX_ARMY:
+## Używa umiejętności drużyny `team`. Działanie wynika z typu efektu (`kind` w Cfg.ABILITIES),
+## nie z nazwy umiejętności. `at` ignorowane dla umiejętności bez celu (Naprawa).
+func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
+	if result != 0 or not ability_ready(ability, team) or not ability_target_ok(ability, at, team):
 		return false
 	var cfg: Dictionary = Cfg.ABILITIES[ability]
-	match ability:
-		"arrows":
-			strikes.append({"pos": at, "left": cfg["volleys"], "timer": 0.3})
-		"levy":
+	if cfg["kind"] == "summon_units" and team_count[team] >= unit_cap(team):
+		return false
+	match cfg["kind"]:
+		"strike":
+			strikes.append({"pos": at, "left": cfg["volleys"], "timer": 0.3, "team": team, "cfg": cfg})
+		"summon_units":
 			var lane_i := nearest_lane(at)
 			var s := lanes[lane_i].offset_of(at)
-			for i in mini(cfg["count"], Cfg.MAX_ARMY - team_count[0]):
-				_spawn_unit(0, cfg["unit"], 1, 1.0, lane_i, s + (i - 1.5) * 14.0)
-		"repair":
+			for i in mini(cfg["count"], unit_cap(team) - team_count[team]):
+				_spawn_unit(team, cfg["unit"], 1, 1.0, lane_i, s + (i - 1.5) * 14.0)
+		"global":
 			for b in buildings:
-				if b.team == 0 and b.kind != "basegun":
+				if b.team == team and b.kind != "basegun":
 					b.hp = minf(b.max_hp, b.hp + b.max_hp * cfg["heal"])
-			base_hp[0] = minf(Cfg.BASE_HP[0], base_hp[0] + cfg["base_heal"])
-	ability_cd[ability] = cfg["cooldown"]
-	stats["abilities_used"] += 1
-	events.append({"type": "ability", "name": ability, "pos": at if cfg["target"] else p_base})
+			base_hp[team] = minf(Cfg.BASE_HP[team], base_hp[team] + cfg["base_heal"])
+	ability_cd[team][ability] = cfg["cooldown"]
+	if team == 0:
+		stats["abilities_used"] += 1
+	events.append({"type": "ability", "name": ability, "team": team, "pos": at if cfg["target"] else base_pos(team)})
 	return true
 
 
@@ -493,8 +523,9 @@ func step(dt: float) -> void:
 	gold += earned
 	stats["gold_earned"] += earned
 
-	for a in ability_cd:
-		ability_cd[a] = maxf(0.0, ability_cd[a] - dt)
+	for cds in ability_cd:
+		for a in cds:
+			cds[a] = maxf(0.0, cds[a] - dt)
 	for u in units:
 		u.prev_pos = u.pos
 	for s in shots:
@@ -544,19 +575,21 @@ func _prof(key: String, t0: int) -> int:
 	return now
 
 
+## Salwy typu `strike`: każda salwa rani wrogów rzucającego (także latających) w promieniu.
 func _update_strikes(dt: float) -> void:
-	var cfg: Dictionary = Cfg.ABILITIES["arrows"]
 	for st in strikes:
 		st["timer"] -= dt
 		if st["timer"] > 0:
 			continue
+		var cfg: Dictionary = st["cfg"]
+		var foe: int = 1 - st["team"]
 		st["timer"] = cfg["interval"]
 		st["left"] -= 1
 		var at: Vector2 = st["pos"]
-		events.append({"type": "volley", "pos": at, "radius": cfg["radius"]})
+		events.append({"type": "volley", "pos": at, "radius": cfg["radius"], "team": st["team"]})
 		for u in units:
-			if u.team == 1 and u.hp > 0 and u.pos.distance_to(at) <= cfg["radius"]:
-				_damage_unit(u, cfg["dmg"], "arrow")
+			if u.team == foe and u.hp > 0 and u.pos.distance_to(at) <= cfg["radius"]:
+				_damage_unit(u, cfg["dmg"], cfg.get("dmg_type", "blast"))
 	strikes = strikes.filter(func(st: Dictionary) -> bool: return st["left"] > 0)
 
 
@@ -1046,3 +1079,152 @@ func _level_up(b: Building) -> void:
 func _take_id() -> int:
 	_next_id += 1
 	return _next_id
+
+
+# ---------------------------------------------------------------- rzeka i nawigacja
+
+## Rzeka z punktów mapy i mosty: kolejne próbki ścieżki (co BRIDGE_STEP), które leżą nad wodą.
+func _find_bridges() -> void:
+	if level["river"].is_empty():
+		return
+	river = Cfg.smooth_curve(level["river"], 6.0)
+	for li in lanes.size():
+		var lane := lanes[li]
+		var start := -1.0
+		var last := -1.0
+		var s := 0.0
+		while s <= lane.length:
+			if river_distance(lane.point_at(s)) < Cfg.RIVER_HALF + BRIDGE_MARGIN:
+				if start < 0.0:
+					start = s
+				last = s
+			elif start >= 0.0:
+				bridges.append({"lane": li, "s0": start, "s1": last})
+				start = -1.0
+			s += BRIDGE_STEP
+		if start >= 0.0:
+			bridges.append({"lane": li, "s0": start, "s1": last})
+
+
+## Siatka A*: woda (z zapasem NAV_CLEARANCE) zablokowana, mosty przejezdne. Pas mostu to
+## pola w odległości PATH_HALF od osi ścieżki, przedłużony za brzeg o zapas i jedno pole,
+## żeby przejście przez cały zablokowany pas było ciągłe. Budynki, drzewa i bazy nie blokują.
+func _ensure_nav() -> void:
+	if _nav != null:
+		return
+	_nav = AStarGrid2D.new()
+	_nav.region = Rect2i(0, 0, ceili(size.x / NAV_CELL), ceili(size.y / NAV_CELL))
+	_nav.cell_size = Vector2(NAV_CELL, NAV_CELL)
+	_nav.offset = Vector2(NAV_CELL, NAV_CELL) / 2.0  # get_point_path zwraca środki pól
+	_nav.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+	_nav.default_compute_heuristic = AStarGrid2D.HEURISTIC_OCTILE
+	_nav.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
+	_nav.update()
+	if river == null:
+		return
+	var extend := NAV_CLEARANCE - BRIDGE_MARGIN + NAV_CELL
+	for br in bridges:
+		var lane := lanes[br["lane"]]
+		var s: float = br["s0"] - extend
+		while s <= br["s1"] + extend:
+			var p := lane.point_at(s)
+			var c := _nav_cell(p)
+			for dy in range(-2, 3):
+				for dx in range(-2, 3):
+					var cell := c + Vector2i(dx, dy)
+					if _nav.is_in_boundsv(cell) and _nav_center(cell).distance_to(p) <= Cfg.PATH_HALF:
+						_nav_bridge[cell] = br["lane"]
+			s += NAV_CELL / 4.0
+	for y in _nav.region.size.y:
+		for x in _nav.region.size.x:
+			var cell := Vector2i(x, y)
+			var d := river_distance(_nav_center(cell))
+			if d < Cfg.RIVER_HALF + NAV_CLEARANCE + NAV_CELL:
+				_nav_near[cell] = true
+			if d < Cfg.RIVER_HALF + NAV_CLEARANCE and not _nav_bridge.has(cell):
+				_nav.set_point_solid(cell, true)
+
+
+func _nav_cell(p: Vector2) -> Vector2i:
+	var r := _nav.region.size
+	return Vector2i(clampi(floori(p.x / NAV_CELL), 0, r.x - 1), clampi(floori(p.y / NAV_CELL), 0, r.y - 1))
+
+
+func _nav_center(cell: Vector2i) -> Vector2:
+	return (Vector2(cell) + Vector2(0.5, 0.5)) * NAV_CELL
+
+
+## Najbliższe przejezdne pole (szukane w coraz większych kwadratach wokół punktu).
+func _nav_walkable_near(p: Vector2) -> Vector2i:
+	var c := _nav_cell(p)
+	if not _nav.is_point_solid(c):
+		return c
+	for r in range(1, maxi(_nav.region.size.x, _nav.region.size.y)):
+		var best := Vector2i(-1, -1)
+		var best_d := INF
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				if maxi(absi(dx), absi(dy)) != r:
+					continue  # tylko obwód kwadratu — środek sprawdzony wcześniej
+				var cell := c + Vector2i(dx, dy)
+				if _nav.is_in_boundsv(cell) and not _nav.is_point_solid(cell):
+					var d := _nav_center(cell).distance_squared_to(p)
+					if d < best_d:
+						best_d = d
+						best = cell
+		if best.x >= 0:
+			return best
+	return c
+
+
+## Czy punkt jest „na lądzie” dla dowódcy: w przejezdnym polu i nie w wodzie, a nad wodą
+## tylko na moście (w szerokości ścieżki). Środek pola bywa daleko od wody, a jego róg blisko.
+func _nav_point_ok(p: Vector2) -> bool:
+	var cell := _nav_cell(p)
+	if _nav.is_point_solid(cell):
+		return false
+	if not _nav_near.has(cell) or river_distance(p) >= Cfg.RIVER_HALF + NAV_CLEARANCE / 2.0:
+		return true
+	return _nav_bridge.has(cell) and lanes[_nav_bridge[cell]].distance_to(p) <= Cfg.PATH_HALF
+
+
+func _nav_segment_ok(a: Vector2, b: Vector2) -> bool:
+	var n := ceili(a.distance_to(b) / NAV_SAMPLE)
+	for i in range(1, n + 1):
+		if not _nav_point_ok(a.lerp(b, float(i) / n)):
+			return false
+	return true
+
+
+# ================================================================ zapytania: rzeka i trasa
+
+## Odległość od osi rzeki (INF, gdy mapa nie ma rzeki).
+func river_distance(p: Vector2) -> float:
+	return INF if river == null else river.get_closest_point(p).distance_to(p)
+
+
+## Trasa dowódcy z `from` do `to`: omija wodę, rzekę przechodzi po mostach. Cel na wodzie,
+## poza mapą albo nieosiągalny → najbliższe przejezdne miejsce. Trasa wygładzona (odcinki
+## na przełaj, póki nie wchodzą w wodę). Zwraca [start, …, cel].
+func path_to(from: Vector2, to: Vector2) -> PackedVector2Array:
+	_ensure_nav()
+	var start := from.clamp(Vector2.ZERO, size)
+	var goal := to.clamp(Vector2.ZERO, size)
+	var goal_cell := _nav_walkable_near(goal)
+	if not _nav_point_ok(goal):
+		goal = _nav_center(goal_cell)
+	var cells := _nav.get_id_path(_nav_walkable_near(start), goal_cell)
+	if cells.is_empty():
+		return PackedVector2Array([start])  # brak przejścia — zostań w miejscu
+	var raw := PackedVector2Array([start])
+	for i in range(1, cells.size() - 1):
+		raw.append(_nav_center(cells[i]))
+	raw.append(goal)
+	# wygładzanie „po sznurku" jednym przejściem: punkt pośredni zostaje tylko wtedy, gdy
+	# prosty odcinek od ostatniego zachowanego punktu do następnego wszedłby w wodę
+	var out := PackedVector2Array([raw[0]])
+	for k in range(1, raw.size() - 1):
+		if not _nav_segment_ok(out[-1], raw[k + 1]):
+			out.append(raw[k])
+	out.append(raw[-1])
+	return out

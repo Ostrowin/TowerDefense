@@ -9,6 +9,11 @@
 - [x] **P4 — treść**: 3 mapy (Trzy drogi, Przesmyk, Serpentyna) jako dane w `Levels`, wybór w menu, rekordy i gwiazdki.
 - [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren. ✘ sprite'y CC0, ikona aplikacji (teraz domyślna Godota).
 
+## Sesja 7 (2026-09-25) — dowódcy: projekt i fundamenty
+
+/office-hours → projekt dowódców ras ([docs/designs/dowodcy-ras.md](docs/designs/dowodcy-ras.md), D24) · Etap 0: rzeka i mosty w `Sim`,
+nawigacja dowódcy (A* przez mosty, test „żadna trasa nie wchodzi w wodę” na każdej mapie), umiejętności jako typy efektów dla obu drużyn.
+
 ## Sesja 6 (2026-09-25) — rasy
 
 Wybór rasy w menu: 12 ras wspólnych z innymi grami (`Races`), grywalne Krety i Gibony (gibony zastąpiły goryle), reszta „Wkrótce” ·
@@ -59,6 +64,20 @@ postawa Atak/Obrona · goblin, wódz · efekty · dźwięk · menu/pauza/koniec 
 - Czy sprytny wybór ścieżek jest czytelny (gracz rozumie, czemu fala idzie tam), czy frustruje?
 - Czy Przesmyk nie sprowadza się do „wszystko na most"?
 - Czy umiejętności mają dobry rytm (cooldown 40–60 s)?
+
+## P6 — dowódcy ras (projekt: [docs/designs/dowodcy-ras.md](docs/designs/dowodcy-ras.md))
+
+3 dowódców na rasę (krety: Saper, Snajper, Magma; gibony: do zaprojektowania), sterowani jak bohater w Kingdom Rush,
+3 umiejętności dowódcy + 1 umiejętność rasy, umiejętności jako dane z typów efektów, boss-dowódca rywala u wroga.
+Reguły R1–R11 w projekcie to propozycje domyślne; uwagi recenzenta na końcu dokumentu.
+
+**Rozstrzygnięte:** Podkop = efekt dla całej armii · gibony = kopia goryli z WebSlashera (brakujące wymyślamy po drodze).
+**Otwarte:** komu Pobór i Naprawa (blokuje usunięcie „Weterana”) · reguły R1–R11 i uwagi recenzenta → `/plan-eng-review`.
+
+- [x] **Etap 0 — fundamenty:** T1 rzeka i mosty w `Sim` · T2 nawigacja (`AStarGrid2D`, `Sim.path_to`) · T3 umiejętności jako typy efektów z `team` — mecze botów bez zmian
+- [ ] **Etap 1 — dowódca gracza:** T4 dane dowódców · T5 bohater w `Sim` · T6 nowe typy efektów · T7 widok, dotyk, samouczek · T8 menu · T9 Saper + Podkop + bot + balans → **gra na telefonie**
+- [ ] **Etap 2 — reszta dowódców:** T10 Snajper, Magma · T11 gibony
+- [ ] **Etap 3 — druga strona:** T12 boss rywala · T13 balans całości, perf na telefonie, dokumentacja
 
 ## Lore i rasy (do przemyślenia)
 

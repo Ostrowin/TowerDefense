@@ -53,6 +53,8 @@ func _init() -> void:
 	print("== testy mechanik ==")
 	for lv in Levels.ALL.size():
 		_test_map_layout(lv)
+		_test_bridges(lv)
+		_test_navigation(lv)
 	_test_build_rules()
 	_test_upgrade_and_sell()
 	_test_income()
@@ -69,6 +71,7 @@ func _init() -> void:
 	_test_armor()
 	_test_frost_slows()
 	_test_abilities()
+	_test_abilities_both_teams()
 	_test_progress()
 	_test_population_caps()
 	_test_wave_composition()
@@ -261,6 +264,96 @@ func _test_map_layout(lv: int) -> void:
 		_check(worst >= Cfg.PATH_HALF * 2 + 10, "%s: pętle ścieżki %s nie nachodzą na siebie (%.0f px)" % [name, lane.name, worst])
 	for p in BALANCED_PLAN + TURTLE_PLAN:
 		_check(_resolve(sim, p[1]) != Vector2.INF, "%s: kotwica planu bota %s ma wolne pole" % [name, str(p[1])])
+
+
+## Mosty liczy Sim (widok z nich rysuje, nawigacja dowódcy z nich korzysta).
+func _test_bridges(lv: int) -> void:
+	var sim := Sim.new(1, 1, lv)
+	var name: String = Levels.ALL[lv]["name"]
+	if sim.river == null:
+		_check(sim.bridges.is_empty(), "%s: bez rzeki nie ma mostów" % name)
+		return
+	for li in sim.lanes.size():
+		var own := sim.bridges.filter(func(br: Dictionary) -> bool: return br["lane"] == li)
+		_check(not own.is_empty(), "%s: ścieżka %s przechodzi przez rzekę po moście" % [name, sim.lanes[li].name])
+	for br in sim.bridges:
+		var lane := sim.lanes[br["lane"]]
+		var mid := lane.point_at((br["s0"] + br["s1"]) / 2.0)
+		_check(sim.river_distance(mid) < Cfg.RIVER_HALF, "%s: środek mostu na %s leży nad wodą" % [name, lane.name])
+		_check(br["s1"] - br["s0"] >= Cfg.RIVER_HALF * 2, "%s: most na %s przykrywa całą szerokość rzeki" % [name, lane.name])
+
+
+## Trasa dowódcy: żaden odcinek nie wchodzi w wodę poza mostem, cel na wodzie → najbliższy ląd,
+## mapa bez rzeki → prosto.
+func _test_navigation(lv: int) -> void:
+	var sim := Sim.new(1, 1, lv)
+	var name: String = Levels.ALL[lv]["name"]
+	var rnd := RandomNumberGenerator.new()
+	rnd.seed = 11 + lv
+	var leaks := 0
+	var bad_ends := 0
+	for i in 40:
+		var a := _land_point(sim, rnd)
+		var b := Vector2(rnd.randf_range(0, sim.size.x), rnd.randf_range(0, sim.size.y))
+		var path := sim.path_to(a, b)
+		if path[0].distance_to(a) > 0.01:
+			bad_ends += 1
+		if sim.river_distance(path[-1]) < Cfg.RIVER_HALF and not _on_bridge(sim, path[-1]):
+			bad_ends += 1
+		for k in path.size() - 1:
+			var n := ceili(path[k].distance_to(path[k + 1]) / 5.0)
+			for j in n + 1:
+				var p := path[k].lerp(path[k + 1], float(j) / maxi(n, 1))
+				if sim.river_distance(p) < Cfg.RIVER_HALF and not _on_bridge(sim, p):
+					leaks += 1
+	_check(leaks == 0, "%s: trasy dowódcy nie wchodzą w wodę poza mostem (%d próbek w wodzie)" % [name, leaks])
+	_check(bad_ends == 0, "%s: trasa zaczyna się w miejscu dowódcy i kończy na lądzie (%d złych)" % [name, bad_ends])
+	if sim.river == null:
+		var straight := sim.path_to(Vector2(200, 450), Vector2(1400, 450))
+		_check(straight.size() == 2, "%s: bez rzeki trasa jest prosta (%d punktów)" % [name, straight.size()])
+		return
+	# przez rzekę: trasa istnieje, dochodzi do celu i używa mostu
+	var across := sim.path_to(Vector2(300, 450), Vector2(1300, 450))
+	_check(across[-1].distance_to(Vector2(1300, 450)) < 1.0, "%s: trasa przez rzekę dochodzi do celu" % name)
+	var used := false
+	for k in across.size() - 1:
+		for j in 21:
+			used = used or _on_bridge(sim, across[k].lerp(across[k + 1], j / 20.0))
+	_check(used, "%s: trasa przez rzekę prowadzi mostem" % name)
+	# cel na środku rzeki, z dala od mostów → trasa kończy się na brzegu
+	var wet := Vector2.INF
+	for k in 50:
+		var q := sim.river.sample_baked(sim.river.get_baked_length() * k / 50.0)
+		if Rect2(Vector2.ZERO, sim.size).has_point(q) and not _on_bridge(sim, q) and _lane_gap(sim, q) > 120.0:
+			wet = q
+			break
+	if wet != Vector2.INF:
+		var shore := sim.path_to(Vector2(300, 450), wet)
+		_check(sim.river_distance(shore[-1]) >= Cfg.RIVER_HALF, "%s: cel na wodzie → dowódca staje na brzegu" % name)
+
+
+func _land_point(sim: Sim, rnd: RandomNumberGenerator) -> Vector2:
+	while true:
+		var p := Vector2(rnd.randf_range(0, sim.size.x), rnd.randf_range(0, sim.size.y))
+		if sim.river_distance(p) >= Cfg.RIVER_HALF + Sim.NAV_CLEARANCE:
+			return p
+	return Vector2.ZERO
+
+
+func _on_bridge(sim: Sim, p: Vector2) -> bool:
+	for br in sim.bridges:
+		var lane := sim.lanes[br["lane"]]
+		var off := lane.offset_of(p)
+		if off >= br["s0"] - 40.0 and off <= br["s1"] + 40.0 and lane.point_at(off).distance_to(p) <= Cfg.PATH_HALF + 6.0:
+			return true
+	return false
+
+
+func _lane_gap(sim: Sim, p: Vector2) -> float:
+	var best := INF
+	for lane in sim.lanes:
+		best = minf(best, lane.distance_to(p))
+	return best
 
 
 func _test_build_rules() -> void:
@@ -565,6 +658,39 @@ func _test_abilities() -> void:
 	sim.base_hp[0] = 100.0
 	_check(sim.use_ability("repair"), "Naprawa użyta")
 	_check(t.hp > 100.0 and sim.base_hp[0] > 100.0, "Naprawa leczy budynki i bazę")
+
+
+## Typy efektów działają dla obu drużyn i trafiają tylko we właściwą (pod dowódców i bossa rywala).
+func _test_abilities_both_teams() -> void:
+	var sim := _empty_sim()
+	var spot := sim.lanes[1].point_at(700)
+	sim._spawn_unit(0, "soldier", 1, 1.0, 1)
+	sim._spawn_unit(1, "grunt", 1, 1.0, 1)
+	var mine: Sim.Unit = sim.units[0]
+	var foe: Sim.Unit = sim.units[1]
+	_check(sim.use_ability("arrows", spot, 1), "wróg rzuca salwę (strike)")
+	_check(sim.ability_ready("arrows", 0), "odnowienie wroga nie blokuje umiejętności gracza")
+	_check(sim.stats["abilities_used"] == 0, "umiejętności wroga nie liczą się do statystyk gracza")
+	mine.pos = spot
+	foe.pos = spot
+	for i in 30 * 2:
+		sim._update_strikes(DT)  # same salwy — bez walki wręcz między tymi dwoma jednostkami
+	_check(mine.hp < mine.max_hp and foe.hp == foe.max_hp, "salwa wroga rani tylko jednostki gracza")
+
+	var own := sim.lanes[2].point_at(sim.lanes[2].length - 400)
+	_check(not sim.use_ability("levy", sim.lanes[2].point_at(400), 1), "przywołanie wroga tylko na jego połowie")
+	var before := sim.army_size(1)
+	_check(sim.use_ability("levy", own, 1), "wróg przywołuje jednostki (summon_units)")
+	_check(sim.army_size(1) == before + Cfg.ABILITIES["levy"]["count"], "przywołane jednostki należą do wroga")
+
+	var t := sim._add_building(1, "tower", sim.enemy_slot_pos(0))
+	t.hp = 10.0
+	var mine_b := sim._add_building(0, "tower", sim.free_cell_near(Vector2(300, 330)))
+	mine_b.hp = 10.0
+	sim.base_hp = [100.0, 100.0]
+	_check(sim.use_ability("repair", Vector2.ZERO, 1), "wróg używa naprawy (global)")
+	_check(t.hp > 100.0 and sim.base_hp[1] > 100.0, "naprawa wroga leczy jego budynki i bazę")
+	_check(mine_b.hp == 10.0 and sim.base_hp[0] == 100.0, "naprawa wroga nie leczy gracza")
 
 
 func _test_progress() -> void:

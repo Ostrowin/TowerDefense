@@ -112,15 +112,20 @@ const PROJECTILE_SPEED := {"arrow": 480.0, "cannonball": 300.0, "rock": 260.0, "
 ## Pociski, które trafiają jednostki latające.
 const ANTI_AIR: Array[String] = ["arrow", "frost"]
 
-# ---------------------------------------------------------------- umiejętności gracza
+# ---------------------------------------------------------------- umiejętności
+# Umiejętność = typ efektu (`kind`) + liczby. Sim obsługuje typy, nie konkretne umiejętności,
+# więc nowa umiejętność tego samego typu to sam wpis tutaj. Każdy typ działa dla obu drużyn.
+#   strike        — salwy w obszar (radius, dmg, dmg_type, volleys, interval); trafia też latających
+#   summon_units  — jednostki przy ścieżce (unit, count, max_lane_dist), na swojej połowie mapy
+#   global        — leczy budynki i bazę rzucającego (heal = ułamek max HP, base_heal)
 # target: czy trzeba wskazać miejsce na mapie. Cooldown liczy się od startu partii.
 
 const ABILITIES := {
-	"arrows": {"name": "Deszcz strzał", "short": "Strzały", "cooldown": 40.0, "target": true,
-		"radius": 90.0, "dmg": 26.0, "volleys": 3, "interval": 0.45},
-	"levy": {"name": "Pobór", "short": "Pobór", "cooldown": 60.0, "target": true,
+	"arrows": {"name": "Deszcz strzał", "short": "Strzały", "kind": "strike", "cooldown": 40.0, "target": true,
+		"radius": 90.0, "dmg": 26.0, "dmg_type": "arrow", "volleys": 3, "interval": 0.45},
+	"levy": {"name": "Pobór", "short": "Pobór", "kind": "summon_units", "cooldown": 60.0, "target": true,
 		"count": 4, "unit": "soldier", "max_lane_dist": 90.0},
-	"repair": {"name": "Naprawa", "short": "Naprawa", "cooldown": 55.0, "target": false,
+	"repair": {"name": "Naprawa", "short": "Naprawa", "kind": "global", "cooldown": 55.0, "target": false,
 		"heal": 0.4, "base_heal": 80.0},
 }
 const ABILITY_ORDER: Array[String] = ["arrows", "levy", "repair"]

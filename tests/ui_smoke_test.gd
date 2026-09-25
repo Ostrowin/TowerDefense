@@ -100,11 +100,11 @@ func _process(_delta: float) -> bool:
 			_check(main.mode == "ab:arrows", "Q wybiera Deszcz strzał")
 			_click(main._to_screen(sim.lanes[1].point_at(900)))
 		22:
-			_check(sim.ability_cd["arrows"] > 0 and main.mode == "", "klik na mapie rzuca Deszcz strzał")
+			_check(sim.ability_cd[0]["arrows"] > 0 and main.mode == "", "klik na mapie rzuca Deszcz strzał")
 			_key(KEY_R)
 			main.ability_buttons["levy"].emit_signal("pressed")
 		24:
-			_check(sim.ability_cd["repair"] > 0, "R rzuca Naprawę od razu")
+			_check(sim.ability_cd[0]["repair"] > 0, "R rzuca Naprawę od razu")
 			_check(main.mode == "ab:levy", "przycisk wybiera Pobór")
 			var before := sim.army_size(0)
 			_click(main._to_screen(sim.lanes[1].point_at(350)))
