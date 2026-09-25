@@ -84,7 +84,8 @@ var sim: Sim
 var state := State.MENU
 var overlay := ""  ## "" / "settings" / "help" — nakładka nad bieżącym stanem
 var level_index := 0
-var race_index := Races.first_playable()  ## rasa gracza (Races.ALL); przeciwnik = Races.rival
+var race_index := Races.first_playable()  ## rasa gracza (Races.ALL)
+var rival_index := -1  ## rasa przeciwnika — losowana przy starcie partii (-1 = jeszcze nie wybrana)
 var difficulty := 1
 var mode := ""  ## "" / klucz budynku z Cfg.BUILD_ORDER / "ab:<umiejętność>"
 var selected: Sim.Building = null
@@ -246,12 +247,17 @@ func _start(d: int) -> void:
 	tutorial_step = -1 if Progress.tutorial_done() else 0
 	tutorial_timer = 0.0
 	camera_used = false
-	_banner("Przygotuj się!", "Pierwsza fala za %d s: %s" % [int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
+	var rnd := RandomNumberGenerator.new()
+	rnd.randomize()  # własny los — nie ruszamy rng sima
+	rival_index = Races.random_rival(race_index, rnd)
+	_banner("Przygotuj się!", "Przeciwnik: %s · pierwsza fala za %d s: %s" % [
+		Races.ALL[rival_index]["name"], int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
 
 
 func _show_menu() -> void:
 	state = State.MENU
 	overlay = ""
+	rival_index = -1
 	sim = Sim.new(difficulty, -1, level_index)
 	_make_terrain()
 	_clear_view_state()
@@ -403,7 +409,7 @@ func _on_game_end() -> void:
 	over_title.add_theme_color_override("font_color", GOLD_COLOR if won else TEAM_COLORS[1])
 	var s := sim.stats
 	var lines := PackedStringArray([
-		"%s · %s · %s · czas %s · fala %d" % [Races.ALL[race_index]["name"], sim.level["name"], sim.difficulty["name"], _fmt_time(sim.elapsed), sim.wave],
+		"%s · przeciwnik: %s · %s · %s · czas %s · fala %d" % [Races.ALL[race_index]["name"], Races.ALL[rival_index]["name"], sim.level["name"], sim.difficulty["name"], _fmt_time(sim.elapsed), sim.wave],
 		"Zabici wrogowie: %d · wyprodukowane jednostki: %d · umiejętności: %d" % [s["kills"], s["units_made"], s["abilities_used"]],
 		"Zburzone wieże: %d · stracone budynki: %d · zarobione złoto: %d" % [s["towers_razed"], s["buildings_lost"], int(s["gold_earned"])],
 	])
@@ -1310,7 +1316,7 @@ func _update_menu() -> void:
 	for i in race_buttons.size():
 		race_buttons[i].button_pressed = i == race_index
 	var race: Dictionary = Races.ALL[race_index]
-	race_desc.text = "%s — %s  Przeciwnik: %s" % [race["name"], race["blurb"], Races.ALL[Races.rival(race_index)]["name"]]
+	race_desc.text = "%s — %s  Przeciwnik: losowy" % [race["name"], race["blurb"]]
 	for i in map_buttons.size():
 		var lv: Dictionary = Levels.ALL[i]
 		map_buttons[i].text = "%s\n%s" % [lv["name"], _stars_text(Progress.stars(lv["id"]))]
@@ -1788,9 +1794,11 @@ func _draw_base(team: int) -> void:
 	pen.line(pole, pole + Vector2(0, -30), Color(0.85, 0.85, 0.85), 2.0)
 	var flutter := sin(time * 4.0 + team) * 3.0
 	pen.polygon(PackedVector2Array([pole + Vector2(0, -30), pole + Vector2(22 * (1 - 2 * team), -24 + flutter), pole + Vector2(0, -18)]), c)
-	var race: String = Races.ALL[race_index if team == 0 else Races.rival(race_index)]["name"]
-	pen.text_outline(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, 5, Color(0, 0, 0, 0.7))
-	pen.text(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, c.lightened(0.35))
+	var race_i := race_index if team == 0 else rival_index
+	if race_i >= 0:  # przeciwnik nieznany w menu — losujemy go przy starcie
+		var race: String = Races.ALL[race_i]["name"]
+		pen.text_outline(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, 5, Color(0, 0, 0, 0.7))
+		pen.text(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, c.lightened(0.35))
 	if base_flash[team] > 0:
 		pen.rect(body, Color(1, 1, 1, base_flash[team] * 4.0))
 	var frac := sim.base_hp[team] / Cfg.BASE_HP[team]

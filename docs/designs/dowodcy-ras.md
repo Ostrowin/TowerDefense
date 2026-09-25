@@ -48,7 +48,8 @@ Zatwierdzone w sesji (1–4 bez zmian, 5–6 zmienione wyborem wariantu C):
 3. **Umiejętności to dane** złożone z typów efektów z tabeli R1 (8 typów w tej iteracji + ewentualne dla gibonów);
    każda działa dla obu drużyn (parametr `team`) od pierwszego dnia i jest tak testowana.
 4. Poza dowódcą i umiejętnością rasy **rasy dzielą budynki i jednostki**. Osobne armie ras — później.
-5. *(zmienione)* **Boss-dowódca rywala jest w zakresie tej iteracji** (nie odkładamy go): co `BOSS_EVERY` fal
+5. *(zmienione w eng review, D5)* **Wróg w tej iteracji nie ma dowódcy** — boss rywala usunięty; „AI dowódcy wroga” (samo decyduje, gdzie się przyda) w backlogu. Umiejętności dalej działają dla obu drużyn.
+   ~~Boss-dowódca rywala jest w zakresie tej iteracji~~ (nie odkładamy go): co `BOSS_EVERY` fal
    zamiast Wodza, sterowany prostym skryptem, na tych samych danych umiejętności. W kolejności tasków przychodzi ostatni (T12).
 6. *(zmienione)* W zakresie są **wszystkie 6 dowódców i obie strony**, ale taski są ułożone tak, żeby
    pierwszy grywalny punkt kontrolny (Saper gracza na telefonie, T9) przyszedł wcześnie.
@@ -137,7 +138,7 @@ Prawdziwe `Sim.Building` z flagą `temporary` i czasem życia: nie da się ich z
 nie liczą się do `lane_defense`, `buildings_lost` ani nagród za zburzenie; znikają ze zdarzeniem `summon_expired`.
 Blokują pole budowy na czas życia (`layout_version` rośnie przy postawieniu i zniknięciu).
 
-### R8. Boss rywala
+### R8. Boss rywala — USUNIĘTE z iteracji (eng review, D5)
 
 - Wybór: losowo (rng sima, więc powtarzalnie w testach) jeden z 3 dowódców rasy rywala na całą partię.
 - Pojawia się w fali `BOSS_EVERY` zamiast Wodza, na ścieżce fali; nie odradza się; jeśli poprzedni boss żyje,
@@ -214,6 +215,10 @@ Etap 2 — CC ~1 sesja + projekt gibonów po stronie użytkownika; Etap 3 — CC
 
 ## Open Questions
 
+- **Rozszerzenie 2026-09-25:** grywalne są też hieny i dziki; przeciwnik jest losowany przy starcie partii spośród
+  pozostałych grywalnych ras (więc boss rywala z R8 pochodzi z wylosowanej rasy). Katalog 12 dowódców (krety, gibony,
+  hieny, dziki) i nowych typów efektów: [dowodcy-katalog.md](dowodcy-katalog.md). Czy ta iteracja obejmuje 6 czy 12
+  dowódców — do ustalenia w `/plan-eng-review`.
 1. ✅ **Rozstrzygnięte 2026-09-25: efekt dla armii** („żeby gra była jak najbardziej różnorodna”, balans później).
    **Podkop (umiejętność kretów):** efekt dla armii (jednostki na wybranej ścieżce schodzą pod ziemię, są
    nietykalne dla wież i jednostek, wynurzają się ze wstrząsem) czy ruch dowódcy (przejście pod rzeką / skok)?
@@ -261,13 +266,13 @@ zachowało regułę „swoja połowa” (lustrzaną dla wroga) — zasięg od do
   `strike`/`summon_units`/`global`. Testy mechaniki dla team 0 i team 1; stare testy zielone.
 
 **Etap 1 — dowódca gracza (punkt kontrolny na telefonie)**
-- **T4. Dane dowódców.** `Cfg.COMMANDERS` (rasa, statystyki postaci, 3 umiejętności, czas odrodzenia) i
+- **T4. Dane dowódców** (eng review: 12 dowódców — D1; dane w cfg.gd — D7; odrodzenie wspólną formułą z R4, bez pola per dowódca — Q2; API: `Sim.new(..., commander)` (od Etapu 4 także `mode`, `mods`, rozkazy dla drużyny 1), `order_hero(pos)`, odczyt bohatera). `Cfg.COMMANDERS` (rasa, statystyki postaci, 3 umiejętności) i
   `Cfg.RACIAL` (umiejętność rasy); lista dowódców rasy dostępna z `Races`; „Weteran” jako zastępca (R10).
-- **T5. Bohater w `Sim`** według R4 (typ, maszyna stanów, odrodzenie, zasięg rzucania). Testy: marsz przez most,
+- **T5. Bohater w `Sim`** jako `class Hero extends Unit` (D3: w `units` i `_grid`, poza `team_count`/`army_size`/`lane_defense`, pancerz z `Cfg.COMMANDERS`; testy: wieża, jednostka i obszar ranią i zabijają bohatera) według R4 (typ, maszyna stanów, odrodzenie, zasięg rzucania). Testy: marsz przez most,
   walka i powrót do punktu (smycz 120 px), śmierć → odrodzenie z nietykalnością, umiejętności wyszarzone po śmierci.
 - **T6. Nowe typy efektów** z R1 (`zone`, `summon_building` według R7, `buff`, `line`, `execute`, `demolish`),
   każdy z testem dla obu drużyn.
-- **T7. Widok.** Bohater rysowany przez `pen`; tryb `hero` i reguły dotyku z R6; portret w HUD; okrąg zasięgu;
+- **T7. Widok.** Bohater rysowany przez `pen`; tryb `hero` i reguły dotyku z R6 poprawione D6 (po rozkazie zostaje zaznaczony; budynek/złoże/wieża wroga = normalna akcja i odznaczenie); portret w HUD; okrąg zasięgu;
   pasek z umiejętności dowódcy + rasowej; skróty Q/E/R/T/H; **samouczek** (krok „przesuń dowódcę”, krok umiejętności
   zamiast „Deszczu strzał”), ekran „Jak grać”. Smoke test: wybór, marsz, rzucenie, odznaczenie zdarzeniami wejścia.
   Zrzuty paska przy ×1,3 dla 16:9 i 20:9.
@@ -281,15 +286,22 @@ zachowało regułę „swoja połowa” (lustrzaną dla wroga) — zasięg od do
 **Etap 2 — pozostali dowódcy**
 - **T10. Snajper i Magma** (krety) — dane z typów R1 (np. Snajper: `execute`, `line`, `strike`; Magma: `zone` lawy,
   `strike` erupcji, `summon_building` wulkanu).
+- **T11b. Hieny i dziki** (D1) — 6 dowódców i 2 umiejętności ras z [dowodcy-katalog.md](dowodcy-katalog.md); nowe typy `raise_dead`, `bounty_buff`, szarża, `weaken`, `leap`, `repel` z testami dla obu drużyn.
 - **T11. Gibony** — 3 dowódców i umiejętność rasy (po pytaniu 2); dane + ewentualne typy `pull`, `taunt` z testami.
   „Weteran” znika albo zostaje jako dowódca treningowy.
 
 **Etap 3 — druga strona i całość**
-- **T12. Boss rywala** według R8 i R9. Testy: boss pojawia się zamiast Wodza, nie przepada z kolejki, rzuca
+- ~~**T12. Boss rywala**~~ — usunięte (D5). Dawniej: według R8 i R9. Testy: boss pojawia się zamiast Wodza, nie przepada z kolejki, rzuca
   umiejętności, drugi boss nie pojawia się, gdy pierwszy żyje.
-- **T13. Balans i domknięcie.** Macierz R11 dla wszystkich dowódców; `perf_test` rozszerzony o scenariusz
+- **T13. Balans i domknięcie** (+ kontrakt regresji D8: tabela botów bez dowódcy = 8d8fa4c; perf: strefy/aury przez `_grid`, trasa tylko przy rozkazie — P1/P2). Macierz R11 dla wszystkich dowódców; `perf_test` rozszerzony o scenariusz
   z kryteriów sukcesu (bot rzuca, boss wymuszony) na telefonie; dokumentacja (DECISIONS: wyjątek od D4 i dowódcy;
   ARCHITECTURE: typy efektów, bohater, nawigacja; README).
+
+**Etap 4 — rozbudowa (CEO review 2026-09-25, SCOPE EXPANSION; plan CEO: ~/.gstack/projects/TowerDefense/ceo-plans/2026-09-25-rozbudowa-gry.md)**
+- **T14. Awans dowódcy (E2, D3):** doświadczenie za zabicia, progi 2 i 3, wybór 1 z 2 ulepszeń umiejętności (dane w Cfg); bot wybiera wg prostej reguły; test Sim.
+- **T15. Tryb przetrwania (E4, D5):** flaga trybu w `Sim` (baza wroga nie do zburzenia, wynik = fale), rekord per mapa i dowódca w `Progress`; test Sim.
+- **T16. Wyzwanie dnia (E3, D4):** ziarno z daty, 6–8 modyfikatorów jako mnożniki w Cfg, przycisk w menu, rekord dnia; test powtarzalności ziarna.
+- **T17. Pojedynek lokalny 2 graczy (E5, D6):** ekonomia i budowa dla drużyny 1 jak dla gracza (test w `Sim`), lustrzany HUD (druga połowa ekranu), dwóch dowódców, wyłączone fale AI i Wódz; gesty dwoma palcami (przesuwanie/zoom) kolidują z dotykiem obu graczy — do rozstrzygnięcia przed T17; smoke test obu stron.
 
 ## The Assignment
 
@@ -589,3 +601,261 @@ Stop: CONVERGENCE
 
 > R1's damage column now covers strike, zone, line and demolish, but the execute row still has no damage type for armor and no flying rule. The original 'for each damaging kind' obligation remains unmet for execute.
 <!-- gstack:office-hours:concerns:end -->
+
+## Eng review 2026-09-25 (/plan-eng-review)
+
+Cel przeglądu: ten projekt (T4–T13; Etap 0 zrobiony w 8d8fa4c). Plik raportu: ten dokument.
+
+### Zakres (Scope Challenge B)
+
+feature answers: D1 = A „Włącz do iteracji” (dowódcy hien i dzików w tej iteracji: 12 dowódców, katalog [dowodcy-katalog.md](dowodcy-katalog.md)); structure: D2 = A „Original arrangement” (osobna klasa `Sim.Hero`, celowanie/obrażenia/pociski/obszar/mróz przerobione tak, by widziały bohatera); accepted scope: T4–T13 dla 4 ras (krety, gibony, hieny, dziki), bohater jako osobny typ; pending remedies: R2-1…R2-26 (uwagi recenzenta), rozstrzygane w sekcjach 1–4.
+
+## Decision ledger
+
+### R-A1: jak bohater staje się celem dla wroga
+Finding: A1, P1, confidence 9/10, scripts/sim.gd — `var target_unit: Unit` (Shot), `func _damage_unit(u: Unit, dmg: float, kind: String)`, `func _nearest_unit(team, from, max_dist, anti_air) -> Unit` iterujące `_grid` z `units`; reviewer: Claude (plan-eng-review), zgłoszone też jako R2-1.
+Plan baseline: D2 = A (osobna klasa `Sim.Hero`, celowanie przerobione tak, by widziało bohatera); mechanizm nieustalony.
+Runtime evidence: dziś cała walka operuje na `Sim.Unit` w tablicy `units` i siatce `_grid`; brak typu bohatera.
+Comparison grid:
+| Wybór | Obecnie | A | B |
+|---|---|---|---|
+| Mechanizm widoczności bohatera | brak | `class Hero extends Unit`, bohater w `units` i `_grid`; wyjątki dla limitów/obrony/sprzątania | osobna tablica `heroes`, wspólny interfejs celu, przeróbka `_nearest_unit`, `Shot`, `_impact`, `_damage_unit`, mrozu, salw |
+| Osobna klasa (D2) | approved | zachowana | zachowana |
+Question D3: (pełny tekst w AskUserQuestion D3)
+Header: Bohater jako cel
+Options:
+A) Hero extends Unit (recommended)
+B) Osobna tablica + interfejs
+State: approved
+Actual answer: A) Hero extends Unit (D3, 2026-09-25)
+Accepted scope: `class Hero extends Unit` (pola dowódcy: goal, path, stan, odrodzenie) w `units` i `_grid`; celowanie, pociski, obszar, mróz i salwy bez zmian; wyjątki: poza `team_count`/`army_size`/`lane_defense`, pancerz z `Cfg.COMMANDERS`, trwały rekord bohatera przeżywa sprzątanie martwych; testy: wieża, jednostka wroga i pocisk obszarowy ranią i zabijają bohatera, bohater nie zmienia limitów ani obrony ścieżek.
+History: —
+
+### R-A2: jak porusza się boss-dowódca rywala
+Finding: A2, P1, confidence 8/10, projekt R8 („Idzie ścieżką jak Wódz (nie schodzi z niej)”) vs R4 (bohater bez ścieżki, ruch A*); scripts/sim.gd `_update_unit` (Wódz = zwykły Unit: aggro zasięg + AGGRO, powrót przez `_follow_lane`); reviewer: Claude, też R2-2.
+Plan baseline: R8 propozycja „idzie ścieżką jak Wódz”; reprezentacja nieustalona; D3 = Hero extends Unit.
+Runtime evidence: Wódz schodzi ze ścieżki do walki i wraca `_follow_lane`; Hero (D3) dziedziczy pola `lane`, `s`, `on_path`.
+Comparison grid:
+| Wybór | Obecnie | A | B |
+|---|---|---|---|
+| Ruch bossa | nieustalony | Hero w trybie „ścieżka”: logika ścieżki/aggro jak Wódz (dziedziczona z Unit) + rzucanie umiejętności | Hero w trybie „trasa”: A* do bazy gracza jak bohater gracza, bez ścieżki |
+Question D4: (pełny tekst w AskUserQuestion D4)
+Header: Ruch bossa
+Options:
+A) Jak Wódz, po ścieżce (recommended)
+B) Po trasie A*
+State: approved (nieaktualne)
+Actual answer: brak wyboru A/B — w odpowiedzi na D4 użytkownik przeformułował kierunek (dowódca jak w Supreme Commander / Warhammer 40k; AI dowódcy wroga w przyszłości); rozstrzygnięte w D5
+Accepted scope: none — boss rywala usunięty z iteracji (R-S1), więc ruch bossa nie dotyczy tej iteracji
+History: D4 zadane 2026-09-25, odpowiedź przeformułowała zakres.
+
+### R-S1: wróg bez dowódcy w tej iteracji
+Finding: S1, zmiana zakresu zgłoszona przez użytkownika przy D4; dotyczy przesłanki 5, R8, R9 (część bossa), T12.
+Plan baseline: przesłanka 5 (office hours, wariant C) — boss-dowódca rywala co `BOSS_EVERY` fal.
+Runtime evidence: umiejętności działają już dla obu drużyn (8d8fa4c, `use_ability(id, at, team)`, testy `_test_abilities_both_teams`).
+Comparison grid:
+| Wybór | Obecnie | A | B |
+|---|---|---|---|
+| Dowódca wroga w iteracji | boss co 10 fal (T12) | brak; Wódz jak dziś; „AI dowódcy wroga” w backlogu | boss zostaje |
+| Umiejętności dla obu drużyn | zrobione | bez zmian | bez zmian |
+Question D5: (pełny tekst w AskUserQuestion D5)
+Header: Dowódca wroga
+Options:
+A) Bez bossa, AI później (recommended)
+B) Zostaw bossa w planie
+State: approved
+Actual answer: A) Bez bossa, AI później (D5, 2026-09-25)
+Accepted scope: usunąć T12, R8 i wiersze bossa z R9/R11 z tej iteracji; Wódz co 10 fal bez zmian; „AI dowódcy wroga (decyduje, gdzie się przyda)” do backlogu; umiejętności i ich testy dla obu drużyn zostają. Uwagi recenzenta dotyczące bossa (R2-2, R2-5, R2-6, R2-7, część R2-19, R2-21) nie dotyczą tej iteracji.
+History: zastępuje przesłankę 5 i wariant C z /office-hours (tylko część „druga strona”).
+
+### R-A3: zaznaczenie dowódcy po rozkazie i pierwszeństwo stuknięć
+Finding: A3, P2, confidence 8/10, projekt R6 („stuknięcie w mapę = rozkaz marszu (ma pierwszeństwo przed złożem, budynkiem i wieżą wroga)”); scripts/main.gd `_tap` (złoże → wydobywacz, własny budynek → zaznacz); reviewer: Claude, też R2-13, R2-14.
+Plan baseline: R6 (propozycja): w trybie `hero` każde stuknięcie w mapę = rozkaz; utrzymywanie zaznaczenia po rozkazie nieokreślone.
+Runtime evidence: dziś `_tap` obsługuje złoża i budynki; brak trybu `hero`.
+Comparison grid:
+| Wybór | Obecnie | A | B |
+|---|---|---|---|
+| Po rozkazie | nieokreślone | dowódca zostaje zaznaczony (jak w Supreme Commander) | zaznaczenie znika po rozkazie |
+| Stuknięcie w budynek/złoże przy zaznaczonym dowódcy | rozkaz (R6) | normalna akcja + odznaczenie dowódcy | normalna akcja (dowódca już odznaczony) |
+| Stuknięcie w pusty teren przy zaznaczonym | rozkaz | rozkaz | nie dotyczy (trzeba znów wybrać) |
+Question D6: (pełny tekst w AskUserQuestion D6)
+Header: Zaznaczenie
+Options:
+A) Zostaje zaznaczony (recommended)
+B) Odznacza po rozkazie
+State: approved
+Actual answer: A) Zostaje zaznaczony (D6, 2026-09-25)
+Accepted scope: po rozkazie dowódca zostaje zaznaczony; pusty teren = kolejny rozkaz; własny budynek, złoże, wieża wroga = normalna akcja i odznaczenie dowódcy; Esc/Wstecz lub stuknięcie w dowódcę = odznacz; testy w ui_smoke_test (rozkaz, drugi rozkaz, stuknięcie w złoże przy zaznaczonym dowódcy stawia wydobywacz i odznacza).
+History: —
+
+### R-Q1: gdzie trzymać dane dowódców i ich umiejętności
+Finding: Q1, P2, confidence 8/10, scripts/cfg.gd (206 linii; `const ABILITIES := {` z 3 wpisami), projekt T4 („`Cfg.COMMANDERS` … i `Cfg.RACIAL`”); wzorzec: scripts/levels.gd (`class_name Levels`), scripts/races.gd (`class_name Races`); reviewer: Claude.
+Plan baseline: T4 — dane w `Cfg.COMMANDERS`, `Cfg.RACIAL`, umiejętności w `Cfg.ABILITIES`.
+Runtime evidence: Cfg trzyma balans jednostek/budynków/fal; mapy i rasy mają osobne pliki danych.
+Comparison grid:
+| Wybór | Obecnie | A | B |
+|---|---|---|---|
+| Miejsce danych dowódców (12) i umiejętności (~40) | plan: cfg.gd | nowy `scripts/commanders.gd` (`Commanders`: dowódcy, umiejętności ras, umiejętności) | cfg.gd |
+| Obecne 3 umiejętności („Weteran”) | Cfg.ABILITIES | przenoszone do Commanders | zostają w Cfg |
+Question D7: (pełny tekst w AskUserQuestion D7)
+Header: Dane dowódców
+Options:
+A) Osobny commanders.gd (recommended)
+B) Wszystko w cfg.gd
+State: approved
+Actual answer: B) Wszystko w cfg.gd (D7, 2026-09-25)
+Accepted scope: bez zmiany planu — `Cfg.COMMANDERS`, `Cfg.RACIAL`, `Cfg.ABILITIES` (~40 wpisów) w scripts/cfg.gd; bez nowego pliku danych.
+History: —
+
+### R-T1: kontrakt regresji walki i balansu
+Finding: T1, P1 (CRITICAL — reguła regresji), confidence 9/10, scripts/sim.gd `_update_unit`, `_damage_unit` (`Cfg.UNITS[u.kind].get("armor", 0.0)`), `team_count`, `army_size`, `lane_defense`; tests/bot_test.gd (mecze botów, tabela); reviewer: Claude.
+Plan baseline: T5/T6 zmieniają logikę jednostek; plan nie określa, co ma zostać bez zmian.
+Runtime evidence: tabele meczów botów po Etapie 0 identyczne z a6b49e9 (porównanie 2026-09-25).
+Comparison grid:
+| Wybór | Obecnie | A | B |
+|---|---|---|---|
+| Sim bez dowódcy (`Sim.new(d, seed, lv)`) | = gra dziś | identyczna tabela meczów botów jak 8d8fa4c (asercja porównania w bot_test) | tylko istniejące testy mechanik zielone |
+| Zamierzone zmiany | — | menu wyboru dowódcy, pasek z umiejętności dowódcy, nowe typy efektów — tylko z wybranym dowódcą | to samo |
+Question D8: (pełny tekst w AskUserQuestion D8)
+Header: Regresja
+Options:
+A) Identyczna gra bez dowódcy (recommended)
+B) Tylko obecne testy
+State: approved
+Actual answer: A) Identyczna gra bez dowódcy (D8, 2026-09-25)
+Accepted scope: tabela wzorcowa meczów botów z 8d8fa4c zapisana w tests/; bot_test porównuje tabelę dla `Sim.new` bez dowódcy (różnica = błąd); zamierzone zmiany (menu dowódcy, pasek, nowe typy) tylko z wybranym dowódcą; aktualizacja tabeli wzorcowej wyłącznie świadomie.
+History: —
+
+### R-TD1: TODO — podział main.gd
+Finding: Q4, P3, confidence 7/10, scripts/main.gd (~2000 linii: render, HUD, input, menu, samouczek); T7 dokłada sterowanie dowódcą, portret i pasek; reviewer: Claude.
+Plan baseline: brak.
+Runtime evidence: main.gd to jeden plik widoku; ARCHITECTURE „Kierunek dalszego rozbicia” wspomina HUD jako osobną scenę.
+Comparison grid:
+| Wybór | Obecnie | A | B | C |
+|---|---|---|---|---|
+| Podział main.gd | brak | wpis w TODO.md | pomiń | zrób w tej iteracji (przed T7) |
+Question D9: (pełny tekst w AskUserQuestion D9)
+Header: TODO main.gd
+Options:
+A) Dodaj do TODO (recommended)
+B) Pomiń
+C) Zrób teraz
+State: approved
+Actual answer: A) Dodaj do TODO (D9, 2026-09-25)
+Accepted scope: wpis w TODO.md „podział main.gd (HUD, sterowanie dowódcą) na osobne pliki, najlepiej przed większymi zmianami widoku”; bez zmian w kodzie teraz.
+History: —
+
+Approval readiness: PASS — R-A1 (D3), R-A2 (nieaktualne, D5), R-S1 (D5), R-A3 (D6), R-Q1 (D7), R-T1 (D8), R-TD1 (D9); zakres: D1, D2.
+
+### NOT in scope
+- Boss-dowódca rywala (T12, R8) — usunięty (D5); zastąpi go kiedyś AI dowódcy wroga (backlog).
+- AI dowódcy wroga — backlog; umiejętności i ich testy dla obu drużyn już są.
+- Podział `main.gd` — TODO (D9).
+
+### What already exists
+- `Sim.use_ability(id, at, team)` + typy `strike`/`summon_units`/`global` z testami dla obu drużyn (8d8fa4c) — reużywane przez T6.
+- `Sim.path_to` (A*, mosty, test przecieków) — ruch dowódcy w T5.
+- `Sim.Unit`, `_nearest_unit`, `Shot`, `_impact`, `_damage_unit`, mróz — walka dowódcy przez dziedziczenie (D3), bez przeróbek.
+- `Painter` (`pen.*`) — rysowanie bohatera i stref bez nowych wywołań rysowania.
+
+### Failure modes
+| Ścieżka | Realna awaria | Pokrycie | Widoczna? |
+|---|---|---|---|
+| Hero w licznikach | bohater liczy się do limitu armii / obrony ścieżek | test T5 + kontrakt D8 | cicha — łapie test |
+| Hero jako cel | któraś ścieżka trafień pomija bohatera | dziedziczenie D3 + testy T5 | widoczna (nieśmiertelny) |
+| Rozkaz ruchu | cel na wodzie / nieosiągalny | `path_to` → najbliższy ląd (test Etapu 0) | widoczna |
+| Dotyk | zaznaczony dowódca „łapie” stuknięcie w budynek | reguła D6 + smoke test | widoczna |
+| Strefy/aury | pętla po wszystkich jednostkach co krok → spadek FPS | wymóg `_grid` (P1) + perf_test | widoczna (FPS) |
+Critical gaps: 0.
+
+### Worktree parallelization strategy
+| Step | Modules touched | Depends on |
+|---|---|---|
+| T4 dane | scripts (cfg, races) | — |
+| T5 bohater | scripts (sim), tests | T4 |
+| T6 typy efektów | scripts (sim, cfg), tests | T4 |
+| T7–T8 widok, menu | scripts (main), tests (smoke) | T5 |
+| T9–T11b treść dowódców | scripts (cfg), tests | T5, T6 |
+| T13 balans, perf | tests, docs | T9–T11b |
+Lane A: T4 → T5 → T7–T8 (sim, main) · Lane B: T6 (sim) — po T4, równolegle z T5 tylko przy rozdzielnych funkcjach sim.gd; konflikt w `scripts/sim.gd` → w praktyce sekwencyjnie. Sequential implementation, no parallelization opportunity worth the merge risk.
+
+## Implementation Tasks
+Synthesized from this review's findings. Each task derives from a specific
+finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **ET1 (P1, human: ~2 dni / CC: ~30 min)** — Sim — `class Hero extends Unit` z wyjątkami liczników i pancerzem z `Cfg.COMMANDERS`
+  - Surfaced by: Architektura — R-A1 (D3)
+  - Files: scripts/sim.gd, tests/bot_test.gd
+  - Verify: bot_test --mechanics (wieża/jednostka/obszar zabijają bohatera; limity i obrona bez zmian)
+- [ ] **ET2 (P1, human: ~3 h / CC: ~20 min)** — tests — kontrakt regresji: tabela wzorcowa botów z 8d8fa4c + porównanie
+  - Surfaced by: Testy — R-T1 (D8)
+  - Files: tests/bot_test.gd, tests/ (tabela wzorcowa)
+  - Verify: pełny bot_test przed i po T5/T6
+- [ ] **ET3 (P2, human: ~1 dzień / CC: ~20 min)** — main — tryb `hero` z regułami D6
+  - Surfaced by: Architektura — R-A3 (D6)
+  - Files: scripts/main.gd, tests/ui_smoke_test.gd
+  - Verify: smoke test (rozkaz, drugi rozkaz, złoże przy zaznaczonym dowódcy)
+- [ ] **ET4 (P2, human: ~1 h / CC: ~5 min)** — plan — usunąć boss z R9/R11, poprawić przesłankę 3 (17 typów) i T4 (odrodzenie z R4)
+  - Surfaced by: Scope — R-S1 (D5); Jakość — Q2, Q3
+  - Files: docs/designs/dowodcy-ras.md
+  - Verify: przegląd dokumentu
+- [ ] **ET5 (P2, human: ~2 h / CC: ~15 min)** — Sim — strefy/aury/wskrzeszanie przez `_grid`, trasa tylko przy rozkazie
+  - Surfaced by: Wydajność — P1, P2
+  - Files: scripts/sim.gd, tests/perf_test.gd
+  - Verify: perf_test (desktop i `-Bench` na telefonie), p95 ≤ ~25 ms
+- [ ] **ET6 (P3, human: ~1 dzień / CC: ~30 min)** — main — podział main.gd (TODO)
+  - Surfaced by: Jakość — Q4 (D9)
+  - Files: scripts/main.gd
+  - Verify: smoke test
+
+(JSONL dla /autoplan nie zapisany: brak `jq` w systemie — zainstaluj jq, żeby /autoplan agregował taski.)
+
+### Unresolved decisions
+Brak w tym przeglądzie.
+
+### Completion summary
+- Step 0: Scope Challenge — scope accepted as-is (rozszerzony: 12 dowódców, D1; zawężony: bez bossa, D5)
+- Architecture Review: 3 issues found
+- Code Quality Review: 4 issues found
+- Test Review: diagram produced, ~30 gaps identified (planowane testy T5–T9) + kontrakt regresji
+- Performance Review: 3 issues found
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 2 items (1 zapytany, 1 z D5)
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0 in this review
+- Outside voice: codex — unavailable (model gpt-6-astra nieobsługiwany na koncie ChatGPT; brak TaskOutput dla fallbacku)
+- Parallelization: 1 lane, 0 parallel / 6 sequential
+- Lake Score: 1/1 = D8 (wybrano pełne pokrycie)
+
+### Suppressed findings (appendix)
+- (confidence 4/10) Pieśń gibonów i Szarża dzików to oba `buff` armii — możliwe zlewanie się ras; sprawdzić w balansie T13.
+
+## Reviewer Concerns (CEO review 2026-09-25, spec review 3/10 — do przeglądu przed Etapem 4)
+- T15: warunek końca przetrwania, skalowanie fal, Wódz w przetrwaniu.
+- T16: lista 6–8 modyfikatorów; czy mapa/rasa/dowódca z ziarna; zapis rekordu dnia w `Progress`.
+- T17: wybór rasy/dowódcy drugiego gracza, warunek wygranej, kamera (podzielony czy wspólny widok), gesty.
+- T14: progi doświadczenia, pula ulepszeń (~80), doświadczenie po śmierci.
+- Zakres: E5 (L) + E2/E3 ~podwajają iterację; brak osobnego punktu kontrolnego na telefonie dla Etapu 4.
+
+## CEO review 2026-09-25 (/plan-ceo-review, SCOPE EXPANSION, głębokość: strategia)
+
+Decyzje: D1 tryb SCOPE EXPANSION; D2 E1 kampania → TODO; D3 E2 awans → plan (T14); D4 E3 wyzwanie dnia → plan (T16); D5 E4 przetrwanie → plan (T15); D6 E5 pojedynek 2 graczy → plan (T17); D7 dokumenty zatwierdzone. Plan CEO: ~/.gstack/projects/TowerDefense/ceo-plans/2026-09-25-rozbudowa-gry.md.
+Approval readiness: PASS — D2–D7.
+Ostrzeżenia sekcji: (1) E5 wymaga symetrycznej ekonomii drużyny 1 (`gold`, `build`) — największe ryzyko Etapu 4; (7) limity populacji i perf_test na telefonie dla pojedynku; (11) menu i lustrzany HUD — `/plan-design-review` przed Etapem 4.
+Outside voice: niedostępny (Codex: model nieobsługiwany; brak TaskOutput). Spec review: 3/10, 12 uwag → „Reviewer Concerns (CEO review)”.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | ISSUES OPEN | 5 proposals, 4 accepted, 1 deferred |
+| Outside Review | codex via plan reviews | Independent 2nd opinion | 2 | unavailable | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES OPEN | 11 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **OUTSIDE COVERAGE:** codex, plan-review (eng i CEO) — unavailable; brak zewnętrznego przeglądu.
+- **VERDICT:** brak przeglądów CLEAR; Etap 4 (T14–T17) wymaga przeglądu szczegółów — eng review required.
+
+NO UNRESOLVED DECISIONS

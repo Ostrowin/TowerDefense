@@ -1,8 +1,8 @@
 class_name Races
 extends RefCounted
 ## Rasy (frakcje) wspólne dla gier z tego samego świata — id i kolory jak w pozostałych grach.
-## Na razie to tożsamość: nazwa, kolor i hasło w menu oraz kto z kim walczy — bez wpływu na
-## statystyki. Grywalne mają `playable`; reszta widnieje w menu jako „Wkrótce".
+## Na razie to tożsamość: nazwa, kolor i hasło w menu — bez wpływu na statystyki. Grywalne mają
+## `playable`; reszta widnieje w menu jako „Wkrótce". Przeciwnik gracza to losowa inna grywalna rasa.
 ##
 ## Klucze rasy:
 ##   id        — stały identyfikator (wspólny z innymi grami)
@@ -22,9 +22,9 @@ const ALL: Array[Dictionary] = [
 	# gibony zastąpiły goryle (2026-09-25)
 	{"id": "gibbon", "name": "Gibony", "color": Color("#d9c29c"), "blurb": "Długie ręce. Głośny śpiew.", "playable": true},
 	{"id": "rat", "name": "Szczury", "color": Color("#b6d94c"), "blurb": "Choroba na czterech łapach.", "playable": false},
-	{"id": "boar", "name": "Dziki", "color": Color("#9c3b1e"), "blurb": "Pełen gaz. Bez hamulców.", "playable": false},
+	{"id": "boar", "name": "Dziki", "color": Color("#9c3b1e"), "blurb": "Pełen gaz. Bez hamulców.", "playable": true},
 	{"id": "otter", "name": "Wydry", "color": Color("#3fa7a0"), "blurb": "Trzymają drużynę przy życiu.", "playable": false},
-	{"id": "hyena", "name": "Hieny", "color": Color("#c9a227"), "blurb": "Śmieją się z rannych.", "playable": false},
+	{"id": "hyena", "name": "Hieny", "color": Color("#c9a227"), "blurb": "Śmieją się z rannych.", "playable": true},
 ]
 
 
@@ -35,10 +35,10 @@ static func first_playable() -> int:
 	return 0
 
 
-## Przeciwnik rasy: pierwsza inna grywalna. Póki grywalne są dwie, to para Krety ↔ Gibony;
-## przy kolejnych rasach przeciwnika wybierze gracz albo los.
-static func rival(index: int) -> int:
+## Przeciwnik gracza: losowo jedna z pozostałych grywalnych ras (losowana przy starcie partii).
+static func random_rival(index: int, rng: RandomNumberGenerator) -> int:
+	var others: Array[int] = []
 	for i in ALL.size():
 		if i != index and ALL[i]["playable"]:
-			return i
-	return index
+			others.append(i)
+	return index if others.is_empty() else others[rng.randi_range(0, others.size() - 1)]

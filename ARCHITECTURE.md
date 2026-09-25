@@ -9,7 +9,7 @@ export_presets.cfg       preset „Android”: APK bez Gradle, arm64-v8a, pl.tow
 main.tscn                jeden węzeł Node2D ze skryptem scripts/main.gd
 scripts/cfg.gd           Cfg      — balans: jednostki, budynki, umiejętności, fale, trudności, stałe wspólne dla map
 scripts/levels.gd        Levels   — mapy jako dane (ścieżki, bazy, rzeka, złoża, sloty wież wroga, strefa budowy)
-scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + kto z kim walczy
+scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + losowanie przeciwnika
 scripts/sim.gd           Sim      — logika gry: stan, rozkazy gracza, step(dt), zdarzenia. Zero węzłów i rysowania.
 scripts/main.gd          widok: kamera, render (_draw + warstwa terenu), HUD, minimapa, menu, nakładki, samouczek
 scripts/painter.gd       Painter  — kształty (koła, łuki, linie, wielokąty) sklejane w jedno wywołanie rysowania

@@ -22,8 +22,9 @@ złoto (pasywne + wydobywacze; sporne złoża przy ścieżkach wroga dają więc
 ## Rasy
 
 Świat wspólny z innymi grami: 12 ras (niedźwiedzie, wilki, lisy, zające, krety, jeże, nietoperze, gibony,
-szczury, dziki, wydry, hieny). Pierwsze grywalne rasy to **krety i gibony** — wybierasz jedną w menu,
-reszta ras czeka jako „Wkrótce”. Na razie rasa to tożsamość (nazwa, kolor, hasło), bez różnic w statystykach.
+szczury, dziki, wydry, hieny). Grywalne: **krety, gibony, hieny i dziki** — wybierasz jedną w menu, przeciwnik
+jest losowany spośród pozostałych, reszta ras czeka jako „Wkrótce”. Na razie rasa to tożsamość (nazwa, kolor, hasło),
+bez różnic w statystykach — w drodze są dowódcy ras ([projekt](docs/designs/dowodcy-ras.md), [katalog](docs/designs/dowodcy-katalog.md)).
 
 ## Mapy
 

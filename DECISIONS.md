@@ -130,8 +130,15 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 **Dlaczego:** użytkownik buduje kilka gier w jednym świecie i dopiero pracuje nad lore; menu z 12 rasami pokazuje kierunek bez przesądzania mechaniki. Statystyki ras świadomie pominięte.
 **Kompromis:** na mapie zostają barwy drużyn (niebieski — Ty, czerwony — wróg), nie kolory ras — brązowy kret i jasny gibon na ciemnej trawie byłyby mniej czytelne i słabo się od siebie odróżniały. Do zmiany razem z grafiką (P5). Wybór rasy nie jest zapamiętywany między uruchomieniami (jak wybór mapy).
 **Status:** aktywna. Asymetria ras (własne jednostki/mechaniki) — w backlogu, po lore.
+**Zmiana 2026-09-25:** grywalne też hieny i dziki; przeciwnik nie jest już „drugą grywalną rasą”, tylko losowany spośród pozostałych grywalnych przy starcie partii (wybór użytkownika: losowy przeciwnik zamiast stałych par albo wyboru w menu). Menu: „Przeciwnik: losowy”; nazwa przeciwnika na banerze startu, nad fortecą i na ekranie końca.
 
 ### D24 — Dowódcy ras: sterowany bohater po obu stronach (2026-09-25, projekt)
 **Decyzja:** każda rasa dostaje 3 dowódców (krety: Saper, Snajper, Magma — jak specjalizacje w WebSlasherze). Dowódca to wybór przed bitwą (3 umiejętności w pasku + 1 umiejętność rasy, np. Podkop kretów) i postać na mapie sterowana jak bohater w Kingdom Rush (stuknij, stuknij cel; sam walczy, odradza się). Umiejętności to dane z typów efektów, działające dla obu drużyn — wróg dostaje dowódcę rywala jako bossa co 10 fal zamiast Wodza. Zakres: od razu 6 dowódców i obie strony, z punktem kontrolnym na telefonie po pierwszym (Saper).
 **Dlaczego:** najtańsza droga do ras, które naprawdę grają inaczej (bez 12 osobnych armii), spójna ze światem innych gier użytkownika. Sterowanie jedną postacią to **świadomy wyjątek od D4** (walka automatyczna) — armia dalej maszeruje sama. Wzór sterowania sprawdzony na telefonach (Kingdom Rush). Sesja /office-hours 2026-09-25; szczegóły, reguły R1–R11 i lista tasków: [docs/designs/dowodcy-ras.md](docs/designs/dowodcy-ras.md).
 **Status:** w realizacji — Etap 0 (rzeka w `Sim`, nawigacja, umiejętności jako typy efektów dla obu drużyn) zrobiony 2026-09-25. Podkop = efekt dla całej armii; gibony = kopia goryli z WebSlashera.
+
+### D25 — Przeglądy planu dowódców: eng + CEO (2026-09-25)
+**Decyzja:** (eng review) 12 dowódców w iteracji (także hieny i dziki); bohater jako `class Hero extends Unit` — walka widzi go bez przeróbek, wyjątki w limitach i obronie ścieżek; boss rywala usunięty, AI dowódcy wroga w backlogu (wizja: dowódca jak w Supreme Commander / 40k); po rozkazie dowódca zostaje zaznaczony, stuknięcie w budynek/złoże działa normalnie; dane w `cfg.gd`; kontrakt regresji — gra bez dowódcy daje identyczną tabelę botów jak 8d8fa4c. (CEO review, tryb rozszerzenia) do planu: awans dowódcy, tryb przetrwania, wyzwanie dnia, pojedynek 2 graczy lokalnie; kampania do TODO.
+**Dlaczego:** decyzje użytkownika D1–D9 (eng) i D1–D7 (CEO); szczegóły i księga decyzji w [docs/designs/dowodcy-ras.md](docs/designs/dowodcy-ras.md).
+**Status:** aktywna. Etap 4 wymaga przeglądu szczegółów przed T14.
+
