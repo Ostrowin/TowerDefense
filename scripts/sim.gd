@@ -136,6 +136,7 @@ class Building:
 	var flash := 0.0
 	var temporary := false  ## budowla z umiejętności (R7) — znika po `life` s
 	var life := 0.0
+	var life_max := 1.0  ## pełny czas życia (pasek w widoku)
 
 
 class Shot:
@@ -635,6 +636,7 @@ func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
 			var b := _add_building(team, cfg["building"], Cfg.snap(at))
 			b.temporary = true
 			b.life = cfg["duration"]
+			b.life_max = cfg["duration"]
 			events.append({"type": "summon", "pos": b.pos, "team": team, "kind": b.kind})
 		"buff":
 			_cast_buff(team, at, cfg)

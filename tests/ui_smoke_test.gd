@@ -99,19 +99,26 @@ func _process(_delta: float) -> bool:
 			_key(KEY_C)
 			_key(KEY_Q)
 		20:
+			var order: Array = sim.ability_order[0]
 			_check(not main._is_zoomed_in(), "C wraca do widoku całej mapy")
-			_check(main.mode == "ab:arrows", "Q wybiera Deszcz strzał")
-			_click(main._to_screen(sim.lanes[1].point_at(900)))
+			_check(sim.hero() != null and order.size() == 4, "partia z dowódcą: 3 umiejętności + rasowa (%s)" % sim.commander)
+			_check(main.mode == "ab:" + order[0], "Q wybiera pierwszą umiejętność dowódcy")
+			_click(main._to_screen(sim.hero().pos + Vector2(900, 0)))
 		22:
-			_check(sim.ability_cd[0]["arrows"] > 0 and main.mode == "", "klik na mapie rzuca Deszcz strzał")
-			_key(KEY_R)
-			main.ability_buttons["levy"].emit_signal("pressed")
+			var order: Array = sim.ability_order[0]
+			_check(sim.ability_cd[0][order[0]] == 0.0 and main.mode == "ab:" + order[0], "poza zasięgiem dowódcy — odmowa")
+			_click(main._to_screen(sim.hero().pos + Vector2(40, 0)))
+		23:
+			var order: Array = sim.ability_order[0]
+			_check(sim.ability_cd[0][order[0]] > 0 and main.mode == "", "klik w zasięgu rzuca umiejętność")
+			_key(KEY_T)
+			main.ability_buttons[order[2]].emit_signal("pressed")
 		24:
-			_check(sim.ability_cd[0]["repair"] > 0, "R rzuca Naprawę od razu")
-			_check(main.mode == "ab:levy", "przycisk wybiera Pobór")
-			var before := sim.army_size(0)
-			_click(main._to_screen(sim.lanes[1].point_at(350)))
-			_check(sim.army_size(0) > before, "Pobór wystawia posiłki przy ścieżce")
+			var order: Array = sim.ability_order[0]
+			_check(not Cfg.ABILITIES[order[3]]["target"] and sim.ability_cd[0][order[3]] > 0, "T rzuca umiejętność rasy od razu")
+			_check(main.mode == "ab:" + order[2], "przycisk na pasku wybiera umiejętność")
+			_click(main._to_screen(sim.hero().pos + Vector2(40, 0)))
+			_check(sim.ability_cd[0][order[2]] > 0, "przycisk + klik rzuca umiejętność")
 			_key(KEY_3)
 			cell = sim.free_cell_near(sim.lanes[1].slot_at(420, 70))
 			_click(main._to_screen(cell))
@@ -155,6 +162,30 @@ func _process(_delta: float) -> bool:
 			_check(main.view_size == Cfg.VIEW and is_equal_approx(main.screen.y, Cfg.VIEW.y / Settings.ui_scale()),
 				"zmiana proporcji ekranu przebudowuje HUD")
 			_check(not main._is_zoomed_in(), "po zmianie proporcji kamera dalej pokazuje całą mapę")
+			_check(main.portrait_button.visible, "portret dowódcy w HUD")
+			_click(main._to_screen(sim.hero().pos))
+		42:
+			_check(main.hero_selected, "stuknięcie w dowódcę go zaznacza")
+			cell = sim.lanes[0].point_at(260)  # ścieżka: pusty teren, bez budynków i złóż
+			_click(main._to_screen(cell))
+		44:
+			var h := sim.hero()
+			_check(h.state == "march" and h.post.distance_to(cell) < 30.0, "stuknięcie w teren = rozkaz marszu")
+			_check(main.hero_selected, "po rozkazie dowódca zostaje zaznaczony (D6)")
+			cell = sim.lanes[2].point_at(260)
+			_click(main._to_screen(cell))
+		46:
+			_check(sim.hero().post.distance_to(cell) < 30.0 and main.hero_selected, "drugi rozkaz bez ponownego wyboru")
+			_click(main._to_screen(sim.nodes[0]))
+		48:
+			_check(sim.extractor_on(0) != null, "złoże przy zaznaczonym dowódcy stawia wydobywacz")
+			_check(not main.hero_selected, "akcja na złożu odznacza dowódcę")
+			_key(KEY_H)
+		49:
+			_check(main.hero_selected, "H wybiera dowódcę")
+			_key(KEY_ESCAPE)
+		50:
+			_check(not main.hero_selected and main.state == main.State.PLAY, "Esc odznacza dowódcę (bez pauzy)")
 		1200:
 			# dokładamy gospodarkę i armię, żeby dojść do końca partii
 			sim.gold += 8000

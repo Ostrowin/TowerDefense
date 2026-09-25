@@ -48,7 +48,12 @@ const TAP_SLOP := 12.0
 const ZOOM_MAX := 2.0
 const KEY_PAN_SPEED := 700.0
 const HIT_NOTICE_GAP := 4.0
-const ABILITY_KEYS := {KEY_Q: "arrows", KEY_E: "levy", KEY_R: "repair"}
+## Skróty pól paska umiejętności: Q/E/R — dowódca, T — rasa (kolejność z `sim.ability_order[0]`).
+const ABILITY_KEYS := {KEY_Q: 0, KEY_E: 1, KEY_R: 2, KEY_T: 3}
+const ABILITY_KEY_NAMES: Array[String] = ["Q", "E", "R", "T"]
+## Promień trafienia w dowódcę — w pikselach ekranu, niezależnie od przybliżenia (R6).
+const HERO_PICK := 28.0
+const HERO_COLOR := Color(1.0, 0.85, 0.35)
 
 ## Samouczek: krok kończy się, gdy spełniony jest warunek `done` (sprawdzany co klatkę).
 const TUTORIAL: Array[Dictionary] = [
@@ -57,7 +62,8 @@ const TUTORIAL: Array[Dictionary] = [
 	{"text": "Czerwony „!” pokazuje ścieżkę następnej fali. Postaw przy niej wieżę.", "done": "tower"},
 	{"text": "Kliknij swoje koszary: wybierz ścieżkę natarcia albo ulepsz budynek.", "done": "select_production"},
 	{"text": "Przeciągnij mapę albo przybliż ją kółkiem / dwoma palcami.", "done": "camera"},
-	{"text": "Umiejętności są w prawym dolnym rogu — rzuć Deszcz strzał na grupę wrogów!", "done": "ability"},
+	{"text": "Stuknij swojego dowódcę (albo portret z lewej), potem miejsce na mapie — pójdzie tam i będzie walczył.", "done": "hero"},
+	{"text": "Umiejętności dowódcy są na dole po prawej — rzuć jedną na grupę wrogów!", "done": "ability"},
 	{"text": "Świetnie! Teraz zburz fortecę wroga po prawej. Powodzenia!", "done": "timer"},
 ]
 
@@ -89,6 +95,11 @@ var rival_index := -1  ## rasa przeciwnika — losowana przy starcie partii (-1 
 var difficulty := 1
 var mode := ""  ## "" / klucz budynku z Cfg.BUILD_ORDER / "ab:<umiejętność>"
 var selected: Sim.Building = null
+## Tryb dowódcy (R6, D6): stuknięcie w pusty teren = rozkaz marszu, dowódca zostaje zaznaczony.
+var hero_selected := false
+var hero_ordered := false  ## samouczek: gracz wydał dowódcy rozkaz
+## Dowódca gracza w partii (id z Cfg.COMMANDERS); do czasu wyboru w menu (T8) — pierwszy grywalny rasy.
+var commander_id := ""
 var speed_mult := 1
 var accum := 0.0
 var time := 0.0
@@ -171,7 +182,9 @@ var stance_button: Button
 var speed_button: Button
 var mute_button: Button
 var build_buttons := {}
-var ability_buttons := {}
+var ability_slots: Array[Button] = []  ## pola paska umiejętności (Q/E/R/T)
+var ability_buttons := {}  ## umiejętność → jej pole na pasku (odświeżane z `sim.ability_order`)
+var portrait_button: Button
 var sel_panel: PanelContainer
 var sel_title: Label
 var sel_body: Label
@@ -237,7 +250,9 @@ func _start_bench() -> void:
 
 func _start(d: int) -> void:
 	difficulty = d
-	sim = Sim.new(d, -1, level_index)
+	commander_id = _default_commander(race_index)
+	sim = Sim.new(d, -1, level_index, commander_id)
+	hero_ordered = false
 	_make_terrain()
 	_clear_view_state()
 	speed_mult = 1
@@ -268,6 +283,14 @@ func _select_level(i: int) -> void:
 	_show_menu()
 
 
+## Pierwszy grywalny dowódca rasy (do T8 — potem wybór w menu).
+func _default_commander(race_i: int) -> String:
+	for c in Races.commanders(race_i):
+		if Cfg.commander_ready(c):
+			return c
+	return ""
+
+
 func _select_race(i: int) -> void:
 	if Races.ALL[i]["playable"]:
 		race_index = i
@@ -279,6 +302,7 @@ func _clear_view_state() -> void:
 	hit_notice.clear()
 	mode = ""
 	selected = null
+	hero_selected = false
 	dragging = false
 	panning = false
 	press_button = -1
@@ -315,7 +339,7 @@ func _notification(what: int) -> void:
 func _back() -> bool:
 	if overlay != "":
 		_close_overlay()
-	elif state == State.PLAY and (mode != "" or selected != null):
+	elif state == State.PLAY and (mode != "" or selected != null or hero_selected):
 		_cancel()
 	elif state == State.PLAY or state == State.PAUSED:
 		_set_paused(state == State.PLAY)
@@ -392,6 +416,7 @@ func _on_game_end() -> void:
 	over_delay = OVER_DELAY
 	mode = ""
 	selected = null
+	hero_selected = false
 	dragging = false
 	press_button = -1
 	tutorial_step = -1
@@ -409,7 +434,8 @@ func _on_game_end() -> void:
 	over_title.add_theme_color_override("font_color", GOLD_COLOR if won else TEAM_COLORS[1])
 	var s := sim.stats
 	var lines := PackedStringArray([
-		"%s · przeciwnik: %s · %s · %s · czas %s · fala %d" % [Races.ALL[race_index]["name"], Races.ALL[rival_index]["name"], sim.level["name"], sim.difficulty["name"], _fmt_time(sim.elapsed), sim.wave],
+		"%s%s · przeciwnik: %s · %s · %s · czas %s · fala %d" % [Races.ALL[race_index]["name"],
+			" (%s)" % Cfg.COMMANDERS[commander_id]["name"] if commander_id != "" else "", Races.ALL[rival_index]["name"], sim.level["name"], sim.difficulty["name"], _fmt_time(sim.elapsed), sim.wave],
 		"Zabici wrogowie: %d · wyprodukowane jednostki: %d · umiejętności: %d" % [s["kills"], s["units_made"], s["abilities_used"]],
 		"Zburzone wieże: %d · stracone budynki: %d · zarobione złoto: %d" % [s["towers_razed"], s["buildings_lost"], int(s["gold_earned"])],
 	])
@@ -519,7 +545,41 @@ func _consume_events() -> void:
 				if e["team"] == 1:
 					_float_text(pos + Vector2(0, -24), "Wieża zburzona!", Color.WHITE)
 				else:
-					_float_text(pos + Vector2(0, -24), "Zniszczono: %s" % Cfg.BUILDINGS[e["kind"]]["name"], WARN_COLOR)
+					_float_text(pos + Vector2(0, -24), "Zniszczono: %s" % Cfg.building(e["kind"])["name"], WARN_COLOR)
+			"hero_order":
+				if e["team"] == 0:
+					_ring(pos, 18.0, HERO_COLOR)
+			"hero_died":
+				_burst(pos, 26, HERO_COLOR, 150.0, 0.8)
+				if e["team"] == 0:
+					_banner("Dowódca poległ!", "Wróci do bazy za %d s — umiejętności dowódcy czekają" % ceili(e["respawn"]))
+					hero_selected = false
+					sfx.play("lose", 0.0)
+			"hero_respawn":
+				if e["team"] == 0:
+					_burst(pos, 18, HERO_COLOR, 110.0, 0.6)
+					_float_text(pos + Vector2(0, -30), "Dowódca wraca!", HERO_COLOR)
+					sfx.play("levy", 0.0)
+			"summon":
+				_burst(pos, 14, TEAM_COLORS[e["team"]].lightened(0.3), 100.0, 0.5)
+				sfx.play("build", 0.0)
+			"summon_expired":
+				_burst(pos, 10, Color(0.7, 0.7, 0.7), 70.0, 0.5)
+			"pulse":
+				_ring(pos, e["radius"], HEAL_COLOR if e["team"] == 0 else TEAM_COLORS[1])
+			"buff":
+				_ring(pos, 60.0, GOLD_COLOR)
+				_burst(pos, 12, GOLD_COLOR, 90.0, 0.6)
+			"line":
+				var a: Vector2 = e["from"]
+				var b: Vector2 = e["to"]
+				for i in 8:
+					_burst(a.lerp(b, (i + 0.5) / 8.0), 2, Color(1, 0.95, 0.8), 50.0, 0.35)
+				sfx.play("volley", 0.0)
+			"execute":
+				_burst(pos, 16, WARN_COLOR, 130.0, 0.5)
+				_ring(pos, 30.0, WARN_COLOR)
+				sfx.play("hit", 0.0)
 	sim.events.clear()
 
 
@@ -617,6 +677,8 @@ func _update_tutorial(delta: float) -> void:
 			done = selected != null and selected.team == 0 and Cfg.is_production(selected.kind)
 		"camera":
 			done = camera_used
+		"hero":
+			done = hero_ordered or sim.hero() == null
 		"ability":
 			done = sim.stats["abilities_used"] > 0
 		"timer":
@@ -838,9 +900,13 @@ func _on_key(key: int) -> void:
 	if state != State.PLAY or overlay != "":
 		return
 	if ABILITY_KEYS.has(key):
-		_select_ability(ABILITY_KEYS[key])
+		var slot: int = ABILITY_KEYS[key]
+		if slot < sim.ability_order[0].size():
+			_select_ability(sim.ability_order[0][slot])
 		return
 	match key:
+		KEY_H:
+			_pick_hero(true)
 		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
 			_select_mode(Cfg.BUILD_ORDER[key - KEY_1])
 		KEY_SPACE:
@@ -864,12 +930,24 @@ func _on_key(key: int) -> void:
 			_zoom_at(view_size / 2.0, 1.0 / 1.2)
 
 
-## Klik bez przeciągania: złoże → wydobywacz / zaznacz; budynek → zaznacz.
+## Klik bez przeciągania: dowódca → zaznacz/odznacz; złoże → wydobywacz / zaznacz;
+## budynek → zaznacz; przy zaznaczonym dowódcy pusty teren → rozkaz marszu (D6).
 func _tap(p: Vector2) -> void:
 	if _ability_mode() != "":
 		_use_targeted(p)
 		return
+	if mode == "" and _hero_at(p):
+		if hero_selected:
+			hero_selected = false
+		else:
+			_pick_hero(false)
+		return
 	var node := sim.node_at(p)
+	if node >= 0 or sim.building_at(p, 0) != null or sim.building_at(p, 1) != null:
+		hero_selected = false  # budynek, złoże, wieża wroga — normalna akcja i odznaczenie
+	elif hero_selected:
+		_order_hero(p)
+		return
 	if node >= 0:
 		var ex := sim.extractor_on(node)
 		if ex != null:
@@ -891,6 +969,39 @@ func _tap(p: Vector2) -> void:
 		selected = enemy
 
 
+## Czy punkt świata trafia w żywego dowódcę gracza (HERO_PICK px ekranu).
+func _hero_at(p: Vector2) -> bool:
+	return sim.hero_alive() and sim.hero().pos.distance_to(p) <= maxf(HERO_PICK / camera.zoom.x, sim.hero().radius + 4.0)
+
+
+## Zaznacza dowódcę (klik, portret, H); `center` — kamera na niego (portret i H, przy przybliżeniu).
+func _pick_hero(center: bool) -> void:
+	var h := sim.hero()
+	if h == null:
+		return
+	if not sim.hero_alive():
+		_float_text(sim.p_base + Vector2(0, -70), "Dowódca wróci za %d s" % ceili(h.respawn), WARN_COLOR)
+		sfx.play("error", 0.1)
+		return
+	if hero_selected and not center:
+		hero_selected = false
+		return
+	hero_selected = true
+	mode = ""
+	selected = null
+	if center and _is_zoomed_in():
+		camera.position = h.pos
+		_clamp_camera()
+
+
+func _order_hero(p: Vector2) -> void:
+	if sim.order_hero(p):
+		hero_ordered = true
+		sfx.play("build", 0.1)
+	else:
+		hero_selected = false
+
+
 func _place(p: Vector2) -> void:
 	var cell := Cfg.snap(p)
 	if not sim.can_place(cell):
@@ -905,8 +1016,11 @@ func _place(p: Vector2) -> void:
 
 func _select_ability(ability: String) -> void:
 	if not sim.ability_ready(ability):
+		if sim.ability_cd[0].get(ability, 0.0) <= 0.0 and not sim.hero_alive():
+			_float_text(sim.p_base + Vector2(0, -70), "Dowódca poległ", WARN_COLOR)
 		sfx.play("error", 0.1)
 		return
+	hero_selected = false
 	if not Cfg.ABILITIES[ability]["target"]:
 		sim.use_ability(ability)
 		mode = ""
@@ -915,16 +1029,38 @@ func _select_ability(ability: String) -> void:
 	selected = null
 
 
+func _select_ability_slot(i: int) -> void:
+	if i < sim.ability_order[0].size():
+		_select_ability(sim.ability_order[0][i])
+
+
 func _use_targeted(p: Vector2) -> void:
 	var ability := _ability_mode()
 	if sim.use_ability(ability, p):
 		mode = ""
 	else:
-		var why := "Jeszcze nie"
-		if ability == "levy":
-			why = "Limit armii" if sim.team_count[0] >= Cfg.MAX_ARMY else "Tylko przy ścieżce, na Twojej połowie"
-		_float_text(p, why, WARN_COLOR)
+		_float_text(p, _deny_reason(ability, p), WARN_COLOR)
 		sfx.play("error", 0.1)
+
+
+## Dlaczego umiejętności nie da się rzucić w `p` (komunikat pod palcem).
+func _deny_reason(ability: String, p: Vector2) -> String:
+	var cfg: Dictionary = Cfg.ABILITIES[ability]
+	var h := sim.hero()
+	if cfg.get("cast_range", 0.0) > 0.0 and h != null and h.pos.distance_to(p) > cfg["cast_range"]:
+		return "Poza zasięgiem dowódcy"
+	match cfg["kind"]:
+		"summon_units":
+			if sim.team_count[0] >= Cfg.MAX_ARMY:
+				return "Limit armii"
+			return "Tylko przy ścieżce" if cfg.get("cast_range", 0.0) > 0.0 else "Tylko przy ścieżce, na Twojej połowie"
+		"zone":
+			return "Nie tutaj"
+		"summon_building":
+			return "Brak miejsca"
+		"demolish":
+			return "Wskaż budynek wroga"
+	return "Jeszcze nie"
 
 
 func _deny(at: Vector2) -> void:
@@ -935,12 +1071,14 @@ func _deny(at: Vector2) -> void:
 func _cancel() -> void:
 	mode = ""
 	selected = null
+	hero_selected = false
 	dragging = false
 
 
 func _select_mode(key: String) -> void:
 	mode = "" if mode == key else key
 	selected = null
+	hero_selected = false
 
 
 func _toggle_stance() -> void:
@@ -1069,8 +1207,8 @@ func _build_ui() -> void:
 	minimap.gui_input.connect(_on_minimap_input)
 	hud.add_child(minimap)
 
-	# dół: budowa (6) i umiejętności (3) — szerokość przycisków dopasowana do ekranu
-	var w := minf(120.0, floorf((screen.x - 32 - 62) / 9.0))
+	# dół: budowa (6) i umiejętności (3 dowódcy + rasowa) — szerokość przycisków dopasowana do ekranu
+	var w := minf(120.0, floorf((screen.x - 32 - 68) / 10.0))
 	var bar := HBoxContainer.new()
 	bar.position = Vector2(16, screen.y - 72)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1085,12 +1223,20 @@ func _build_ui() -> void:
 	spacer.custom_minimum_size = Vector2(14, 0)
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(spacer)
-	for a in Cfg.ABILITY_ORDER:
-		var b := _button("", Vector2(w, 60), _select_ability.bind(a), bar)
+	for i in ABILITY_KEYS.size():
+		var b := _button("", Vector2(w, 60), _select_ability_slot.bind(i), bar)
 		b.toggle_mode = true
-		b.add_theme_font_size_override("font_size", 15)
-		b.self_modulate = Color(0.85, 0.95, 1.0)
-		ability_buttons[a] = b
+		b.add_theme_font_size_override("font_size", 14)
+		b.self_modulate = Color(0.85, 0.95, 1.0) if i < 3 else Color(1.0, 0.9, 0.75)
+		ability_slots.append(b)
+
+	# lewy dół, nad paskiem: portret dowódcy — wybiera go i centruje kamerę (R6)
+	portrait_button = _button("", Vector2(190, 56), _pick_hero.bind(true), hud)
+	portrait_button.toggle_mode = true
+	portrait_button.add_theme_font_size_override("font_size", 15)
+	portrait_button.add_theme_color_override("font_color", HERO_COLOR)
+	portrait_button.add_theme_color_override("font_pressed_color", HERO_COLOR)
+	portrait_button.position = Vector2(16, screen.y - 72 - 64)
 
 	# prawy dół (nad paskiem): panel zaznaczonego budynku
 	sel_panel = PanelContainer.new()
@@ -1231,9 +1377,13 @@ func _build_help(ui: Control) -> void:
 		+ "Wieże strzelają też w nietoperze, armaty biją obszarowo, mróz spowalnia, katapulty burzą wieże.\n"
 		+ "Tarczownicy blokują większość strzał — na nich armaty i piechota. Wróg chętniej atakuje\n"
 		+ "słabo bronione ścieżki. Postawa „Obrona” zbiera armię przed bazą — „Atak” rusza całością.\n"
-		+ "Umiejętności: Deszcz strzał (obszar), Pobór (posiłki przy ścieżce), Naprawa (budynki i baza).\n\n"
+		+ "Dowódca to jedyna postać, którą sterujesz: stuknij go (albo portret z lewej), potem miejsce\n"
+		+ "na mapie — pójdzie tam (rzekę przechodzi mostem), sam walczy i wraca na swój punkt. Stuknięcie\n"
+		+ "w budynek albo złoże zdejmuje zaznaczenie. Po śmierci wraca do bazy po chwili.\n"
+		+ "Umiejętności dowódcy (Q/E/R) rzucasz w zasięgu od niego — okrąg pokazuje, dokąd sięga;\n"
+		+ "gdy dowódca nie żyje, czekają. Umiejętność rasy (T) działa zawsze.\n\n"
 		+ "Mapę przesuwasz przeciągając, przybliżasz kółkiem albo dwoma palcami.\n"
-		+ "Skróty: 1–6 budowa · Q/E/R umiejętności · Spacja postawa · U ulepsz · Del sprzedaj\n"
+		+ "Skróty: 1–6 budowa · Q/E/R/T umiejętności · H dowódca · Spacja postawa · U ulepsz · Del sprzedaj\n"
 		+ "Tab ścieżka · F prędkość · WASD przesuwanie · C cała mapa · M dźwięk · Esc pauza",
 		15, box, Color(1, 1, 1, 0.85))
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1244,6 +1394,7 @@ func _build_help(ui: Control) -> void:
 func _rebuild_ui() -> void:
 	ui_layer.free()
 	build_buttons.clear()
+	ability_slots.clear()
 	ability_buttons.clear()
 	lane_buttons.clear()
 	race_buttons.clear()
@@ -1292,12 +1443,32 @@ func _update_hud() -> void:
 		b.text = "%s\n%d" % [cfg["name"], cfg["cost"]]
 		b.button_pressed = mode == key
 		b.disabled = sim.gold < cfg["cost"] and mode != key
-	for a in ability_buttons:
-		var b: Button = ability_buttons[a]
+	var order: Array = sim.ability_order[0]
+	ability_buttons.clear()
+	for i in ability_slots.size():
+		var b := ability_slots[i]
+		b.visible = i < order.size()
+		if not b.visible:
+			continue
+		var a: String = order[i]
+		ability_buttons[a] = b
 		var cd: float = sim.ability_cd[0][a]
-		b.text = "%s\n%s" % [Cfg.ABILITIES[a]["short"], "gotowe" if cd <= 0 else "%d s" % ceili(cd)]
+		var status := "gotowe" if cd <= 0 else "%d s" % ceili(cd)
+		if cd <= 0 and not sim.ability_ready(a):
+			status = "poległ"
+		b.text = "%s %s\n%s" % [ABILITY_KEY_NAMES[i], Cfg.ABILITIES[a]["short"], status]
 		b.button_pressed = mode == "ab:" + a
-		b.disabled = cd > 0
+		b.disabled = not sim.ability_ready(a)
+	var h := sim.hero()
+	portrait_button.visible = h != null and state == State.PLAY
+	if portrait_button.visible:
+		var hero_name: String = Cfg.COMMANDERS[h.commander]["name"]
+		if sim.hero_alive():
+			portrait_button.text = "%s  (H)\nHP %d/%d" % [hero_name, ceili(h.hp), int(h.max_hp)]
+		else:
+			portrait_button.text = "%s\npowrót za %d s" % [hero_name, ceili(h.respawn)]
+		portrait_button.button_pressed = hero_selected
+		portrait_button.disabled = not sim.hero_alive()
 
 	tutorial_panel.visible = tutorial_step >= 0 and state == State.PLAY
 	if tutorial_panel.visible:
@@ -1622,6 +1793,7 @@ func _draw() -> void:
 	var view := Rect2(_to_world(Vector2.ZERO), view_size / camera.zoom.x).grow(60.0)
 	low_detail = sim.units.size() > LOD_UNITS and not _is_zoomed_in()
 	_draw_overlays()
+	_draw_zones()
 	for n in sim.nodes:
 		_draw_resource_node(n)
 	for team in 2:
@@ -1818,6 +1990,9 @@ func _draw_building(b: Sim.Building) -> void:
 		pen.circle(b.pos + Vector2(16, -16), 4.5, LANE_COLORS[b.lane])
 	if b.hp < b.max_hp:
 		_hp_bar(b.pos + Vector2(0, -26), 36, b.hp / b.max_hp, 5)
+	if b.temporary:
+		_progress(b.pos + Vector2(0, 24), b.life / b.life_max)
+		return
 	for i in b.level - 1:
 		pen.circle(b.pos + Vector2(-5 + i * 10, 32 if Cfg.is_production(b.kind) else 24), 3.0, GOLD_COLOR)
 
@@ -1875,11 +2050,19 @@ func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha:
 				var a := time * 3.0 + TAU * i / 4.0
 				pen.line(p, p + Vector2.from_angle(a) * 11, Color(0.95, 0.8, 0.3, alpha), 3.0)
 			pen.circle(p, 4, Color(0.2, 0.2, 0.2, alpha))
+		_:  # budowle tymczasowe (umiejętności) — totem z wierzchołkiem w kolorze drużyny
+			pen.polygon(PackedVector2Array([p + Vector2(3, -14), p + Vector2(17, 18), p + Vector2(-11, 18)]), shadow)
+			pen.polygon(PackedVector2Array([p + Vector2(0, -18), p + Vector2(14, 14), p + Vector2(-14, 14)]), Color(0.4, 0.33, 0.25, alpha))
+			pen.circle(p + Vector2(0, -4), 6, light)
+			pen.line(p + Vector2(0, -4), p + Vector2(0, -4) + Vector2.from_angle(aim) * 12, Color(1, 1, 1, alpha), 2.0)
 
 
 ## `low_detail`: w dużej bitwie (widok całej mapy) bez cienia, obrysu, podskoku
 ## i pasków HP zdrowych jednostek — to połowa wywołań rysowania na jednostkę.
 func _draw_unit(u: Sim.Unit) -> void:
+	if u.is_hero:
+		_draw_hero(u as Sim.Hero)
+		return
 	var r := u.radius
 	var dir := 1.0 if u.team == 0 else -1.0
 	var at := u.prev_pos.lerp(u.pos, render_alpha)  # interpolacja między krokami sima
@@ -1947,6 +2130,44 @@ func _draw_unit(u: Sim.Unit) -> void:
 		_hp_bar(p + Vector2(0, -r - 5), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
 
 
+## Dowódca: większy, ze złotą obwódką i inicjałem — zawsze w pełnej szczegółowości (jest jeden).
+func _draw_hero(h: Sim.Hero) -> void:
+	var r := h.radius
+	var at := h.prev_pos.lerp(h.pos, render_alpha)
+	var bob := 0.0 if h.state == "idle" else sin(time * 14.0) * 1.5
+	var p := at + Vector2(0, bob)
+	var c := TEAM_COLORS[h.team]
+	pen.circle(at + Vector2(2, r * 0.7), r, Color(0, 0, 0, 0.25))
+	if h.invulnerable > 0.0:
+		pen.circle(p, r + 7, Color(1, 1, 1, 0.25 + 0.2 * sin(time * 20.0)))
+	pen.circle(p, r + 2.5, HERO_COLOR if h.team == 0 else TEAM_COLORS[1].lightened(0.4))
+	pen.circle(p, r, c.darkened(0.2))
+	var initial: String = Cfg.COMMANDERS[h.commander]["name"].left(1)
+	pen.text(font, p + Vector2(-r, r * 0.45), initial, HORIZONTAL_ALIGNMENT_CENTER, r * 2, int(r * 1.3), Color.WHITE)
+	if h.slow_timer > 0:
+		pen.arc(p, r + 4, 0, TAU, 20, Color(FROST_COLOR, 0.9), 2.0)
+	if h.flash > 0:
+		pen.circle(p, r, Color(1, 1, 1, h.flash * 5.0))
+	_hp_bar(p + Vector2(0, -r - 8), 34, h.hp / h.max_hp, 5)
+
+
+## Strefy (`zone`): mina — mały znacznik, strefa obrażeń — pulsujący krąg.
+func _draw_zones() -> void:
+	for z in sim.zones:
+		var cfg: Dictionary = z["cfg"]
+		var pos: Vector2 = z["pos"]
+		var r: float = cfg["radius"]
+		var tc := TEAM_COLORS[z["team"]]
+		if cfg["trigger"] == "enter":
+			pen.arc(pos, r, 0, TAU, 32, Color(tc, 0.25), 1.5)
+			pen.circle(pos, 6, Color(0.25, 0.25, 0.25))
+			pen.circle(pos, 2.5, Color(WARN_COLOR, 0.5 + 0.5 * sin(time * 8.0)))
+		else:
+			var hot := Color(1.0, 0.45, 0.15) if cfg.get("dmg_type", "") == "fire" else Color(0.75, 0.7, 0.55)
+			pen.circle(pos, r, Color(hot, 0.18 + 0.06 * sin(time * 5.0)))
+			pen.arc(pos, r, 0, TAU, 40, Color(hot, 0.7), 2.0)
+
+
 func _draw_shot(s: Sim.Shot) -> void:
 	var at := s.prev_pos.lerp(s.pos, render_alpha)
 	match s.kind:
@@ -1966,6 +2187,7 @@ func _draw_shot(s: Sim.Shot) -> void:
 
 
 func _draw_selection() -> void:
+	_draw_hero_selection()
 	if selected == null or not sim.is_alive(selected):
 		return
 	var pulse := 0.6 + 0.4 * sin(time * 6.0)
@@ -1976,11 +2198,40 @@ func _draw_selection() -> void:
 		pen.arc(selected.pos, rng_, 0, TAU, 64, Color(1, 1, 1, 0.35), 2.0)
 
 
+## Zaznaczony dowódca: pulsujący krąg, trasa marszu i chorągiewka punktu postoju.
+func _draw_hero_selection() -> void:
+	var h := sim.hero()
+	if h == null or not sim.hero_alive() or state != State.PLAY:
+		return
+	if h.state == "march" or h.state == "back":
+		var pts := PackedVector2Array([h.pos])
+		for i in range(h.path_i, h.path.size()):
+			pts.append(h.path[i])
+		for i in pts.size() - 1:
+			pen.dashed_line(pts[i], pts[i + 1], Color(HERO_COLOR, 0.6 if hero_selected else 0.3), 2.0, 7.0)
+	if not hero_selected:
+		return
+	var pulse := 0.6 + 0.4 * sin(time * 6.0)
+	pen.arc(h.pos, h.radius + 9, 0, TAU, 32, Color(HERO_COLOR, pulse), 2.5)
+	var flag := h.post
+	pen.line(flag, flag + Vector2(0, -22), Color(0.9, 0.9, 0.9), 2.0)
+	pen.polygon(PackedVector2Array([flag + Vector2(0, -22), flag + Vector2(13, -18), flag + Vector2(0, -13)]), HERO_COLOR)
+	pen.arc(flag, Cfg.COMMANDER_LEASH, 0, TAU, 48, Color(HERO_COLOR, 0.15), 1.5)
+
+
 func _draw_ghost() -> void:
-	if mode == "" or state != State.PLAY or not (pointer_active or dragging):
+	if mode == "" or state != State.PLAY:
+		return
+	var ability := _ability_mode()
+	# zasięg rzucania wokół dowódcy — widoczny przez całe celowanie, także bez kursora (dotyk)
+	var cast_range: float = Cfg.ABILITIES[ability].get("cast_range", 0.0) if ability != "" else 0.0
+	if cast_range > 0.0 and sim.hero_alive():
+		var hp := sim.hero().pos
+		pen.circle(hp, cast_range, Color(HERO_COLOR, 0.05))
+		pen.arc(hp, cast_range, 0, TAU, 64, Color(HERO_COLOR, 0.55), 2.0)
+	if not (pointer_active or dragging):
 		return
 	var world := _to_world(pointer_screen)
-	var ability := _ability_mode()
 	if ability != "":
 		var ok := sim.ability_target_ok(ability, world)
 		var tint := Color(0.3, 1, 0.4) if ok else Color(1, 0.3, 0.3)
@@ -2044,6 +2295,8 @@ func _draw_minimap() -> void:
 			c.draw_rect(Rect2(b.pos * k - Vector2(2, 2), Vector2(4, 4)), TEAM_COLORS[b.team].lightened(0.3))
 	for u in sim.units:
 		c.draw_rect(Rect2(u.pos * k - Vector2(1, 1), Vector2(2, 2)), TEAM_COLORS[u.team])
+	if sim.hero_alive():
+		c.draw_circle(sim.hero().pos * k, 4.0, HERO_COLOR)
 	var view := Rect2(_to_world(Vector2.ZERO) * k, view_size / camera.zoom.x * k)
 	c.draw_rect(view, Color(1, 1, 1, 0.9), false, 1.5)
 	c.draw_rect(Rect2(Vector2.ZERO, c.size), Color(1, 1, 1, 0.3), false, 1.0)
