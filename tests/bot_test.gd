@@ -79,6 +79,7 @@ func _init() -> void:
 	_test_abilities_both_teams()
 	_test_commander_data()
 	_test_hero()
+	_test_effect_kinds()
 	_test_progress()
 	_test_population_caps()
 	_test_wave_composition()
@@ -865,6 +866,155 @@ func _test_hero() -> void:
 	sim.step(DT)
 	plain.step(DT)
 	_check(sim.team_count[0] == 0 and sim.lane_defense(1) == plain.lane_defense(1), "dowódca poza limitem i obroną ścieżek")
+
+
+## Nowe typy efektów (T6, R1): każdy rzucany przez obie drużyny trafia tylko we właściwą.
+func _test_effect_kinds() -> void:
+	for team in 2:
+		var foe_t := 1 - team
+		var who := "team %d" % team
+		var spot: Vector2
+
+		# zone: mina wybucha przy wejściu wroga, swojego nie rusza
+		var sim := _fx_sim()
+		spot = sim.lanes[1].point_at(700)
+		_check(not sim.use_ability("minefield", sim.base_pos(foe_t) + Vector2(-60 if foe_t == 1 else 60, 0), team),
+			"mina nie pod bazą przeciwnika (%s)" % who)
+		_check(sim.use_ability("minefield", spot, team), "mina postawiona (%s)" % who)
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		var mine: Sim.Unit = sim.units[-1]
+		sim.step(DT)
+		_check(sim.zones.size() == 1 and mine.hp == mine.max_hp, "własna jednostka nie odpala miny (%s)" % who)
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700)
+		var foe: Sim.Unit = sim.units[-1]
+		foe.pos = spot
+		sim.step(DT)
+		sim.step(DT)
+		_check(sim.zones.is_empty() and foe.hp <= 0, "mina wybucha pod wrogiem (%s)" % who)
+
+		# zone tick: lawa rani co sekundę, znika po czasie
+		sim = _fx_sim()
+		spot = sim.lanes[1].point_at(700)
+		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1, 700)
+		foe = sim.units[-1]
+		foe.base_speed = 0.0
+		foe.pos = spot
+		_check(sim.use_ability("lava_pool", spot, team), "lawa (%s)" % who)
+		for i in 30 * 3:
+			sim.step(DT)
+		var lost := foe.max_hp - foe.hp
+		_check(lost >= Cfg.ABILITIES["lava_pool"]["dps"] * 3 - 1.0, "lawa rani co sekundę (%s, %.0f HP)" % [who, lost])
+		for i in 30 * 10:
+			sim.step(DT)
+		_check(sim.zones.is_empty(), "strefa znika po czasie (%s)" % who)
+
+		# summon_building: wieżyczka strzela we wroga, znika, nie da się jej sprzedać
+		sim = _fx_sim()
+		sim.base_hp = [1e9, 1e9]
+		spot = sim.lanes[1].point_at(700) + Vector2(0, 80)
+		var cell := Cfg.snap(spot)
+		_check(sim.use_ability("drill_turret", spot, team), "wieżyczka postawiona (%s)" % who)
+		var t: Sim.Building = sim.buildings[-1]
+		_check(t.temporary and t.team == team and t.pos == cell, "budowla tymczasowa drużyny (%s)" % who)
+		_check(not sim.use_ability("drill_turret", spot, team), "wieżyczka ma odnowienie (%s)" % who)
+		sim.ability_cd[team]["drill_turret"] = 0.0
+		_check(not sim.ability_target_ok("drill_turret", spot, team), "zajęte pole odrzucone (%s)" % who)
+		_check(not sim.ability_target_ok("drill_turret", sim.lanes[1].point_at(700), team), "nie na ścieżce (%s)" % who)
+		_check(sim.building_at(cell, team) == null and not sim.sell(t) and sim.upgrade_cost(t) < 0,
+			"budowli nie da się zaznaczyć, sprzedać ani ulepszyć (%s)" % who)
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700)
+		foe = sim.units[-1]
+		foe.base_speed = 0.0
+		for i in 30 * 8:
+			sim.step(DT)
+		_check(foe.hp <= 0, "wieżyczka zabija wroga (%s)" % who)
+		for i in 30 * 15:
+			sim.step(DT)
+		_check(not sim.buildings.has(t), "budowla znika po czasie (%s)" % who)
+		_check(sim.stats["buildings_lost"] == 0 and sim.stats["towers_razed"] == 0, "zniknięcie nie liczy się do statystyk (%s)" % who)
+
+		# buff: w promieniu tylko własne jednostki; szybkość rośnie, potem wraca
+		sim = _fx_sim()
+		spot = sim.lanes[1].point_at(700)
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		var ally: Sim.Unit = sim.units[-1]
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 710)
+		foe = sim.units[-1]
+		_check(sim.use_ability("drumroll", spot, team), "werble (%s)" % who)
+		_check(ally.attack_speed > 1.0 and foe.attack_speed == 1.0, "wzmocnienie tylko dla swoich (%s)" % who)
+		sim.elapsed += Cfg.ABILITIES["drumroll"]["duration"] + 1.0
+		sim._expire_buffs(ally)
+		_check(ally.attack_speed == 1.0 and ally.buffs.is_empty(), "wzmocnienie wygasa (%s)" % who)
+		# buff na ścieżkę i globalny (Pieśń: szybkość + obrażenia)
+		sim._spawn_unit(team, "soldier", 1, 1.0, 2, 300)
+		var other: Sim.Unit = sim.units[-1]
+		_check(sim.use_ability("march_beat", sim.lanes[1].point_at(400), team), "rytm marszu (%s)" % who)
+		_check(ally.speed_mult > 1.0 and other.speed_mult == 1.0, "wzmocnienie na ścieżce tylko na niej (%s)" % who)
+		_check(sim.use_ability("song", Vector2.ZERO, team), "pieśń (%s)" % who)
+		_check(other.speed_mult > 1.0 and other.dmg_mult > 1.0 and foe.dmg_mult == 1.0, "pieśń wzmacnia całą armię (%s)" % who)
+
+		# line: przebicie rani wrogów na linii (także latających), swoich nie
+		sim = _fx_sim()
+		var from := sim.base_pos(team)
+		var dir := (sim.base_pos(foe_t) - from).normalized()
+		spot = from + dir * 200.0
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1)
+		foe = sim.units[-1]
+		foe.pos = spot
+		sim._spawn_unit(foe_t, "bat", 1, 1.0, 1)
+		var bat: Sim.Unit = sim.units[-1]
+		bat.pos = from + dir * 120.0
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1)
+		ally = sim.units[-1]
+		ally.pos = from + dir * 160.0
+		var aside: Sim.Unit
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1)
+		aside = sim.units[-1]
+		aside.pos = spot + dir.orthogonal() * 80.0
+		_check(sim.use_ability("railshot", spot, team), "przebicie (%s)" % who)
+		_check(foe.hp < foe.max_hp and bat.hp < bat.max_hp, "przebicie rani wrogów na linii i latających (%s)" % who)
+		_check(ally.hp == ally.max_hp and aside.hp == aside.max_hp, "przebicie omija swoich i wrogów obok linii (%s)" % who)
+
+		# execute: dobija najsilniejszego; Wódz odporny na dobicie
+		sim = _fx_sim()
+		spot = sim.lanes[1].point_at(700)
+		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1, 700)
+		var big: Sim.Unit = sim.units[-1]
+		big.pos = spot
+		big.hp = big.max_hp * 0.5
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700)
+		var small: Sim.Unit = sim.units[-1]
+		small.pos = spot
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		ally = sim.units[-1]
+		ally.pos = spot
+		_check(sim.use_ability("snipe", spot, team), "strzał snajperski (%s)" % who)
+		_check(big.hp <= 0 and small.hp == small.max_hp and ally.hp == ally.max_hp, "dobija najsilniejszego wroga (%s)" % who)
+		sim._spawn_unit(foe_t, "warlord", 1, 1.0, 1, 700)
+		var boss: Sim.Unit = sim.units[-1]
+		boss.pos = spot
+		boss.hp = boss.max_hp * 0.2
+		sim.ability_cd[team]["snipe"] = 0.0
+		var before := boss.hp
+		sim.use_ability("snipe", spot, team)
+		_check(boss.hp > 0 and is_equal_approx(before - boss.hp, Cfg.ABILITIES["snipe"]["dmg"]), "Wódz odporny na dobicie (%s)" % who)
+
+		# demolish: ładunek w budynek wroga, nie w swój; bez budynku — odmowa
+		sim = _fx_sim()
+		var enemy_b := sim._add_building(foe_t, "tower", sim.lanes[1].point_at(700) + Vector2(0, 80))
+		var own_b := sim._add_building(team, "tower", sim.lanes[1].point_at(500) + Vector2(0, 80))
+		_check(not sim.use_ability("demo_charge", own_b.pos, team), "ładunek nie we własny budynek (%s)" % who)
+		_check(sim.use_ability("demo_charge", enemy_b.pos, team), "ładunek burzący (%s)" % who)
+		_check(enemy_b.hp < enemy_b.max_hp and own_b.hp == own_b.max_hp, "ładunek rani budynek wroga (%s)" % who)
+
+
+## Sim do testów typów efektów: obie drużyny mają gotowe wszystkie umiejętności z Cfg.
+func _fx_sim() -> Sim:
+	var sim := _empty_sim()
+	for team in 2:
+		for a in Cfg.ABILITIES:
+			sim.ability_cd[team][a] = 0.0
+	return sim
 
 
 func _test_progress() -> void:

@@ -86,6 +86,13 @@ class Unit:
 	var siege: bool
 	var armor := 0.0  ## jaką część obrażeń od strzał blokuje
 	var is_hero := false  ## dowódca (Hero) — szybszy test niż `is Hero` w gorących pętlach
+	# wzmocnienia (`buff`): stat → [wartość, czas końca]; mnożniki poniżej liczone z nich
+	var buffs := {}
+	var dmg_mult := 1.0
+	var speed_mult := 1.0
+	var attack_speed := 1.0  ## dzieli czas odnowienia ciosu
+	var armor_bonus := 0.0
+	var lifesteal := 0.0  ## ułamek zadanych obrażeń wręcz wracający jako HP
 	var cd_left := 0.0
 	var slow_timer := 0.0
 	var slow_factor := 0.0  ## ułamek prędkości zabrany przez mróz
@@ -127,6 +134,8 @@ class Building:
 	var last_hit := -INF  ## czas ostatniego trafienia (regeneracja)
 	var aim := 0.0  ## tylko dla renderu: kąt ostatniego strzału
 	var flash := 0.0
+	var temporary := false  ## budowla z umiejętności (R7) — znika po `life` s
+	var life := 0.0
 
 
 class Shot:
@@ -186,6 +195,8 @@ var units: Array[Unit] = []
 var buildings: Array[Building] = []
 var shots: Array[Shot] = []
 var strikes: Array[Dictionary] = []  ## trwające salwy (typ `strike`): {pos, left, timer, team, cfg}
+## Trwające strefy (typ `zone`): {pos, left (s), tick, team, cfg}. Mina znika po wybuchu.
+var zones: Array[Dictionary] = []
 ## Per drużyna: umiejętność → sekundy do gotowości. Wróg ma na razie ten sam zestaw co gracz
 ## (jeszcze go nie używa — przyjdą dowódcy), ale każdy efekt już działa dla obu stron.
 var ability_cd: Array[Dictionary] = [{}, {}]
@@ -315,7 +326,7 @@ func extractor_on(node_index: int) -> Building:
 
 func building_at(p: Vector2, team: int) -> Building:
 	for b in buildings:
-		if b.team == team and b.kind != "basegun" and p.distance_to(b.pos) < Cfg.GRID * 0.6:
+		if b.team == team and b.kind != "basegun" and not b.temporary and p.distance_to(b.pos) < Cfg.GRID * 0.6:
 			return b
 	return null
 
@@ -368,7 +379,7 @@ func free_cell_near(p: Vector2, max_r := 240.0) -> Vector2:
 
 
 func upgrade_cost(b: Building) -> int:
-	if b.level >= Cfg.MAX_LEVEL:
+	if b.level >= Cfg.MAX_LEVEL or b.temporary:
 		return -1
 	return Cfg.BUILDINGS[b.kind]["upgrades"][b.level - 1]
 
@@ -379,7 +390,7 @@ func sell_value(b: Building) -> int:
 
 ## Statystyki strzelającego budynku po uwzględnieniu poziomu.
 func tower_stats(kind: String, lvl: int) -> Dictionary:
-	var base: Dictionary = Cfg.BASE_GUN if kind == "basegun" else Cfg.BUILDINGS[kind]
+	var base: Dictionary = Cfg.BASE_GUN if kind == "basegun" else Cfg.building(kind)
 	var l := lvl - 1
 	var slow: float = base.get("slow", 0.0)
 	return {
@@ -455,6 +466,14 @@ func ability_target_ok(ability: String, at: Vector2, team := 0) -> bool:
 	var cast_range: float = cfg.get("cast_range", 0.0)
 	if cast_range > 0.0 and heroes[team] != null and heroes[team].pos.distance_to(at) > cast_range:
 		return false
+	match cfg["kind"]:
+		"zone", "summon_building":
+			# nie pod bazą przeciwnika i nie na rzece (R2); budowla — na wolnym polu
+			if at.distance_to(base_pos(1 - team)) < Cfg.NO_CAST_NEAR_BASE or river_distance(at) < Cfg.RIVER_HALF:
+				return false
+			return cfg["kind"] == "zone" or _summon_cell_ok(Cfg.snap(at))
+		"demolish":
+			return _demolish_target(team, at) != null
 	if cfg["kind"] != "summon_units":
 		return true
 	if cast_range <= 0.0:
@@ -471,6 +490,38 @@ func hero(team := 0) -> Hero:
 
 func hero_alive(team := 0) -> bool:
 	return heroes[team] != null and heroes[team].state != "dead"
+
+
+## Pole pod budowlę tymczasową: na mapie, poza ścieżkami, złożami, bazami i innymi budynkami
+## (bez ograniczenia do strefy budowy gracza — R2).
+func _summon_cell_ok(cell: Vector2) -> bool:
+	if not Rect2(Vector2.ZERO, size).grow(-Cfg.GRID / 2).has_point(cell):
+		return false
+	for t in 2:
+		if cell.distance_to(base_pos(t)) < Cfg.BASE_R + Cfg.GRID:
+			return false
+	for n in nodes:
+		if cell.distance_to(n) < Cfg.GRID:
+			return false
+	for b in buildings:
+		if b.kind != "basegun" and cell.distance_to(b.pos) < Cfg.GRID * 0.9:
+			return false
+	for lane in lanes:
+		if lane.distance_to(cell) < Cfg.PATH_CLEARANCE:
+			return false
+	return true
+
+
+## Budynek wroga do zburzenia (`demolish`): najbliższy wskazanego punktu, nie działko bazy.
+## Przegląda listę wprost (rzucenie bywa przed pierwszym krokiem, gdy siatki są puste).
+func _demolish_target(team: int, at: Vector2) -> Building:
+	var best: Building = null
+	var best_d := Cfg.DEMOLISH_PICK
+	for b in buildings:
+		if b.team != team and b.kind != "basegun" and b.hp > 0 and b.pos.distance_to(at) <= best_d:
+			best_d = b.pos.distance_to(at)
+			best = b
+	return best
 
 
 func _is_hero_ability(ability: String, team: int) -> bool:
@@ -510,7 +561,7 @@ func build_extractor(node_index: int) -> bool:
 
 func upgrade(b: Building) -> bool:
 	var cost := upgrade_cost(b)
-	if result != 0 or b.team != 0 or cost < 0 or gold < cost or not is_alive(b):
+	if result != 0 or b.team != 0 or b.temporary or cost < 0 or gold < cost or not is_alive(b):
 		return false
 	gold -= cost
 	b.invested += cost
@@ -520,7 +571,7 @@ func upgrade(b: Building) -> bool:
 
 
 func sell(b: Building) -> bool:
-	if result != 0 or b.team != 0 or not is_alive(b):
+	if result != 0 or b.team != 0 or b.temporary or not is_alive(b):
 		return false
 	gold += sell_value(b)
 	b.hp = 0.0
@@ -578,11 +629,117 @@ func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
 				if b.team == team and b.kind != "basegun":
 					b.hp = minf(b.max_hp, b.hp + b.max_hp * cfg["heal"])
 			base_hp[team] = minf(Cfg.BASE_HP[team], base_hp[team] + cfg["base_heal"])
+		"zone":
+			zones.append({"pos": at, "left": cfg["duration"], "tick": 0.0, "team": team, "cfg": cfg})
+		"summon_building":
+			var b := _add_building(team, cfg["building"], Cfg.snap(at))
+			b.temporary = true
+			b.life = cfg["duration"]
+			events.append({"type": "summon", "pos": b.pos, "team": team, "kind": b.kind})
+		"buff":
+			_cast_buff(team, at, cfg)
+		"line":
+			_cast_line(team, at, cfg)
+		"execute":
+			_cast_execute(team, at, cfg)
+		"demolish":
+			var target := _demolish_target(team, at)
+			_damage_building(target, cfg["building_dmg"])
+			events.append({"type": "explosion", "pos": target.pos, "radius": 30.0})
 	ability_cd[team][ability] = cfg["cooldown"]
 	if team == 0:
 		stats["abilities_used"] += 1
 	events.append({"type": "ability", "name": ability, "team": team, "pos": at if cfg["target"] else base_pos(team)})
 	return true
+
+
+## `buff`: sam dowódca (`self`), jednostki na wskazanej ścieżce (`lane`), w promieniu od celu
+## (`radius` > 0) albo cała armia (`radius` 0). `dmg_mult` — opcjonalne drugie wzmocnienie obrażeń.
+func _cast_buff(team: int, at: Vector2, cfg: Dictionary) -> void:
+	var targets: Array[Unit] = []
+	if cfg.get("self", false):
+		if hero_alive(team):
+			targets.append(heroes[team])
+	else:
+		var lane_i := nearest_lane(at) if cfg.get("lane", false) else -1
+		var radius: float = cfg.get("radius", 0.0)
+		for u in units:
+			if u.team != team or u.hp <= 0:
+				continue
+			if lane_i >= 0 and (u.is_hero or u.flying or u.lane != lane_i):
+				continue
+			if lane_i < 0 and radius > 0.0 and u.pos.distance_to(at) > radius + u.radius:
+				continue
+			targets.append(u)
+	for u in targets:
+		_apply_buff(u, cfg["stat"], cfg["mult"], cfg["duration"])
+		if cfg.has("dmg_mult"):
+			_apply_buff(u, "dmg", cfg["dmg_mult"], cfg["duration"])
+	events.append({"type": "buff", "pos": at, "team": team, "count": targets.size()})
+
+
+## `line`: przebicie od dowódcy (albo od bazy, gdy dowódcy brak) w stronę `at` na `length` px.
+## Trafia też latających.
+func _cast_line(team: int, at: Vector2, cfg: Dictionary) -> void:
+	var from := heroes[team].pos if hero_alive(team) else base_pos(team)
+	var dir := (at - from).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2.RIGHT if team == 0 else Vector2.LEFT
+	var to: Vector2 = from + dir * cfg["length"]
+	for u in units:
+		if u.team == team or u.hp <= 0:
+			continue
+		var closest := Geometry2D.get_closest_point_to_segment(u.pos, from, to)
+		if closest.distance_to(u.pos) <= cfg["width"] / 2.0 + u.radius:
+			_damage_unit(u, cfg["dmg"], cfg.get("dmg_type", "arrow"))
+	events.append({"type": "line", "from": from, "to": to, "team": team})
+
+
+## `execute`: najsilniejszy (najwięcej HP) wróg w promieniu dostaje `dmg`; gdy zostałoby mu
+## najwyżej `threshold` maks. HP — ginie. Wódz i dowódcy są odporni na dobicie (tylko `dmg`).
+func _cast_execute(team: int, at: Vector2, cfg: Dictionary) -> void:
+	var best: Unit = null
+	for u in units:
+		if u.team != team and u.hp > 0 and u.pos.distance_to(at) <= cfg["radius"] + u.radius:
+			if best == null or u.hp > best.hp:
+				best = u
+	if best == null:
+		return
+	var immune := best.is_hero or best.kind == "warlord"
+	var dmg: float = cfg["dmg"]
+	if not immune and best.hp - dmg <= best.max_hp * cfg["threshold"]:
+		dmg = best.hp + 1.0  # dobicie — bez pancerza
+		_damage_unit(best, dmg, "execute")
+	else:
+		_damage_unit(best, dmg, cfg.get("dmg_type", "blast"))
+	events.append({"type": "execute", "pos": best.pos, "team": team})
+
+
+## Strefy (`zone`): mina wybucha, gdy wróg naziemny wejdzie w promień; strefa `tick` rani
+## co sekundę (i spowalnia, jeśli ma `slow`). Wrogów szuka przez siatkę.
+func _update_zones(dt: float) -> void:
+	for z in zones:
+		var cfg: Dictionary = z["cfg"]
+		var foe: int = 1 - z["team"]
+		z["left"] -= dt
+		if cfg["trigger"] == "enter":
+			var inside := _units_near(foe, z["pos"], cfg["radius"], false)
+			if not inside.is_empty():
+				for u in inside:
+					_damage_unit(u, cfg["dmg"], cfg.get("dmg_type", "blast"))
+				events.append({"type": "explosion", "pos": z["pos"], "radius": cfg["radius"]})
+				z["left"] = 0.0
+			continue
+		z["tick"] -= dt
+		if z["tick"] > 0.0:
+			continue
+		z["tick"] = 1.0
+		for u in _units_near(foe, z["pos"], cfg["radius"], false):
+			_damage_unit(u, cfg["dps"], cfg.get("dmg_type", "fire"))
+			if cfg.has("slow"):
+				u.slow_timer = maxf(u.slow_timer, 1.2)
+				u.slow_factor = maxf(u.slow_factor, cfg["slow"])
+	zones = zones.filter(func(z: Dictionary) -> bool: return z["left"] > 0.0)
 
 
 # ================================================================ krok symulacji
@@ -610,6 +767,8 @@ func step(dt: float) -> void:
 	t = _prof("fale", t)
 	_rebuild_grid()
 	t = _prof("siatka", t)
+	if not zones.is_empty():
+		_update_zones(dt)
 	for b in buildings:
 		_update_building(b, dt)
 	t = _prof("budynki", t)
@@ -768,9 +927,22 @@ func _enemy_build() -> void:
 
 func _update_building(b: Building, dt: float) -> void:
 	b.flash = maxf(0.0, b.flash - dt)
+	if b.temporary:
+		b.life -= dt
+		if b.life <= 0.0:
+			b.hp = 0.0  # sprzątanie martwych usunie ją w tym kroku (layout_version rośnie)
+			events.append({"type": "summon_expired", "pos": b.pos, "team": b.team, "kind": b.kind})
+			return
+		var cfg := Cfg.building(b.kind)
+		if cfg.has("pulse"):
+			b.timer += dt
+			if b.timer >= cfg["pulse"]:
+				b.timer = 0.0
+				_building_pulse(b, cfg)
+			return
 	if b.kind != "basegun" and b.hp < b.max_hp and elapsed - b.last_hit >= Cfg.REGEN_DELAY:
 		b.hp = minf(b.max_hp, b.hp + b.max_hp * Cfg.REGEN_RATE * dt)
-	if b.kind == "basegun" or Cfg.is_tower(b.kind):
+	if b.kind == "basegun" or Cfg.is_shooter(b.kind):
 		b.cd_left -= dt
 		if b.cd_left > 0:
 			return
@@ -793,9 +965,33 @@ func _update_building(b: Building, dt: float) -> void:
 			_spawn_unit(b.team, Cfg.BUILDINGS[b.kind]["unit"], b.level, 1.0, b.lane)
 
 
+## Puls budowli tymczasowej: totem leczy swoich, odpychacz cofa wrogów naziemnych.
+func _building_pulse(b: Building, cfg: Dictionary) -> void:
+	if cfg.has("heal"):
+		for u in _units_near(b.team, b.pos, cfg["range"]):
+			u.hp = minf(u.max_hp, u.hp + cfg["heal"])
+		events.append({"type": "pulse", "pos": b.pos, "radius": cfg["range"], "team": b.team})
+	if cfg.has("repel"):
+		for u in _units_near(1 - b.team, b.pos, cfg["range"]):
+			_repel(u, cfg["repel"])
+		events.append({"type": "pulse", "pos": b.pos, "radius": cfg["range"], "team": b.team})
+
+
+## Cofa jednostkę naziemną o `dist` px wzdłuż jej ścieżki (w stronę jej bazy).
+func _repel(u: Unit, dist: float) -> void:
+	if u.flying or u.is_hero:
+		return
+	var lane := lanes[u.lane]
+	u.s = clampf(u.s + (-dist if u.team == 0 else dist), 0.0, lane.length)
+	u.pos = lane.slot_at(u.s, u.lane_offset)
+	u.on_path = true
+
+
 # ---------------------------------------------------------------- jednostki
 
 func _update_unit(u: Unit, dt: float) -> void:
+	if not u.buffs.is_empty():
+		_expire_buffs(u)
 	if u.is_hero:
 		_update_hero(u as Hero, dt)
 		return
@@ -806,7 +1002,7 @@ func _update_unit(u: Unit, dt: float) -> void:
 		u.slow_timer -= dt
 		if u.slow_timer <= 0.0:
 			u.slow_factor = 0.0
-	var speed := u.base_speed * (1.0 - u.slow_factor)
+	var speed := u.base_speed * (1.0 - u.slow_factor) * u.speed_mult
 	var foe_team := 1 - u.team
 	var foe_base := base_pos(foe_team)
 	var base_in_range := u.pos.distance_to(foe_base) <= rng_ + Cfg.BASE_R
@@ -814,8 +1010,8 @@ func _update_unit(u: Unit, dt: float) -> void:
 	if u.flying:
 		if base_in_range:
 			if u.cd_left <= 0:
-				u.cd_left = u.cooldown
-				_damage_base(foe_team, u.dmg)
+				u.cd_left = u.cooldown / u.attack_speed
+				_damage_base(foe_team, u.dmg * u.dmg_mult)
 		else:
 			u.pos = u.pos.move_toward(foe_base, speed * dt)
 		return
@@ -838,8 +1034,8 @@ func _update_unit(u: Unit, dt: float) -> void:
 			u.on_path = false
 		elif u.melee:
 			if u.cd_left <= 0:
-				u.cd_left = u.cooldown
-				_damage_unit(foe, u.dmg, "melee")
+				u.cd_left = u.cooldown / u.attack_speed
+				_melee_hit(u, foe)
 				events.append({"type": "hit", "pos": foe.pos})
 		else:
 			_ranged_attack(u, foe.pos, foe, null, -1)
@@ -853,8 +1049,8 @@ func _update_unit(u: Unit, dt: float) -> void:
 				u.on_path = false
 			elif u.melee:
 				if u.cd_left <= 0:
-					u.cd_left = u.cooldown
-					_damage_building(tb, u.dmg)
+					u.cd_left = u.cooldown / u.attack_speed
+					_damage_building(tb, u.dmg * u.dmg_mult)
 					events.append({"type": "hit", "pos": tb.pos})
 			else:
 				_ranged_attack(u, tb.pos, null, tb, -1)
@@ -862,8 +1058,8 @@ func _update_unit(u: Unit, dt: float) -> void:
 		if base_in_range:
 			if u.melee:
 				if u.cd_left <= 0:
-					u.cd_left = u.cooldown
-					_damage_base(foe_team, u.dmg)
+					u.cd_left = u.cooldown / u.attack_speed
+					_damage_base(foe_team, u.dmg * u.dmg_mult)
 			else:
 				_ranged_attack(u, foe_base, null, null, foe_team)
 			return
@@ -881,7 +1077,7 @@ func _update_hero(h: Hero, dt: float) -> void:
 		h.slow_timer -= dt
 		if h.slow_timer <= 0.0:
 			h.slow_factor = 0.0
-	var step_len := h.base_speed * (1.0 - h.slow_factor) * dt
+	var step_len := h.base_speed * (1.0 - h.slow_factor) * h.speed_mult * dt
 	var foe_team := 1 - h.team
 	match h.state:
 		"march":
@@ -917,11 +1113,11 @@ func _update_hero(h: Hero, dt: float) -> void:
 				h.pos = next
 			elif h.cd_left <= 0:
 				if h.melee:
-					h.cd_left = h.cooldown
+					h.cd_left = h.cooldown / h.attack_speed
 					if foe != null:
-						_damage_unit(foe, h.dmg, "melee")
+						_melee_hit(h, foe)
 					else:
-						_damage_building(tb, h.dmg * h.building_mult)
+						_damage_building(tb, h.dmg * h.dmg_mult * h.building_mult)
 					events.append({"type": "hit", "pos": target_pos})
 				else:
 					_ranged_attack(h, target_pos, foe, tb, -1)
@@ -1030,12 +1226,46 @@ func _rally_s(u: Unit) -> float:
 	return rally_s - depth.get(u.kind, 0.0) - (u.id % 3) * 12.0
 
 
+## Cios wręcz z mnożnikiem obrażeń i wysysaniem życia (wzmocnienia).
+func _melee_hit(u: Unit, foe: Unit) -> void:
+	var dmg := u.dmg * u.dmg_mult
+	_damage_unit(foe, dmg, "melee")
+	if u.lifesteal > 0.0:
+		u.hp = minf(u.max_hp, u.hp + dmg * u.lifesteal)
+
+
+## Wzmocnienie jednostki (typ `buff`): ta sama statystyka nie kumuluje się — liczy się
+## mocniejsza wartość i dłuższy czas.
+func _apply_buff(u: Unit, stat: String, value: float, duration: float) -> void:
+	var cur: Array = u.buffs.get(stat, [value, 0.0])
+	u.buffs[stat] = [maxf(cur[0], value), maxf(cur[1], elapsed + duration)]
+	_refresh_buffs(u)
+
+
+func _expire_buffs(u: Unit) -> void:
+	var changed := false
+	for stat in u.buffs.keys():
+		if u.buffs[stat][1] <= elapsed:
+			u.buffs.erase(stat)
+			changed = true
+	if changed:
+		_refresh_buffs(u)
+
+
+func _refresh_buffs(u: Unit) -> void:
+	u.dmg_mult = u.buffs["dmg"][0] if u.buffs.has("dmg") else 1.0
+	u.speed_mult = u.buffs["speed"][0] if u.buffs.has("speed") else 1.0
+	u.attack_speed = u.buffs["attack_speed"][0] if u.buffs.has("attack_speed") else 1.0
+	u.armor_bonus = u.buffs["armor"][0] if u.buffs.has("armor") else 0.0
+	u.lifesteal = u.buffs["lifesteal"][0] if u.buffs.has("lifesteal") else 0.0
+
+
 func _ranged_attack(u: Unit, at: Vector2, unit: Unit, building: Building, base_team: int) -> void:
 	if u.cd_left > 0:
 		return
-	u.cd_left = u.cooldown
-	var s := _fire(u.team, u.projectile, u.pos, at, u.dmg, u.splash)
-	s.building_dmg = u.building_dmg
+	u.cd_left = u.cooldown / u.attack_speed
+	var s := _fire(u.team, u.projectile, u.pos, at, u.dmg * u.dmg_mult, u.splash)
+	s.building_dmg = u.building_dmg * u.dmg_mult
 	s.target_unit = unit
 	s.target_building = building
 	s.target_base = base_team
@@ -1156,7 +1386,7 @@ func _damage_unit(u: Unit, dmg: float, kind: String) -> void:
 	if u.is_hero and (u as Hero).invulnerable > 0.0:
 		return
 	if kind == "arrow":
-		dmg *= 1.0 - u.armor
+		dmg *= 1.0 - minf(u.armor + u.armor_bonus, Cfg.MAX_ARMOR)
 	u.hp -= dmg
 	u.flash = 0.12
 	if u.hp > 0:
@@ -1185,6 +1415,8 @@ func _damage_building(b: Building, dmg: float) -> void:
 	if b.hp > 0:
 		return
 	events.append({"type": "building_destroyed", "pos": b.pos, "team": b.team, "kind": b.kind})
+	if b.temporary:
+		return  # bez nagrody i bez liczenia strat (R7)
 	if b.team == 1:
 		stats["towers_razed"] += 1
 		_earn(Cfg.TOWER_KILL_BOUNTY, b.pos)
@@ -1255,6 +1487,23 @@ func _nearest_unit(team: int, from: Vector2, max_dist: float, anti_air: bool) ->
 	return best
 
 
+## Żywe jednostki drużyny `team` w promieniu `r` (środek + promień jednostki) — przez siatkę.
+## Siatka jest z początku kroku, więc jednostki przywołane w tym kroku pomija (bez znaczenia).
+func _units_near(team: int, from: Vector2, r: float, air := true) -> Array[Unit]:
+	var out: Array[Unit] = []
+	var reach := r + 20.0  # zapas na promień jednostki i przesunięcie od przebudowy siatki
+	var cells: Dictionary = _grid[team]
+	for gx in range(floori((from.x - reach) / GRID_CELL), floori((from.x + reach) / GRID_CELL) + 1):
+		for gy in range(floori((from.y - reach) / GRID_CELL), floori((from.y + reach) / GRID_CELL) + 1):
+			var bucket: Variant = cells.get(Vector2i(gx, gy))
+			if bucket == null:
+				continue
+			for o: Unit in bucket:
+				if o.hp > 0 and (air or not o.flying) and from.distance_to(o.pos) <= r + o.radius:
+					out.append(o)
+	return out
+
+
 func _nearest_building(team: int, from: Vector2, max_dist: float) -> Building:
 	var best: Building = null
 	var best_d := max_dist
@@ -1282,7 +1531,7 @@ func _add_building(team: int, kind: String, pos: Vector2) -> Building:
 	b.team = team
 	b.kind = kind
 	b.pos = pos
-	b.max_hp = INF if kind == "basegun" else Cfg.BUILDINGS[kind]["hp"]
+	b.max_hp = INF if kind == "basegun" else Cfg.building(kind)["hp"]
 	b.hp = b.max_hp
 	buildings.append(b)
 	layout_version += 1

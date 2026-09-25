@@ -91,6 +91,22 @@ const BUILDINGS := {
 	"workshop": {"name": "Warsztat", "cost": 200, "upgrades": [150, 250], "hp": 450.0, "unit": "catapult", "period": 16.0},
 	"extractor": {"name": "Wydobywacz", "cost": 60, "upgrades": [80, 140], "hp": 300.0, "income": [2.5, 4.0, 5.5]},
 }
+## Budowle tymczasowe (umiejętności `summon_building`, R7): stawia je umiejętność, nie gracz — poza
+## BUILD_ORDER, bez zaznaczania, sprzedaży, ulepszeń, nagród i liczenia do obrony ścieżek.
+##   heal, pulse   — co `pulse` s leczy własne jednostki w `range` o `heal` HP (totem pulsu)
+##   repel, pulse  — co `pulse` s cofa wrogów naziemnych w `range` o `repel` px wzdłuż ścieżki
+const TEMP_BUILDINGS := {
+	"drill_turret": {"name": "Wiertło-wieżyczka", "temporary": true, "hp": 250.0,
+		"range": 150.0, "dmg": 12.0, "cd": 0.6, "projectile": "arrow"},
+	"volcano": {"name": "Wulkan", "temporary": true, "hp": 300.0,
+		"range": 170.0, "dmg": 30.0, "cd": 3.0, "projectile": "rock", "splash": 60.0},
+	"totem_turret": {"name": "Totem-wieżyczka", "temporary": true, "hp": 280.0,
+		"range": 160.0, "dmg": 14.0, "cd": 0.8, "projectile": "arrow"},
+	"pulse_totem": {"name": "Totem pulsu", "temporary": true, "hp": 250.0,
+		"range": 130.0, "heal": 20.0, "pulse": 2.0},
+	"repeller": {"name": "Odpychacz", "temporary": true, "hp": 300.0,
+		"range": 90.0, "repel": 50.0, "pulse": 3.0},
+}
 ## Kolejność przycisków budowy (i skrótów 1–6).
 const BUILD_ORDER: Array[String] = ["tower", "cannon", "frost", "barracks", "range", "workshop"]
 
@@ -249,7 +265,14 @@ const ABILITIES := {
 const ABILITY_ORDER: Array[String] = ["arrows", "levy", "repair"]
 ## Typy efektów, które Sim już obsługuje. Dowódca jest grywalny (`ready`), gdy wszystkie jego
 ## umiejętności i umiejętność rasy mają typ z tej listy — rośnie z T6/T9–T11b.
-const IMPLEMENTED_KINDS: Array[String] = ["strike", "summon_units", "global"]
+const IMPLEMENTED_KINDS: Array[String] = ["strike", "summon_units", "global", "zone", "summon_building",
+	"buff", "line", "execute", "demolish"]
+## Umiejętności `zone` i `summon_building` nie dalej niż tyle od bazy przeciwnika (R2).
+const NO_CAST_NEAR_BASE := 150.0
+## `demolish`: w jakim promieniu od wskazanego punktu szuka budynku wroga.
+const DEMOLISH_PICK := 50.0
+## Najwyższy pancerz po wzmocnieniach (`buff` pancerza) — nigdy pełna odporność.
+const MAX_ARMOR := 0.85
 
 # ---------------------------------------------------------------- dowódcy
 # Postać na mapie sterowana przez gracza (R4 w docs/designs/dowodcy-ras.md). Klucze:
@@ -390,6 +413,16 @@ static func smooth_curve(points: Array, bake_interval := 4.0) -> Curve2D:
 ## Środek pola siatki, w które wpada punkt.
 static func snap(p: Vector2) -> Vector2:
 	return (p / GRID).floor() * GRID + Vector2(GRID, GRID) / 2
+
+
+## Dane budynku gracza albo budowli tymczasowej.
+static func building(kind: String) -> Dictionary:
+	return BUILDINGS[kind] if BUILDINGS.has(kind) else TEMP_BUILDINGS[kind]
+
+
+## Czy budynek strzela (wieże gracza i wroga, strzelające budowle tymczasowe).
+static func is_shooter(kind: String) -> bool:
+	return is_tower(kind) or (TEMP_BUILDINGS.has(kind) and TEMP_BUILDINGS[kind].has("dmg"))
 
 
 static func is_tower(kind: String) -> bool:
