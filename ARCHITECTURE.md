@@ -3,18 +3,26 @@
 ## Pliki
 
 ```
-project.godot            ekran wirtualny 1280×720, stretch canvas_items/keep, GL Compatibility, dotyk → mysz
+project.godot            ekran wirtualny 1280×720, stretch canvas_items/expand, GL Compatibility, dotyk → mysz,
+                         Android: poziomo (obie strony), „Wstecz” obsługuje gra (quit_on_go_back = false)
+export_presets.cfg       preset „Android”: APK bez Gradle, arm64-v8a, pl.towerdefense.game (bez haseł — klucz z env)
 main.tscn                jeden węzeł Node2D ze skryptem scripts/main.gd
 scripts/cfg.gd           Cfg      — balans: jednostki, budynki, umiejętności, fale, trudności, stałe wspólne dla map
 scripts/levels.gd        Levels   — mapy jako dane (ścieżki, bazy, rzeka, złoża, sloty wież wroga, strefa budowy)
+scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + kto z kim walczy
 scripts/sim.gd           Sim      — logika gry: stan, rozkazy gracza, step(dt), zdarzenia. Zero węzłów i rysowania.
 scripts/main.gd          widok: kamera, render (_draw + warstwa terenu), HUD, minimapa, menu, nakładki, samouczek
+scripts/painter.gd       Painter  — kształty (koła, łuki, linie, wielokąty) sklejane w jedno wywołanie rysowania
 scripts/sfx.gd           Sfx      — efekty i muzyka syntezowane w kodzie (bez plików audio), szyny SFX/Music
 scripts/progress.gd      Progress — rekordy i gwiazdki per mapa × trudność, stan samouczka (user://progress.cfg)
 scripts/settings.gd      Settings — głośności, skala interfejsu (user://settings.cfg)
 tests/bot_test.gd        testy mechanik + geometrii map + mecze botów (`-- --mechanics`, `-- --balance`)
 tests/ui_smoke_test.gd   odpala prawdziwą scenę, steruje nią zdarzeniami wejścia, gra do końca partii
 tests/perf_test.gd       benchmark późnej gry: prawdziwa scena + bot, czas rzeczywisty, czasy klatki i faz
+                         (w APK — `tools/android.ps1 -Bench` odpala go na telefonie)
+tests/render_probe.gd    koszt warstw renderu (teren / świat / HUD / rozdzielczość) — wywołania rysowania, FPS
+                         (benchmarki to węzły uruchamiane przez grę: `-- --bench <skrypt>`)
+tools/android.ps1        eksport APK + adb install + start / log / benchmark na telefonie
 ```
 
 ## Zasada podziału
@@ -47,14 +55,26 @@ przybywało bez końca (fala 50: ~2800) i to było przyczyną „wieszania się"
   przebudowa raz na krok) zamiast O(n²); statystyki jednostki skopiowane do pól przy
   spawnie; `slot_at` to jedno `sample_baked_with_rotation`; jednostka na ścieżce
   (`on_path`) nie sprawdza co krok, czy z niej zeszła. Profil faz: `sim.profile = true`.
-- Render: statyczny teren na osobnej warstwie (`terrain`) rysowanej przy zmianie mapy;
+- Render: **wywołania rysowania to główny koszt na telefonie** (Mali-G57: ~600 wywołań/klatkę
+  = 35–45 FPS nawet w pustej grze). Każde `draw_circle`/`draw_arc`/`draw_colored_polygon` to
+  osobne wywołanie, więc świat rysuje `Painter` (`pen`): wszystkie kształty w jednej liście
+  trójkątów (wierzchołki kół liczy C++ przez `Transform2D * kształt`), napisy na wierzchu —
+  świat = 1 wywołanie + napisy. Koła terenu (trawa, drzewa) to dwa gotowe `Painter` liczone
+  przy zmianie mapy. Pomiar warstw: `tests/render_probe.gd`.
+- Render (dalej): statyczny teren na osobnej warstwie (`terrain`) rysowanej przy zmianie mapy;
   podświetlenia ścieżek to węzły `Line2D` (geometria raz, co klatkę tylko widoczność);
   wolne pola budowy liczone po zmianie `sim.layout_version`; obiekty poza kadrem
   pomijane; powyżej `LOD_UNITS` jednostek (widok całej mapy) rysunek uproszczony;
   limity iskier, napisów i efektów trafień na klatkę.
 - Pomiar: `tests/perf_test.gd` (prawdziwa scena, bot, Trudny, x3, czas rzeczywisty)
   i licznik F3 w grze. Pusta scena headless to ~7 ms/klatkę — narzut silnika, nie gry.
-- Na telefonie spodziewaj się ×3–5 — do zmierzenia przy teście na Androidzie (TODO P2).
+- Telefon (realme 8i, Helio G96, Mali-G57, 2412×1080), `perf_test` Serpentyna/Trudny/x3/8 min:
+  mediana 17,6 ms, p95 22,9 ms; przy ~150–240 jednostkach ~20 ms (sim ~8 ms przy 2 krokach
+  na klatkę, rysowanie ~7 ms). Pomiar: `tools/android.ps1 -Bench` (bot, prawdziwy GPU) albo
+  licznik FPS z ustawień — włączony wypisuje co 5 s linię `[perf]` do logu (`-Log`).
+- Pułapka Androida: gdy wątek gry czeka na GPU, system uznaje go za mało zajęty i zrzuca na
+  mały rdzeń z niskim taktowaniem — wtedy zwalnia też sim (×3–4). Mniej wywołań rysowania
+  leczy oba objawy naraz.
 
 ## Mapy (`Levels`) i ścieżki
 
@@ -123,15 +143,23 @@ Stany ekranu + nakładki (`overlay`: ustawienia, jak grać) — widoczność war
 wynika co klatkę ze stanu, nie jest przełączana ręcznie:
 
 ```
-MENU ──(mapa + trudność)──▶ PLAY ⇄ PAUSED (Esc/P/II, auto-pauza w tle na Androidzie)
+MENU ──(rasa + mapa + trudność)──▶ PLAY ⇄ PAUSED (Esc/Wstecz/P/II, auto-pauza w tle na Androidzie)
                              │ sim.result != 0
                              ▼
-                           OVER ──▶ PLAY (Jeszcze raz) / MENU
+                           OVER ──▶ PLAY (Jeszcze raz) / MENU (też Esc/Wstecz)
 ```
+
+Esc i androidowe „Wstecz” idą przez `_back()`: nakładka → tryb/zaznaczenie → pauza ⇄ gra →
+koniec → menu; „Wstecz” w menu głównym zamyka grę.
+
+Widok: stretch `expand` — wysokość zawsze 720 px wirtualnych, szerokość wg proporcji ekranu
+(`view_size`: 1280 przy 16:9, ~1600 na telefonie 20:9 — bez czarnych pasów). Zmiana rozmiaru
+okna (`size_changed`) przelicza kamerę i przebudowuje HUD.
 
 Kamera: `Camera2D`, domyślnie cała mapa (zoom 0,8), zoom do 2×. Mapowanie ekran↔świat
 liczone wprost (`_to_world` / `_to_screen`). HUD żyje w `CanvasLayer` skalowanym przez
-`Settings.ui_scale()`; układ liczony od `screen = VIEW / skala`, zmiana skali przebudowuje HUD.
+`Settings.ui_scale()` (na telefonie domyślnie ×1,3); układ liczony od `screen = view_size / skala`,
+zmiana skali przebudowuje HUD.
 
 ```
 wciśnij ─┬─ tryb budowy/umiejętności ──▶ podgląd pod palcem ── puść ──▶ buduj / użyj

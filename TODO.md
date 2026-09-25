@@ -3,11 +3,22 @@
 ## Milestones
 
 - [x] **P0 — prototyp**: jedna mapa, złoto + wydobywacze, koszary/strzelnica/wieża, skryptowane fale wroga, win/loss.
-- [ ] **P1 — czy to jest fajne?**: kilka rund na każdej mapie, strojenie liczb, notatki co nudzi.
-- [ ] **P2 — Android smoke test**: szablony eksportu, APK sideload na telefon, dotyk (szczypanie, przeciąganie, celowanie umiejętności), czytelność HUD (skala interfejsu), **pomiar fps w dużej bitwie** (desktop po optymalizacji: klatka ~7 ms przez całą partię, maks. ~350 jednostek dzięki limitom; F3 pokazuje czasy), czy ★/●/→ renderują się z systemowego fontu.
+- [x] **P1 — czy to jest fajne?**: tak — werdykt gracza po partiach na telefonie (2026-09-25). Szczegółowe pytania do strojenia niżej zostają otwarte.
+- [x] **P2 — Android smoke test**: szablony eksportu (tylko Android), preset, `tools/android.ps1` (build / instalacja / log / benchmark na telefonie), realme 8i (Helio G96, Mali-G57): pełny ekran 20:9, dotyk i HUD ×1,3 sprawdzone graniem, „Wstecz” jak Esc, ★/●/→/— z fontu OK, **duża bitwa: mediana 17,6 ms, p95 22,9 ms** (Trudny x3, do ~240 jednostek; wcześniej 60 ms). APK krąży też poza projektem (sideload).
 - [x] **P3 — głębia**: ulepszenia i sprzedaż, armata, mróz, warsztat + katapulta, postawa, umiejętności, nietoperze i tarczownicy, sprytny wybór ścieżek.
 - [x] **P4 — treść**: 3 mapy (Trzy drogi, Przesmyk, Serpentyna) jako dane w `Levels`, wybór w menu, rekordy i gwiazdki.
-- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren. ✘ sprite'y CC0.
+- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren. ✘ sprite'y CC0, ikona aplikacji (teraz domyślna Godota).
+
+## Sesja 6 (2026-09-25) — rasy
+
+Wybór rasy w menu: 12 ras wspólnych z innymi grami (`Races`), grywalne Krety i Gibony (gibony zastąpiły goryle), reszta „Wkrótce” ·
+nazwy ras nad fortecami, rasa gracza na ekranie końca. Bez wpływu na statystyki — czeka na lore.
+
+## Sesja 5 (2026-09-24) — Android
+
+Szablony eksportu (tylko pliki Androida, 230 MB z 1,28 GB) · preset + `tools/android.ps1` · stretch `expand` (pełny ekran 20:9) ·
+„Wstecz” jak Esc · interfejs ×1,3 domyślnie na telefonie · benchmarki jako węzły (`-- --bench`) · `tests/render_probe.gd` ·
+`Painter`: świat jednym wywołaniem rysowania (było ~600) — telefon: pusta gra 45 → 60 FPS, duża bitwa 60 → ~18 ms/klatkę.
 
 ## Sesja 4 (2026-09-24) — wydajność późnej gry
 
@@ -41,18 +52,25 @@ sporne złoża · minimapa · boty/testy pod ścieżki.
 Refaktor Sim/widok/Cfg · testy headless i boty · ulepszenia i sprzedaż · armata · warsztat + katapulta ·
 postawa Atak/Obrona · goblin, wódz · efekty · dźwięk · menu/pauza/koniec + dotyk.
 
-## Pomysły do sprawdzenia w P1
+## Do strojenia (otwarte pytania z P1)
 
-- Bot „balanced" (kupuje wszystko natychmiast, używa umiejętności) wygrywa wszędzie: Łatwy ~3–3,5 min, Normalny ~5–6,5 min, Trudny ~7–9,5 min. Czy Trudny nie jest za łatwy dla dobrego gracza?
+- Bot „balanced" (kupuje wszystko natychmiast, używa umiejętności) wygrywa wszędzie: Łatwy ~3–3,5 min, Normalny ~5–6,5 min, Trudny ~6–7 min. Czy Trudny nie jest za łatwy dla dobrego gracza?
 - Czy nietoperze i tarczownicy zmuszają do mieszania wież, czy da się je zignorować?
 - Czy sprytny wybór ścieżek jest czytelny (gracz rozumie, czemu fala idzie tam), czy frustruje?
 - Czy Przesmyk nie sprowadza się do „wszystko na most"?
 - Czy umiejętności mają dobry rytm (cooldown 40–60 s)?
 
+## Lore i rasy (do przemyślenia)
+
+- Lore świata wspólne z innymi grami — kto z kim walczy i dlaczego (pierwsze grywalne: krety i gibony).
+- Czy rasy dostają własne jednostki/mechaniki (asymetria), czy zostają tożsamością? Od tego zależy skala roboty.
+- Wrogowie w kodzie nadal nazywają się ork/goblin/ogr/wódz (`Cfg.UNITS`) — przemianować pod lore.
+- Styl grafiki (P5) wybieramy dopiero po lore.
+
 ## Backlog (świadomie odroczone)
 
 - Multiplayer / netcode
-- Asymetryczne rasy (zajączki, wydry, jeże, wilki, hieny, nietoperze)
+- Asymetryczne rasy (różne jednostki i mechaniki — wybór ras w menu już jest, patrz „Lore i rasy”)
 - Prawdziwe AI wroga (teraz skrypt fal + ważony wybór ścieżek)
 - Zapis/wczytanie trwającej partii
 - iOS (wymaga Maca)

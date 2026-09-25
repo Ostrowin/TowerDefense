@@ -44,8 +44,15 @@ func _process(_delta: float) -> bool:
 		2:
 			_check(main.state == main.State.MENU, "start w menu")
 			_check(main.menu_layer.visible, "menu widoczne")
+			var playable: Array = main.race_buttons.filter(func(b: Button) -> bool: return not b.disabled)
+			_check(main.race_buttons.size() == 12 and playable.size() == 2, "12 ras w menu, grywalne dwie")
+			main.race_buttons[0].emit_signal("pressed")  # niedźwiedzie — „Wkrótce"
+			_check(Races.ALL[main.race_index]["id"] == "mole", "zablokowanej rasy nie da się wybrać")
+			main.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon")].emit_signal("pressed")
 			main.map_buttons[2].emit_signal("pressed")
 		3:
+			_check(Races.ALL[main.race_index]["id"] == "gibbon", "wybór rasy w menu")
+			_check(main.race_desc.text.contains("Przeciwnik: Krety"), "menu pokazuje przeciwnika")
 			_check(main.level_index == 2 and sim.level["id"] == "serpentyna", "wybór mapy w menu")
 			main.diff_buttons[1].emit_signal("pressed")
 		4:
@@ -120,7 +127,7 @@ func _process(_delta: float) -> bool:
 			main.music_slider.value = 0.2
 			main._cycle_ui_scale()
 		33:
-			_check(Settings.ui_scale_index == 1 and main.screen.x < Cfg.VIEW.x, "większy interfejs przebudowuje HUD")
+			_check(Settings.ui_scale_index == 1 and main.screen.x < main.view_size.x, "większy interfejs przebudowuje HUD")
 			_check(main.settings_layer.visible, "po przebudowie ustawienia zostają otwarte")
 			_key(KEY_ESCAPE)
 		35:
@@ -131,6 +138,20 @@ func _process(_delta: float) -> bool:
 		37:
 			_check(main.state == main.State.PLAY, "P wznawia")
 			_key(KEY_SPACE)
+			main._cancel()
+			main.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+		38:
+			_check(main.state == main.State.PAUSED, "Wstecz (Android) pauzuje")
+			main.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+			# okno headless jest kwadratowe, więc „expand" daje widok 1280×1280 — przejście na
+			# „keep" (1280×720) sprawdza, że zmiana proporcji ekranu przelicza widok i HUD
+			_check(main.view_size == root.get_visible_rect().size, "widok = widoczny obszar okna")
+			root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+		40:
+			_check(main.state == main.State.PLAY, "drugie Wstecz wznawia")
+			_check(main.view_size == Cfg.VIEW and is_equal_approx(main.screen.y, Cfg.VIEW.y / Settings.ui_scale()),
+				"zmiana proporcji ekranu przebudowuje HUD")
+			_check(not main._is_zoomed_in(), "po zmianie proporcji kamera dalej pokazuje całą mapę")
 		1200:
 			# dokładamy gospodarkę i armię, żeby dojść do końca partii
 			sim.gold += 8000

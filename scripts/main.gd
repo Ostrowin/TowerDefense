@@ -84,6 +84,7 @@ var sim: Sim
 var state := State.MENU
 var overlay := ""  ## "" / "settings" / "help" — nakładka nad bieżącym stanem
 var level_index := 0
+var race_index := Races.first_playable()  ## rasa gracza (Races.ALL); przeciwnik = Races.rival
 var difficulty := 1
 var mode := ""  ## "" / klucz budynku z Cfg.BUILD_ORDER / "ab:<umiejętność>"
 var selected: Sim.Building = null
@@ -94,6 +95,7 @@ var over_delay := 0.0
 ## Licznik wydajności (F3): wygładzone czasy sekcji klatki w ms + kroki sima.
 var perf := {"sim": 0.0, "events": 0.0, "hud": 0.0, "draw": 0.0, "steps": 0}
 var perf_visible := false
+var perf_log_at := 0.0  ## licznik trafia też co 5 s do logu (na telefonie: `adb logcat`)
 ## Ułamek kroku sima, który upłynął od ostatniego kroku (0..1) — do interpolacji renderu.
 var render_alpha := 1.0
 ## Uproszczone rysowanie jednostek w dużej bitwie (ustawiane co klatkę w _draw).
@@ -121,6 +123,9 @@ var gesture := false  ## dwa palce — emulowana mysz jest wtedy ignorowana
 # kamera
 var camera: Camera2D
 var fit_zoom := 1.0
+## Widoczny obszar w pikselach wirtualnych. Wysokość zawsze 720, szerokość zależy od proporcji
+## ekranu (stretch „expand"): 1280 przy 16:9, ~1600 na telefonie 20:9.
+var view_size := Cfg.VIEW
 
 # efekty
 var sparks: Array[Spark] = []
@@ -139,6 +144,10 @@ var bridge_planks := PackedVector2Array()  ## pary punktów dla draw_multiline
 var bridge_rails := PackedVector2Array()
 var grass: Array[Vector3] = []  ## x, y, rodzaj
 var trees: Array[Vector3] = []  ## x, y, promień
+## Świat rysowany co klatkę (_draw) — patrz Painter: wszystko jednym wywołaniem rysowania.
+var pen := Painter.new()
+var grass_batch := Painter.new()  ## trawa, kwiatki i kamienie (pod ścieżkami)
+var tree_batch := Painter.new()  ## drzewa (nad ścieżkami)
 
 var terrain: Node2D  ## warstwa statycznego terenu, przerysowywana przy zmianie mapy
 var warn_lines: Array[Line2D] = []  ## podświetlenie ścieżki nadchodzącej fali (per ścieżka)
@@ -172,6 +181,8 @@ var sell_button: Button
 var tutorial_panel: PanelContainer
 var tutorial_label: Label
 var menu_layer: Control
+var race_buttons: Array[Button] = []
+var race_desc: Label
 var map_buttons: Array[Button] = []
 var map_desc: Label
 var diff_buttons: Array[Button] = []
@@ -201,8 +212,24 @@ func _ready() -> void:
 	add_child(terrain)
 	sim = Sim.new(difficulty, -1, level_index)
 	_make_terrain()
+	view_size = get_viewport_rect().size
+	get_viewport().size_changed.connect(_on_view_resized)
 	_build_ui()
 	_show_menu()
+	_start_bench()
+
+
+## Benchmark zamiast gracza: `-- --bench res://tests/perf_test.gd [argumenty]` (desktop, headless,
+## a na telefonie wbudowane w APK przez `tools/android.ps1 -Bench`). Skrypt benchmarku to węzeł,
+## który dostaje `main` i steruje grą co klatkę.
+func _start_bench() -> void:
+	var args := OS.get_cmdline_user_args()
+	var i := args.find("--bench")
+	if i < 0 or i + 1 >= args.size():
+		return
+	var bench: Node = load(args[i + 1]).new()
+	bench.set("main", self)
+	add_child(bench)
 
 
 # ================================================================ przebieg gry
@@ -235,6 +262,11 @@ func _select_level(i: int) -> void:
 	_show_menu()
 
 
+func _select_race(i: int) -> void:
+	if Races.ALL[i]["playable"]:
+		race_index = i
+
+
 func _clear_view_state() -> void:
 	sparks.clear()
 	texts.clear()
@@ -265,6 +297,43 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if state == State.PLAY:
 			_set_paused(true)
+	# Android: systemowe „Wstecz" działa jak Esc, a w menu głównym zamyka grę
+	# (project.godot ma quit_on_go_back = false — inaczej silnik zamykałby grę od razu).
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if not _back():
+			get_tree().quit()
+
+
+## Esc / „Wstecz": zamknij nakładkę → anuluj tryb/zaznaczenie → pauza ⇄ gra → z ekranu końca
+## do menu. Zwraca false, gdy nie ma się już dokąd cofnąć (menu główne).
+func _back() -> bool:
+	if overlay != "":
+		_close_overlay()
+	elif state == State.PLAY and (mode != "" or selected != null):
+		_cancel()
+	elif state == State.PLAY or state == State.PAUSED:
+		_set_paused(state == State.PLAY)
+	elif state == State.OVER:
+		_show_menu()
+	else:
+		return false
+	return true
+
+
+## Zmiana rozmiaru okna albo proporcji ekranu: nowy widoczny obszar, kamera i HUD od nowa.
+func _on_view_resized() -> void:
+	var size := get_viewport_rect().size
+	if size == view_size:
+		return
+	var fitted := not _is_zoomed_in()
+	view_size = size
+	fit_zoom = minf(view_size.x / sim.size.x, view_size.y / sim.size.y)
+	if fitted:
+		_reset_camera()
+	else:
+		camera.zoom = Vector2.ONE * maxf(camera.zoom.x, fit_zoom)
+		_clamp_camera()
+	_rebuild_ui.call_deferred()
 
 
 func _process(delta: float) -> void:
@@ -334,7 +403,7 @@ func _on_game_end() -> void:
 	over_title.add_theme_color_override("font_color", GOLD_COLOR if won else TEAM_COLORS[1])
 	var s := sim.stats
 	var lines := PackedStringArray([
-		"%s · %s · czas %s · fala %d" % [sim.level["name"], sim.difficulty["name"], _fmt_time(sim.elapsed), sim.wave],
+		"%s · %s · %s · czas %s · fala %d" % [Races.ALL[race_index]["name"], sim.level["name"], sim.difficulty["name"], _fmt_time(sim.elapsed), sim.wave],
 		"Zabici wrogowie: %d · wyprodukowane jednostki: %d · umiejętności: %d" % [s["kills"], s["units_made"], s["abilities_used"]],
 		"Zburzone wieże: %d · stracone budynki: %d · zarobione złoto: %d" % [s["towers_razed"], s["buildings_lost"], int(s["gold_earned"])],
 	])
@@ -577,17 +646,17 @@ func _has_building(pred: Callable) -> bool:
 
 # ================================================================ kamera
 
-## Ekran (wirtualne 1280×720) → świat. Liczone wprost z kamery, bez czekania na klatkę.
+## Ekran (piksele wirtualne, `view_size`) → świat. Liczone wprost z kamery, bez czekania na klatkę.
 func _to_world(screen_pos: Vector2) -> Vector2:
-	return camera.position + (screen_pos - Cfg.VIEW / 2.0) / camera.zoom.x
+	return camera.position + (screen_pos - view_size / 2.0) / camera.zoom.x
 
 
 func _to_screen(world_pos: Vector2) -> Vector2:
-	return (world_pos - camera.position) * camera.zoom.x + Cfg.VIEW / 2.0
+	return (world_pos - camera.position) * camera.zoom.x + view_size / 2.0
 
 
 func _reset_camera() -> void:
-	fit_zoom = minf(Cfg.VIEW.x / sim.size.x, Cfg.VIEW.y / sim.size.y)
+	fit_zoom = minf(view_size.x / sim.size.x, view_size.y / sim.size.y)
 	camera.zoom = Vector2.ONE * fit_zoom
 	camera.position = sim.size / 2.0
 
@@ -601,7 +670,7 @@ func _zoom_at(screen_pt: Vector2, factor: float) -> void:
 	var anchor := _to_world(screen_pt)
 	var z := clampf(camera.zoom.x * factor, fit_zoom, ZOOM_MAX)
 	camera.zoom = Vector2(z, z)
-	camera.position = anchor - (screen_pt - Cfg.VIEW / 2.0) / z
+	camera.position = anchor - (screen_pt - view_size / 2.0) / z
 	_clamp_camera()
 	camera_used = true
 
@@ -614,7 +683,7 @@ func _pan_screen(delta_screen: Vector2) -> void:
 
 
 func _clamp_camera() -> void:
-	var half := Cfg.VIEW / camera.zoom.x / 2.0
+	var half := view_size / camera.zoom.x / 2.0
 	var p := camera.position
 	p.x = sim.size.x / 2.0 if half.x * 2.0 >= sim.size.x else clampf(p.x, half.x, sim.size.x - half.x)
 	p.y = sim.size.y / 2.0 if half.y * 2.0 >= sim.size.y else clampf(p.y, half.y, sim.size.y - half.y)
@@ -753,12 +822,7 @@ func _is_free_spot(p: Vector2) -> bool:
 func _on_key(key: int) -> void:
 	match key:
 		KEY_ESCAPE:
-			if overlay != "":
-				_close_overlay()
-			elif state == State.PLAY and (mode != "" or selected != null):
-				_cancel()
-			elif state == State.PLAY or state == State.PAUSED:
-				_set_paused(state == State.PLAY)
+			_back()
 		KEY_P:
 			if overlay == "":
 				_set_paused(state == State.PLAY)
@@ -788,9 +852,9 @@ func _on_key(key: int) -> void:
 		KEY_C, KEY_HOME:
 			_reset_camera()
 		KEY_EQUAL, KEY_KP_ADD:
-			_zoom_at(Cfg.VIEW / 2.0, 1.2)
+			_zoom_at(view_size / 2.0, 1.2)
 		KEY_MINUS, KEY_KP_SUBTRACT:
-			_zoom_at(Cfg.VIEW / 2.0, 1.0 / 1.2)
+			_zoom_at(view_size / 2.0, 1.0 / 1.2)
 
 
 ## Klik bez przeciągania: złoże → wydobywacz / zaznacz; budynek → zaznacz.
@@ -931,7 +995,7 @@ func _cycle_ui_scale() -> void:
 
 func _build_ui() -> void:
 	var s := Settings.ui_scale()
-	screen = Cfg.VIEW / s
+	screen = view_size / s
 	ui_layer = CanvasLayer.new()
 	ui_layer.scale = Vector2(s, s)
 	add_child(ui_layer)
@@ -1056,6 +1120,27 @@ func _build_menu(ui: Control) -> void:
 	var box: VBoxContainer = menu_layer.get_child(0).get_child(0)
 	_label("TOWER DEFENSE", 52, box, GOLD_COLOR)
 	_label("Rozbuduj ekonomię. Wyślij armię. Zburz fortecę wroga.", 18, box)
+	# rasy: wszystkie z Races.ALL, grywalne z ramką w kolorze rasy, reszta „Wkrótce"
+	var races := GridContainer.new()
+	races.columns = 6
+	races.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	races.add_theme_constant_override("h_separation", 8)
+	races.add_theme_constant_override("v_separation", 8)
+	box.add_child(races)
+	for i in Races.ALL.size():
+		var r: Dictionary = Races.ALL[i]
+		var b := _button(r["name"] if r["playable"] else "%s\nWkrótce" % r["name"], Vector2(140, 50), _select_race.bind(i), races)
+		b.toggle_mode = true
+		b.disabled = not r["playable"]
+		b.add_theme_font_size_override("font_size", 15)
+		if r["playable"]:
+			for look in ["normal", "hover"]:
+				var sb := (ui.theme.get_stylebox(look, "Button") as StyleBoxFlat).duplicate() as StyleBoxFlat
+				sb.border_color = (r["color"] as Color).lightened(0.25)
+				sb.border_width_bottom = 5
+				b.add_theme_stylebox_override(look, sb)
+		race_buttons.append(b)
+	race_desc = _label("", 15, box, Color(1, 1, 1, 0.8))
 	var maps := HBoxContainer.new()
 	maps.alignment = BoxContainer.ALIGNMENT_CENTER
 	maps.add_theme_constant_override("separation", 10)
@@ -1154,6 +1239,7 @@ func _rebuild_ui() -> void:
 	build_buttons.clear()
 	ability_buttons.clear()
 	lane_buttons.clear()
+	race_buttons.clear()
 	map_buttons.clear()
 	diff_buttons.clear()
 	_build_ui()
@@ -1179,6 +1265,9 @@ func _update_hud() -> void:
 		perf_label.text = "FPS %d · sim %.1f ms (%d kr.) · rys. %.1f ms · HUD %.1f ms · jedn. %d · efekty %d" % [
 			Engine.get_frames_per_second(), perf["sim"], perf["steps"], perf["draw"], perf["hud"],
 			sim.units.size(), sparks.size() + texts.size()]
+		if state == State.PLAY and time >= perf_log_at:
+			perf_log_at = time + 5.0
+			print("[perf] %ds · %s" % [sim.elapsed, perf_label.text])
 	if not sim.spawn_queue.is_empty():
 		wave_label.text = "Fala %d nadciąga! (zostało %d)" % [sim.wave, sim.spawn_queue.size()]
 	else:
@@ -1217,6 +1306,10 @@ func _update_hud() -> void:
 
 
 func _update_menu() -> void:
+	for i in race_buttons.size():
+		race_buttons[i].button_pressed = i == race_index
+	var race: Dictionary = Races.ALL[race_index]
+	race_desc.text = "%s — %s  Przeciwnik: %s" % [race["name"], race["blurb"], Races.ALL[Races.rival(race_index)]["name"]]
 	for i in map_buttons.size():
 		var lv: Dictionary = Levels.ALL[i]
 		map_buttons[i].text = "%s\n%s" % [lv["name"], _stars_text(Progress.stars(lv["id"]))]
@@ -1443,6 +1536,26 @@ func _make_terrain() -> void:
 		if p.distance_to(sim.e_base) < 110 or _near_any(p, sim.nodes, 50.0) or _near_any(p, slots, 50.0):
 			continue
 		trees.append(Vector3(p.x, p.y, rnd.randf_range(12, 22)))
+
+	grass_batch.clear()
+	for g in grass:
+		var p := Vector2(g.x, g.y)
+		match int(g.z):
+			0, 1, 2:
+				grass_batch.line(p, p + Vector2(-2, -6), Color(0.22, 0.32, 0.19), 2.0)
+				grass_batch.line(p, p + Vector2(2, -7), Color(0.22, 0.32, 0.19), 2.0)
+			3:
+				grass_batch.circle(p, 2.5, Color(0.9, 0.85, 0.5, 0.6))
+			4:
+				grass_batch.circle(p, 2.5, Color(0.85, 0.6, 0.8, 0.6))
+			5:
+				grass_batch.circle(p, 5.0, Color(0.3, 0.33, 0.3))
+	tree_batch.clear()
+	for t in trees:
+		var p := Vector2(t.x, t.y)
+		tree_batch.circle(p + Vector2(4, 6), t.z, Color(0, 0, 0, 0.22))
+		tree_batch.circle(p, t.z, Color(0.12, 0.26, 0.13))
+		tree_batch.circle(p + Vector2(-t.z * 0.3, -t.z * 0.3), t.z * 0.65, Color(0.17, 0.34, 0.17))
 	terrain.queue_redraw()
 
 	# podświetlenia ścieżek (ostrzeżenie fali, wybrana ścieżka produkcji) jako Line2D —
@@ -1504,7 +1617,8 @@ func _near_any(p: Vector2, points: Array[Vector2], dist: float) -> bool:
 ## kadrem są pomijane.
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
-	var view := Rect2(_to_world(Vector2.ZERO), Cfg.VIEW / camera.zoom.x).grow(60.0)
+	pen.clear()
+	var view := Rect2(_to_world(Vector2.ZERO), view_size / camera.zoom.x).grow(60.0)
 	low_detail = sim.units.size() > LOD_UNITS and not _is_zoomed_in()
 	_draw_overlays()
 	for n in sim.nodes:
@@ -1525,23 +1639,24 @@ func _draw() -> void:
 			_draw_unit(u)  # latające nad resztą
 	for st in sim.strikes:
 		var r: float = Cfg.ABILITIES["arrows"]["radius"]
-		draw_arc(st["pos"], r, 0, TAU, 48, Color(1, 1, 1, 0.5), 2.0)
+		pen.arc(st["pos"], r, 0, TAU, 48, Color(1, 1, 1, 0.5), 2.0)
 	for s in sparks:
 		if not view.has_point(s.pos):
 			continue
 		var a := s.life / s.max_life
 		if s.ring:
-			draw_arc(s.pos, s.size * (1.0 - a * 0.6), 0, TAU, 40, Color(s.color, a * 0.8), 3.0)
+			pen.arc(s.pos, s.size * (1.0 - a * 0.6), 0, TAU, 40, Color(s.color, a * 0.8), 3.0)
 		elif s.streak:
-			draw_line(s.pos, s.pos - s.vel.normalized() * 14.0, Color(s.color, a), 2.0)
+			pen.line(s.pos, s.pos - s.vel.normalized() * 14.0, Color(s.color, a), 2.0)
 		else:
-			draw_circle(s.pos, s.size * (0.4 + 0.6 * a), Color(s.color, a))
+			pen.circle(s.pos, s.size * (0.4 + 0.6 * a), Color(s.color, a))
 	for f in texts:
 		var alpha := clampf(f.life * 2.0, 0.0, 1.0)
-		draw_string_outline(font, f.pos - Vector2(100, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 200, 18, 4, Color(0, 0, 0, alpha * 0.8))
-		draw_string(font, f.pos - Vector2(100, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 200, 18, Color(f.color, alpha))
+		pen.text_outline(font, f.pos - Vector2(100, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 200, 18, 4, Color(0, 0, 0, alpha * 0.8))
+		pen.text(font, f.pos - Vector2(100, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 200, 18, Color(f.color, alpha))
 	_draw_selection()
 	_draw_ghost()
+	pen.draw_on(self)  # cały świat jednym wywołaniem rysowania + napisy na wierzchu
 	_perf_sample("draw", t0)
 
 
@@ -1551,18 +1666,7 @@ func _draw_terrain() -> void:
 	var size := sim.size
 	c.draw_rect(Rect2(-400, -400, size.x + 800, size.y + 800), Color(0.1, 0.14, 0.1))
 	c.draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.23, 0.15))
-	for g in grass:
-		var p := Vector2(g.x, g.y)
-		match int(g.z):
-			0, 1, 2:
-				c.draw_line(p, p + Vector2(-2, -6), Color(0.22, 0.32, 0.19), 2.0)
-				c.draw_line(p, p + Vector2(2, -7), Color(0.22, 0.32, 0.19), 2.0)
-			3:
-				c.draw_circle(p, 2.5, Color(0.9, 0.85, 0.5, 0.6))
-			4:
-				c.draw_circle(p, 2.5, Color(0.85, 0.6, 0.8, 0.6))
-			5:
-				c.draw_circle(p, 5.0, Color(0.3, 0.33, 0.3))
+	grass_batch.draw_on(c)
 
 	# rzeka
 	if not river_points.is_empty():
@@ -1587,11 +1691,7 @@ func _draw_terrain() -> void:
 		c.draw_string_outline(font, at - Vector2(50, -5), lane.name, HORIZONTAL_ALIGNMENT_CENTER, 100, 14, 4, Color(0, 0, 0, 0.6))
 		c.draw_string(font, at - Vector2(50, -5), lane.name, HORIZONTAL_ALIGNMENT_CENTER, 100, 14, LANE_COLORS[i])
 
-	for t in trees:
-		var p := Vector2(t.x, t.y)
-		c.draw_circle(p + Vector2(4, 6), t.z, Color(0, 0, 0, 0.22))
-		c.draw_circle(p, t.z, Color(0.12, 0.26, 0.13))
-		c.draw_circle(p + Vector2(-t.z * 0.3, -t.z * 0.3), t.z * 0.65, Color(0.17, 0.34, 0.17))
+	tree_batch.draw_on(c)
 
 
 ## Zmienne nakładki na terenie: ostrzeżenia fal, wybrana ścieżka, strefa budowy, zbiórka.
@@ -1601,20 +1701,20 @@ func _draw_overlays() -> void:
 	for i in _warn_lanes():
 		var lane := sim.lanes[i]
 		var mark := lane.point_at(lane.length - 150.0)
-		draw_circle(mark, 16 + 3 * pulse, Color(WARN_COLOR, 0.9))
-		draw_string(font, mark + Vector2(-20, 9), "!", HORIZONTAL_ALIGNMENT_CENTER, 40, 26, Color.WHITE)
+		pen.circle(mark, 16 + 3 * pulse, Color(WARN_COLOR, 0.9))
+		pen.text(font, mark + Vector2(-20, 9), "!", HORIZONTAL_ALIGNMENT_CENTER, 40, 26, Color.WHITE)
 
 	# linia od zaznaczonego budynku produkcyjnego do jego ścieżki
 	if selected != null and selected.team == 0 and Cfg.is_production(selected.kind) and sim.is_alive(selected):
 		var lane := sim.lanes[selected.lane]
 		var entry := lane.point_at(lane.offset_of(selected.pos))
-		draw_dashed_line(selected.pos, entry, Color(LANE_COLORS[selected.lane], 0.9), 3.0, 8.0)
+		pen.dashed_line(selected.pos, entry, Color(LANE_COLORS[selected.lane], 0.9), 3.0, 8.0)
 
 	# podświetlenia ścieżek są nieprzezroczyste — mosty dorysowane jeszcze raz na wierzch
 	if not bridge_planks.is_empty():
-		draw_multiline(bridge_planks, Color(0.55, 0.4, 0.25), 5.0)
+		pen.multiline(bridge_planks, Color(0.55, 0.4, 0.25), 5.0)
 	if not bridge_rails.is_empty():
-		draw_multiline(bridge_rails, Color(0.35, 0.24, 0.14), 3.0)
+		pen.multiline(bridge_rails, Color(0.35, 0.24, 0.14), 3.0)
 
 	# strefa budowy: w trybie budowy podświetlone wolne pola (liczone tylko po zmianie budynków)
 	if _is_build_mode():
@@ -1630,7 +1730,7 @@ func _draw_overlays() -> void:
 					x += Cfg.GRID
 				y += Cfg.GRID
 		for c in _build_cells:
-			draw_rect(Rect2(c - Vector2(18, 18), Vector2(36, 36)), Color(1, 1, 1, 0.07))
+			pen.rect(Rect2(c - Vector2(18, 18), Vector2(36, 36)), Color(1, 1, 1, 0.07))
 
 	# linie zbiórki — po jednej na każdej ścieżce
 	if sim.stance == "defend" and state != State.MENU:
@@ -1638,10 +1738,10 @@ func _draw_overlays() -> void:
 			var s := sim.rally_s + 14.0
 			var n := lane.normal_at(s)
 			var p := lane.point_at(s)
-			draw_dashed_line(p - n * Cfg.PATH_HALF, p + n * Cfg.PATH_HALF, Color(0.7, 0.85, 1, 0.8), 2.0, 5.0)
+			pen.dashed_line(p - n * Cfg.PATH_HALF, p + n * Cfg.PATH_HALF, Color(0.7, 0.85, 1, 0.8), 2.0, 5.0)
 			var pole := p + n * Cfg.PATH_HALF
-			draw_line(pole, pole + Vector2(0, -24), Color(0.85, 0.85, 0.85), 2.0)
-			draw_colored_polygon(PackedVector2Array([pole + Vector2(0, -24), pole + Vector2(15, -19), pole + Vector2(0, -14)]), TEAM_COLORS[0])
+			pen.line(pole, pole + Vector2(0, -24), Color(0.85, 0.85, 0.85), 2.0)
+			pen.polygon(PackedVector2Array([pole + Vector2(0, -24), pole + Vector2(15, -19), pole + Vector2(0, -14)]), TEAM_COLORS[0])
 
 
 ## Ścieżki, którymi właśnie idzie fala albo przyjdzie następna (w ciągu WAVE_WARNING s).
@@ -1661,20 +1761,20 @@ func _warn_lanes() -> Array[int]:
 func _draw_resource_node(n: Vector2) -> void:
 	var idx := sim.nodes.find(n)
 	var rich := sim.richness[idx] > 1.0
-	draw_circle(n + Vector2(0, 4), 20, Color(0, 0, 0, 0.2))
-	draw_circle(n + Vector2(-7, 3), 10, Color(0.75, 0.6, 0.15))
-	draw_circle(n + Vector2(7, 4), 9, Color(0.85, 0.68, 0.18))
-	draw_circle(n + Vector2(0, -5), 11, Color(0.98, 0.83, 0.25) if not rich else Color(1.0, 0.92, 0.45))
-	draw_circle(n + Vector2(-3, -8), 3, Color(1, 1, 0.8, 0.8))
+	pen.circle(n + Vector2(0, 4), 20, Color(0, 0, 0, 0.2))
+	pen.circle(n + Vector2(-7, 3), 10, Color(0.75, 0.6, 0.15))
+	pen.circle(n + Vector2(7, 4), 9, Color(0.85, 0.68, 0.18))
+	pen.circle(n + Vector2(0, -5), 11, Color(0.98, 0.83, 0.25) if not rich else Color(1.0, 0.92, 0.45))
+	pen.circle(n + Vector2(-3, -8), 3, Color(1, 1, 0.8, 0.8))
 	if rich:
 		for i in 3:
 			var a := time * 1.5 + TAU * i / 3.0
-			draw_circle(n + Vector2.from_angle(a) * 22.0, 2.0, Color(1, 1, 0.8, 0.8))
+			pen.circle(n + Vector2.from_angle(a) * 22.0, 2.0, Color(1, 1, 0.8, 0.8))
 	if sim.extractor_on(idx) == null and state == State.PLAY:
 		var pulse := 0.3 + 0.2 * sin(time * 3.0)
-		draw_arc(n, 26, 0, TAU, 32, Color(1, 1, 1, pulse), 2.0)
+		pen.arc(n, 26, 0, TAU, 32, Color(1, 1, 1, pulse), 2.0)
 		if sim.gold >= Cfg.BUILDINGS["extractor"]["cost"]:
-			draw_string(font, n + Vector2(-40, 44), "%d zł" % Cfg.BUILDINGS["extractor"]["cost"],
+			pen.text(font, n + Vector2(-40, 44), "%d zł" % Cfg.BUILDINGS["extractor"]["cost"],
 				HORIZONTAL_ALIGNMENT_CENTER, 80, 13, Color(1, 1, 1, 0.6))
 
 
@@ -1683,37 +1783,40 @@ func _draw_base(team: int) -> void:
 	var c := TEAM_COLORS[team]
 	var r := Cfg.BASE_R
 	var body := Rect2(p - Vector2(r, r * 0.8), Vector2(r * 2, r * 1.8))
-	draw_rect(Rect2(body.position + Vector2(4, 6), body.size), Color(0, 0, 0, 0.25))
-	draw_rect(body, c.darkened(0.45))
+	pen.rect(Rect2(body.position + Vector2(4, 6), body.size), Color(0, 0, 0, 0.25))
+	pen.rect(body, c.darkened(0.45))
 	for i in 4:
-		draw_rect(Rect2(body.position + Vector2(i * r * 0.62, -10), Vector2(r * 0.4, 12)), c.darkened(0.45))
-	draw_rect(body, c.darkened(0.1), false, 3.0)
-	draw_rect(Rect2(p + Vector2(-10, r * 0.2), Vector2(20, r * 0.8)), Color(0.12, 0.08, 0.05))
+		pen.rect(Rect2(body.position + Vector2(i * r * 0.62, -10), Vector2(r * 0.4, 12)), c.darkened(0.45))
+	pen.rect(body, c.darkened(0.1), false, 3.0)
+	pen.rect(Rect2(p + Vector2(-10, r * 0.2), Vector2(20, r * 0.8)), Color(0.12, 0.08, 0.05))
 	var pole := p + Vector2(0, -r * 0.8 - 10)
-	draw_line(pole, pole + Vector2(0, -30), Color(0.85, 0.85, 0.85), 2.0)
+	pen.line(pole, pole + Vector2(0, -30), Color(0.85, 0.85, 0.85), 2.0)
 	var flutter := sin(time * 4.0 + team) * 3.0
-	draw_colored_polygon(PackedVector2Array([pole + Vector2(0, -30), pole + Vector2(22 * (1 - 2 * team), -24 + flutter), pole + Vector2(0, -18)]), c)
+	pen.polygon(PackedVector2Array([pole + Vector2(0, -30), pole + Vector2(22 * (1 - 2 * team), -24 + flutter), pole + Vector2(0, -18)]), c)
+	var race: String = Races.ALL[race_index if team == 0 else Races.rival(race_index)]["name"]
+	pen.text_outline(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, 5, Color(0, 0, 0, 0.7))
+	pen.text(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, c.lightened(0.35))
 	if base_flash[team] > 0:
-		draw_rect(body, Color(1, 1, 1, base_flash[team] * 4.0))
+		pen.rect(body, Color(1, 1, 1, base_flash[team] * 4.0))
 	var frac := sim.base_hp[team] / Cfg.BASE_HP[team]
 	_hp_bar(p + Vector2(0, r + 18), 100, frac, 8)
-	draw_string(font, p + Vector2(-50, r + 42), "%d" % int(sim.base_hp[team]), HORIZONTAL_ALIGNMENT_CENTER, 100, 14, Color(1, 1, 1, 0.8))
+	pen.text(font, p + Vector2(-50, r + 42), "%d" % int(sim.base_hp[team]), HORIZONTAL_ALIGNMENT_CENTER, 100, 14, Color(1, 1, 1, 0.8))
 
 
 func _draw_building(b: Sim.Building) -> void:
 	var c := TEAM_COLORS[b.team]
 	_draw_building_shape(b.kind, b.pos, c, b.aim, 1.0)
 	if b.flash > 0:
-		draw_circle(b.pos, 18, Color(1, 1, 1, b.flash * 4.0))
+		pen.circle(b.pos, 18, Color(1, 1, 1, b.flash * 4.0))
 	if Cfg.is_production(b.kind):
 		_progress(b.pos + Vector2(0, 24), b.timer / sim.production_period(b.kind, b.level))
 		# plakietka ścieżki, którą idą jednostki
-		draw_circle(b.pos + Vector2(16, -16), 6.0, Color(0, 0, 0, 0.6))
-		draw_circle(b.pos + Vector2(16, -16), 4.5, LANE_COLORS[b.lane])
+		pen.circle(b.pos + Vector2(16, -16), 6.0, Color(0, 0, 0, 0.6))
+		pen.circle(b.pos + Vector2(16, -16), 4.5, LANE_COLORS[b.lane])
 	if b.hp < b.max_hp:
 		_hp_bar(b.pos + Vector2(0, -26), 36, b.hp / b.max_hp, 5)
 	for i in b.level - 1:
-		draw_circle(b.pos + Vector2(-5 + i * 10, 32 if Cfg.is_production(b.kind) else 24), 3.0, GOLD_COLOR)
+		pen.circle(b.pos + Vector2(-5 + i * 10, 32 if Cfg.is_production(b.kind) else 24), 3.0, GOLD_COLOR)
 
 
 func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha: float) -> void:
@@ -1722,53 +1825,53 @@ func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha:
 	var shadow := Color(0, 0, 0, 0.25 * alpha)
 	match kind:
 		"tower":
-			draw_circle(p + Vector2(3, 4), 17, shadow)
-			draw_circle(p, 17, dark)
-			draw_arc(p, 17, 0, TAU, 24, light, 2.0)
-			draw_circle(p, 8, light)
-			draw_line(p, p + Vector2.from_angle(aim) * 14, Color(1, 1, 1, alpha), 3.0)
+			pen.circle(p + Vector2(3, 4), 17, shadow)
+			pen.circle(p, 17, dark)
+			pen.arc(p, 17, 0, TAU, 24, light, 2.0)
+			pen.circle(p, 8, light)
+			pen.line(p, p + Vector2.from_angle(aim) * 14, Color(1, 1, 1, alpha), 3.0)
 		"cannon":
-			draw_rect(Rect2(p - Vector2(15, 15) + Vector2(3, 4), Vector2(30, 30)), shadow)
-			draw_rect(Rect2(p - Vector2(15, 15), Vector2(30, 30)), Color(0.25, 0.25, 0.28, alpha))
-			draw_rect(Rect2(p - Vector2(15, 15), Vector2(30, 30)), light, false, 2.0)
-			draw_line(p, p + Vector2.from_angle(aim) * 22, Color(0.1, 0.1, 0.1, alpha), 8.0)
-			draw_circle(p, 8, Color(0.4, 0.4, 0.45, alpha))
+			pen.rect(Rect2(p - Vector2(15, 15) + Vector2(3, 4), Vector2(30, 30)), shadow)
+			pen.rect(Rect2(p - Vector2(15, 15), Vector2(30, 30)), Color(0.25, 0.25, 0.28, alpha))
+			pen.rect(Rect2(p - Vector2(15, 15), Vector2(30, 30)), light, false, 2.0)
+			pen.line(p, p + Vector2.from_angle(aim) * 22, Color(0.1, 0.1, 0.1, alpha), 8.0)
+			pen.circle(p, 8, Color(0.4, 0.4, 0.45, alpha))
 		"frost":
 			var diamond := PackedVector2Array([p + Vector2(0, -19), p + Vector2(16, 0), p + Vector2(0, 19), p + Vector2(-16, 0)])
-			draw_colored_polygon(PackedVector2Array([p + Vector2(3, -15), p + Vector2(19, 4), p + Vector2(3, 23), p + Vector2(-13, 4)]), shadow)
-			draw_colored_polygon(diamond, Color(0.2, 0.35, 0.5, alpha))
+			pen.polygon(PackedVector2Array([p + Vector2(3, -15), p + Vector2(19, 4), p + Vector2(3, 23), p + Vector2(-13, 4)]), shadow)
+			pen.polygon(diamond, Color(0.2, 0.35, 0.5, alpha))
 			diamond.append(diamond[0])
-			draw_polyline(diamond, light, 2.0)
+			pen.polyline(diamond, light, 2.0)
 			var glow := 0.6 + 0.4 * sin(time * 3.0)
-			draw_circle(p, 7, Color(FROST_COLOR, alpha * glow))
+			pen.circle(p, 7, Color(FROST_COLOR, alpha * glow))
 		"barracks":
-			draw_rect(Rect2(p - Vector2(17, 10) + Vector2(3, 4), Vector2(34, 27)), shadow)
-			draw_rect(Rect2(p - Vector2(17, 10), Vector2(34, 27)), dark)
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-20, -10), p + Vector2(0, -24), p + Vector2(20, -10)]), light)
-			draw_rect(Rect2(p + Vector2(-5, 4), Vector2(10, 13)), Color(0.1, 0.07, 0.05, alpha))
+			pen.rect(Rect2(p - Vector2(17, 10) + Vector2(3, 4), Vector2(34, 27)), shadow)
+			pen.rect(Rect2(p - Vector2(17, 10), Vector2(34, 27)), dark)
+			pen.polygon(PackedVector2Array([p + Vector2(-20, -10), p + Vector2(0, -24), p + Vector2(20, -10)]), light)
+			pen.rect(Rect2(p + Vector2(-5, 4), Vector2(10, 13)), Color(0.1, 0.07, 0.05, alpha))
 		"range":
-			draw_colored_polygon(PackedVector2Array([p + Vector2(3, -15), p + Vector2(21, 19), p + Vector2(-15, 19)]), shadow)
-			draw_colored_polygon(PackedVector2Array([p + Vector2(0, -19), p + Vector2(18, 15), p + Vector2(-18, 15)]), dark)
-			draw_circle(p + Vector2(0, 3), 7, Color(1, 1, 1, alpha))
-			draw_circle(p + Vector2(0, 3), 4, Color(0.9, 0.2, 0.2, alpha))
+			pen.polygon(PackedVector2Array([p + Vector2(3, -15), p + Vector2(21, 19), p + Vector2(-15, 19)]), shadow)
+			pen.polygon(PackedVector2Array([p + Vector2(0, -19), p + Vector2(18, 15), p + Vector2(-18, 15)]), dark)
+			pen.circle(p + Vector2(0, 3), 7, Color(1, 1, 1, alpha))
+			pen.circle(p + Vector2(0, 3), 4, Color(0.9, 0.2, 0.2, alpha))
 		"workshop":
 			var pts := PackedVector2Array()
 			for i in 6:
 				pts.append(p + Vector2.from_angle(TAU * i / 6.0) * 18)
-			draw_colored_polygon(pts, Color(0.45, 0.32, 0.2, alpha))
+			pen.polygon(pts, Color(0.45, 0.32, 0.2, alpha))
 			pts.append(pts[0])
-			draw_polyline(pts, light, 2.0)
+			pen.polyline(pts, light, 2.0)
 			for i in 4:
 				var a := time * 1.5 + TAU * i / 4.0
-				draw_line(p, p + Vector2.from_angle(a) * 10, Color(0.8, 0.8, 0.8, alpha), 3.0)
-			draw_circle(p, 4, Color(0.3, 0.3, 0.3, alpha))
+				pen.line(p, p + Vector2.from_angle(a) * 10, Color(0.8, 0.8, 0.8, alpha), 3.0)
+			pen.circle(p, 4, Color(0.3, 0.3, 0.3, alpha))
 		"extractor":
-			draw_rect(Rect2(p - Vector2(14, 14), Vector2(28, 28)), Color(0.3, 0.3, 0.34, alpha))
-			draw_rect(Rect2(p - Vector2(14, 14), Vector2(28, 28)), light, false, 3.0)
+			pen.rect(Rect2(p - Vector2(14, 14), Vector2(28, 28)), Color(0.3, 0.3, 0.34, alpha))
+			pen.rect(Rect2(p - Vector2(14, 14), Vector2(28, 28)), light, false, 3.0)
 			for i in 4:
 				var a := time * 3.0 + TAU * i / 4.0
-				draw_line(p, p + Vector2.from_angle(a) * 11, Color(0.95, 0.8, 0.3, alpha), 3.0)
-			draw_circle(p, 4, Color(0.2, 0.2, 0.2, alpha))
+				pen.line(p, p + Vector2.from_angle(a) * 11, Color(0.95, 0.8, 0.3, alpha), 3.0)
+			pen.circle(p, 4, Color(0.2, 0.2, 0.2, alpha))
 
 
 ## `low_detail`: w dużej bitwie (widok całej mapy) bez cienia, obrysu, podskoku
@@ -1780,63 +1883,63 @@ func _draw_unit(u: Sim.Unit) -> void:
 	var p := at if low_detail else at + Vector2(0, sin(time * 12.0 + u.id) * 1.2)
 	var c := TEAM_COLORS[u.team]
 	if u.flying:
-		draw_circle(at + Vector2(8, 18), r * 0.7, Color(0, 0, 0, 0.18))  # cień daleko = wysoko
+		pen.circle(at + Vector2(8, 18), r * 0.7, Color(0, 0, 0, 0.18))  # cień daleko = wysoko
 	elif not low_detail:
-		draw_circle(at + Vector2(2, r * 0.7), r * 0.9, Color(0, 0, 0, 0.2))
-		draw_circle(p, r + 1.5, Color(0, 0, 0, 0.35))  # obrys (koło jest tańsze niż łuk)
+		pen.circle(at + Vector2(2, r * 0.7), r * 0.9, Color(0, 0, 0, 0.2))
+		pen.circle(p, r + 1.5, Color(0, 0, 0, 0.35))  # obrys (koło jest tańsze niż łuk)
 	match u.kind:
 		"soldier":
-			draw_circle(p, r, c)
-			draw_line(p + Vector2(dir * r * 0.4, 0), p + Vector2(dir * r * 1.5, -r * 0.6), Color(0.9, 0.9, 0.95), 2.0)
+			pen.circle(p, r, c)
+			pen.line(p + Vector2(dir * r * 0.4, 0), p + Vector2(dir * r * 1.5, -r * 0.6), Color(0.9, 0.9, 0.95), 2.0)
 		"archer":
-			draw_circle(p, r, c.lightened(0.15))
-			draw_arc(p + Vector2(dir * r * 0.5, 0), r * 0.9, -PI / 2 if dir > 0 else PI / 2, PI / 2 if dir > 0 else 3 * PI / 2, 8, Color(0.6, 0.4, 0.2), 2.0)
+			pen.circle(p, r, c.lightened(0.15))
+			pen.arc(p + Vector2(dir * r * 0.5, 0), r * 0.9, -PI / 2 if dir > 0 else PI / 2, PI / 2 if dir > 0 else 3 * PI / 2, 8, Color(0.6, 0.4, 0.2), 2.0)
 		"catapult":
-			draw_rect(Rect2(p - Vector2(r, r * 0.5), Vector2(r * 2, r)), Color(0.5, 0.35, 0.2))
-			draw_circle(p + Vector2(-r * 0.6, r * 0.5), 4, Color(0.2, 0.15, 0.1))
-			draw_circle(p + Vector2(r * 0.6, r * 0.5), 4, Color(0.2, 0.15, 0.1))
+			pen.rect(Rect2(p - Vector2(r, r * 0.5), Vector2(r * 2, r)), Color(0.5, 0.35, 0.2))
+			pen.circle(p + Vector2(-r * 0.6, r * 0.5), 4, Color(0.2, 0.15, 0.1))
+			pen.circle(p + Vector2(r * 0.6, r * 0.5), 4, Color(0.2, 0.15, 0.1))
 			var swing := clampf(u.cd_left / u.cooldown, 0.0, 1.0)
-			draw_line(p, p + Vector2.from_angle(-PI / 2 - dir * (0.3 + swing)) * r * 1.4, Color(0.65, 0.5, 0.3), 3.0)
-			draw_rect(Rect2(p - Vector2(r, r * 0.5), Vector2(r * 2, r)), c, false, 2.0)
+			pen.line(p, p + Vector2.from_angle(-PI / 2 - dir * (0.3 + swing)) * r * 1.4, Color(0.65, 0.5, 0.3), 3.0)
+			pen.rect(Rect2(p - Vector2(r, r * 0.5), Vector2(r * 2, r)), c, false, 2.0)
 		"grunt":
-			draw_circle(p, r, c)
-			draw_line(p + Vector2(-4, -r + 2), p + Vector2(-6, -r - 4), Color(0.9, 0.85, 0.7), 2.0)
-			draw_line(p + Vector2(4, -r + 2), p + Vector2(6, -r - 4), Color(0.9, 0.85, 0.7), 2.0)
+			pen.circle(p, r, c)
+			pen.line(p + Vector2(-4, -r + 2), p + Vector2(-6, -r - 4), Color(0.9, 0.85, 0.7), 2.0)
+			pen.line(p + Vector2(4, -r + 2), p + Vector2(6, -r - 4), Color(0.9, 0.85, 0.7), 2.0)
 		"runner":
-			draw_line(p + Vector2(r, -3), p + Vector2(r + 8, -3), Color(1, 0.7, 0.3, 0.5), 2.0)
-			draw_line(p + Vector2(r, 3), p + Vector2(r + 10, 3), Color(1, 0.7, 0.3, 0.5), 2.0)
-			draw_circle(p, r, Color(1.0, 0.6, 0.25))
+			pen.line(p + Vector2(r, -3), p + Vector2(r + 8, -3), Color(1, 0.7, 0.3, 0.5), 2.0)
+			pen.line(p + Vector2(r, 3), p + Vector2(r + 10, 3), Color(1, 0.7, 0.3, 0.5), 2.0)
+			pen.circle(p, r, Color(1.0, 0.6, 0.25))
 		"shield":
-			draw_circle(p, r, c.darkened(0.15))
-			draw_rect(Rect2(p + Vector2(dir * r * 0.5 - 3, -r * 0.9), Vector2(6, r * 1.8)), Color(0.72, 0.72, 0.78))
-			draw_rect(Rect2(p + Vector2(dir * r * 0.5 - 3, -r * 0.9), Vector2(6, r * 1.8)), Color(0.3, 0.3, 0.35), false, 1.5)
+			pen.circle(p, r, c.darkened(0.15))
+			pen.rect(Rect2(p + Vector2(dir * r * 0.5 - 3, -r * 0.9), Vector2(6, r * 1.8)), Color(0.72, 0.72, 0.78))
+			pen.rect(Rect2(p + Vector2(dir * r * 0.5 - 3, -r * 0.9), Vector2(6, r * 1.8)), Color(0.3, 0.3, 0.35), false, 1.5)
 		"bat":
 			var flap := sin(time * 22.0 + u.id) * 5.0
 			var wing := Color(0.35, 0.15, 0.4)
-			draw_colored_polygon(PackedVector2Array([p, p + Vector2(-r * 1.9, -4 + flap), p + Vector2(-r * 0.8, 4)]), wing)
-			draw_colored_polygon(PackedVector2Array([p, p + Vector2(r * 1.9, -4 + flap), p + Vector2(r * 0.8, 4)]), wing)
-			draw_circle(p, r * 0.7, Color(0.5, 0.2, 0.55))
-			draw_circle(p + Vector2(-2, -1), 1.3, WARN_COLOR)
-			draw_circle(p + Vector2(2, -1), 1.3, WARN_COLOR)
+			pen.polygon(PackedVector2Array([p, p + Vector2(-r * 1.9, -4 + flap), p + Vector2(-r * 0.8, 4)]), wing)
+			pen.polygon(PackedVector2Array([p, p + Vector2(r * 1.9, -4 + flap), p + Vector2(r * 0.8, 4)]), wing)
+			pen.circle(p, r * 0.7, Color(0.5, 0.2, 0.55))
+			pen.circle(p + Vector2(-2, -1), 1.3, WARN_COLOR)
+			pen.circle(p + Vector2(2, -1), 1.3, WARN_COLOR)
 		"brute":
-			draw_circle(p, r, c.darkened(0.3))
-			draw_arc(p, r, 0, TAU, 24, c.lightened(0.2), 3.0)
+			pen.circle(p, r, c.darkened(0.3))
+			pen.arc(p, r, 0, TAU, 24, c.lightened(0.2), 3.0)
 		"warlord":
-			draw_circle(p, r, Color(0.55, 0.2, 0.6))
-			draw_arc(p, r, 0, TAU, 32, GOLD_COLOR, 3.0)
+			pen.circle(p, r, Color(0.55, 0.2, 0.6))
+			pen.arc(p, r, 0, TAU, 32, GOLD_COLOR, 3.0)
 			for i in 3:
 				var cx := p + Vector2(-8 + i * 8, -r - 2)
-				draw_colored_polygon(PackedVector2Array([cx + Vector2(-4, 0), cx + Vector2(0, -8), cx + Vector2(4, 0)]), GOLD_COLOR)
+				pen.polygon(PackedVector2Array([cx + Vector2(-4, 0), cx + Vector2(0, -8), cx + Vector2(4, 0)]), GOLD_COLOR)
 	if u.slow_timer > 0:
-		draw_arc(p, r + 3, 0, TAU, 12 if low_detail else 20, Color(FROST_COLOR, 0.9), 2.0)
+		pen.arc(p, r + 3, 0, TAU, 12 if low_detail else 20, Color(FROST_COLOR, 0.9), 2.0)
 	if u.flash > 0:
-		draw_circle(p, r, Color(1, 1, 1, u.flash * 5.0))
+		pen.circle(p, r, Color(1, 1, 1, u.flash * 5.0))
 	if low_detail:
 		if u.hp < u.max_hp * 0.6:
 			_hp_bar(p + Vector2(0, -r - 5), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
 		return
 	for i in u.level - 1:
-		draw_circle(p + Vector2(-3 + i * 6, -r - 10), 2.0, GOLD_COLOR)
+		pen.circle(p + Vector2(-3 + i * 6, -r - 10), 2.0, GOLD_COLOR)
 	if u.hp < u.max_hp:
 		_hp_bar(p + Vector2(0, -r - 5), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
 
@@ -1846,28 +1949,28 @@ func _draw_shot(s: Sim.Shot) -> void:
 	match s.kind:
 		"arrow":
 			var d := (s.target_pos - at).normalized()
-			draw_line(at - d * 9.0, at, Color(0.95, 0.9, 0.75), 2.0)
+			pen.line(at - d * 9.0, at, Color(0.95, 0.9, 0.75), 2.0)
 		"frost":
-			draw_circle(at, 6.0, Color(FROST_COLOR, 0.35))
-			draw_circle(at, 3.0, Color(0.9, 0.97, 1.0))
+			pen.circle(at, 6.0, Color(FROST_COLOR, 0.35))
+			pen.circle(at, 3.0, Color(0.9, 0.97, 1.0))
 		_:
 			var total := s.start.distance_to(s.target_pos)
 			var f := 1.0 - at.distance_to(s.target_pos) / maxf(total, 1.0)
 			var h := sin(PI * clampf(f, 0.0, 1.0)) * minf(70.0, total * 0.35)
 			var size := 4.0 if s.kind == "cannonball" else 5.0
-			draw_circle(at, size * 0.8, Color(0, 0, 0, 0.3))
-			draw_circle(at - Vector2(0, h), size, Color(0.15, 0.15, 0.15) if s.kind == "cannonball" else Color(0.55, 0.5, 0.45))
+			pen.circle(at, size * 0.8, Color(0, 0, 0, 0.3))
+			pen.circle(at - Vector2(0, h), size, Color(0.15, 0.15, 0.15) if s.kind == "cannonball" else Color(0.55, 0.5, 0.45))
 
 
 func _draw_selection() -> void:
 	if selected == null or not sim.is_alive(selected):
 		return
 	var pulse := 0.6 + 0.4 * sin(time * 6.0)
-	draw_arc(selected.pos, 24, 0, TAU, 32, Color(1, 1, 1, pulse), 2.0)
+	pen.arc(selected.pos, 24, 0, TAU, 32, Color(1, 1, 1, pulse), 2.0)
 	if Cfg.is_tower(selected.kind):
 		var rng_: float = sim.tower_stats(selected.kind, selected.level)["range"]
-		draw_circle(selected.pos, rng_, Color(1, 1, 1, 0.05))
-		draw_arc(selected.pos, rng_, 0, TAU, 64, Color(1, 1, 1, 0.35), 2.0)
+		pen.circle(selected.pos, rng_, Color(1, 1, 1, 0.05))
+		pen.arc(selected.pos, rng_, 0, TAU, 64, Color(1, 1, 1, 0.35), 2.0)
 
 
 func _draw_ghost() -> void:
@@ -1879,30 +1982,30 @@ func _draw_ghost() -> void:
 		var ok := sim.ability_target_ok(ability, world)
 		var tint := Color(0.3, 1, 0.4) if ok else Color(1, 0.3, 0.3)
 		var r: float = Cfg.ABILITIES[ability].get("radius", 40.0)
-		draw_circle(world, r, Color(tint, 0.12))
-		draw_arc(world, r, 0, TAU, 48, Color(tint, 0.8), 2.0)
+		pen.circle(world, r, Color(tint, 0.12))
+		pen.arc(world, r, 0, TAU, 48, Color(tint, 0.8), 2.0)
 		return
 	var cell := Cfg.snap(world)
 	var ok := sim.can_place(cell)
 	var tint := Color(0.3, 1, 0.4) if ok else Color(1, 0.3, 0.3)
-	draw_rect(Rect2(cell - Vector2(Cfg.GRID, Cfg.GRID) / 2, Vector2(Cfg.GRID, Cfg.GRID)), Color(tint, 0.25))
-	draw_rect(Rect2(cell - Vector2(Cfg.GRID, Cfg.GRID) / 2, Vector2(Cfg.GRID, Cfg.GRID)), Color(tint, 0.7), false, 2.0)
+	pen.rect(Rect2(cell - Vector2(Cfg.GRID, Cfg.GRID) / 2, Vector2(Cfg.GRID, Cfg.GRID)), Color(tint, 0.25))
+	pen.rect(Rect2(cell - Vector2(Cfg.GRID, Cfg.GRID) / 2, Vector2(Cfg.GRID, Cfg.GRID)), Color(tint, 0.7), false, 2.0)
 	_draw_building_shape(mode, cell, TEAM_COLORS[0], 0.0, 0.55)
 	if Cfg.is_tower(mode):
-		draw_arc(cell, sim.tower_stats(mode, 1)["range"], 0, TAU, 64, Color(1, 1, 1, 0.35), 2.0)
+		pen.arc(cell, sim.tower_stats(mode, 1)["range"], 0, TAU, 64, Color(1, 1, 1, 0.35), 2.0)
 
 
 func _hp_bar(center: Vector2, width: float, frac: float, height := 5.0) -> void:
 	var tl := center - Vector2(width / 2, height / 2)
-	draw_rect(Rect2(tl - Vector2(1, 1), Vector2(width + 2, height + 2)), Color(0, 0, 0, 0.6))
+	pen.rect(Rect2(tl - Vector2(1, 1), Vector2(width + 2, height + 2)), Color(0, 0, 0, 0.6))
 	var col := Color(0.3, 0.9, 0.3).lerp(Color(0.95, 0.25, 0.2), 1.0 - clampf(frac, 0, 1))
-	draw_rect(Rect2(tl, Vector2(width * clampf(frac, 0, 1), height)), col)
+	pen.rect(Rect2(tl, Vector2(width * clampf(frac, 0, 1), height)), col)
 
 
 func _progress(center: Vector2, frac: float) -> void:
 	var tl := center - Vector2(17, 2)
-	draw_rect(Rect2(tl, Vector2(34, 4)), Color(0, 0, 0, 0.5))
-	draw_rect(Rect2(tl, Vector2(34 * clampf(frac, 0, 1), 4)), Color(1, 1, 1, 0.8))
+	pen.rect(Rect2(tl, Vector2(34, 4)), Color(0, 0, 0, 0.5))
+	pen.rect(Rect2(tl, Vector2(34 * clampf(frac, 0, 1), 4)), Color(1, 1, 1, 0.8))
 
 
 # ================================================================ render ekranu (HUD)
@@ -1938,6 +2041,6 @@ func _draw_minimap() -> void:
 			c.draw_rect(Rect2(b.pos * k - Vector2(2, 2), Vector2(4, 4)), TEAM_COLORS[b.team].lightened(0.3))
 	for u in sim.units:
 		c.draw_rect(Rect2(u.pos * k - Vector2(1, 1), Vector2(2, 2)), TEAM_COLORS[u.team])
-	var view := Rect2(_to_world(Vector2.ZERO) * k, Cfg.VIEW / camera.zoom.x * k)
+	var view := Rect2(_to_world(Vector2.ZERO) * k, view_size / camera.zoom.x * k)
 	c.draw_rect(view, Color(1, 1, 1, 0.9), false, 1.5)
 	c.draw_rect(Rect2(Vector2.ZERO, c.size), Color(1, 1, 1, 0.3), false, 1.0)

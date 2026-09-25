@@ -6,14 +6,15 @@ config_version=5
 config/name="TowerDefense"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+config/quit_on_go_back=false
 
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
-window/handheld/orientation=0
+window/stretch/aspect="expand"
+window/handheld/orientation=4
 
 [input_devices]
 
@@ -23,4 +24,5 @@ pointing/emulate_mouse_from_touch=true
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.12, 0.16, 0.12, 1)

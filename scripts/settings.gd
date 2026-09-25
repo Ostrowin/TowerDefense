@@ -9,7 +9,9 @@ const UI_SCALE_NAMES: Array[String] = ["Normalny", "Duży", "Bardzo duży"]
 static var path := "user://settings.cfg"
 static var sfx_volume := 0.8
 static var music_volume := 0.5
-static var ui_scale_index := 0
+## Na telefonie domyślnie największy interfejs: ekran ma ~7 cm wysokości, a HUD liczony jest
+## na 720 px — przy ×1 napisy mają ~1,5 mm.
+static var ui_scale_index := 2 if OS.has_feature("mobile") else 0
 static var show_perf := false
 
 

@@ -19,6 +19,12 @@ złoto (pasywne + wydobywacze; sporne złoża przy ścieżkach wroga dają więc
    →  zniszcz fortecę wroga = WYGRANA / wróg zniszczy Twoją bazę = PRZEGRANA
 ```
 
+## Rasy
+
+Świat wspólny z innymi grami: 12 ras (niedźwiedzie, wilki, lisy, zające, krety, jeże, nietoperze, gibony,
+szczury, dziki, wydry, hieny). Pierwsze grywalne rasy to **krety i gibony** — wybierasz jedną w menu,
+reszta ras czeka jako „Wkrótce”. Na razie rasa to tożsamość (nazwa, kolor, hasło), bez różnic w statystykach.
+
 ## Mapy
 
 | Mapa | Charakter |
@@ -64,6 +70,12 @@ godot --path .
 
 ```bash
 godot --headless --path . --script res://tests/bot_test.gd -- --mechanics
+```
+
+Android (telefon z debugowaniem USB podłączony kablem): eksport APK, instalacja i start gry:
+
+```powershell
+.	oolsndroid.ps1
 ```
 
 Godot z wingeta nie trafia do PATH — pełna ścieżka i reszta komend w [CLAUDE.md](CLAUDE.md).

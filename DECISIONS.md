@@ -112,3 +112,21 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 - limit gracza 150 → Przesmyk (jeden most) nie do przełamania; 200 > 150 wroga naprawia;
 - kolejka 150 → baza wroga miała niekończące się posiłki na miejscu, Trudny nie do wygrania; kolejka 40 → Trudny znów wygrywalny (6–7 min).
 **Status:** aktywna.
+
+### D21 — Eksport na Androida bez Gradle, pełny ekran przez stretch „expand" (2026-09-24)
+**Decyzja:** APK z gotowego szablonu (bez Gradle i `android_source.zip`), tylko arm64-v8a, podpis kluczem debug także dla release (sideload na własny telefon). Pobrane tylko pliki Androida z paczki szablonów (230 MB z 1,28 GB — odczyt zakresów HTTP, CRC każdego pliku sprawdzone). SDK i JDK 21 już były (z Visual Studio). Build, instalacja, log i benchmark na telefonie — `tools/android.ps1`. Widok: stretch `expand` zamiast `keep`; na telefonie domyślna skala interfejsu ×1,3; systemowe „Wstecz" działa jak Esc.
+**Dlaczego:** Gradle potrzebny dopiero przy wtyczkach/Play Store — bez niego build trwa sekundy i nie wymaga dodatkowych pobrań. Telefony mają ~20:9, a `keep` przy 16:9 zostawiał ~20% ekranu na czarne pasy; wysokość 720 zostaje, HUD i tak liczył się od `screen`. HUD na 720 px na ekranie o wysokości ~7 cm daje napisy ~1,5 mm przy ×1. Domyślne „Wstecz" zamykało grę w trakcie partii.
+**Status:** aktywna. Do Google Play potrzebny będzie własny klucz release (i najpewniej AAB przez Gradle).
+
+### D22 — Świat rysowany jednym wywołaniem (`Painter`) (2026-09-24)
+**Decyzja:** wszystkie kształty świata (koła, łuki, linie, prostokąty, wielokąty) trafiają do jednej listy trójkątów (`scripts/painter.gd`, `canvas_item_add_triangle_array`), napisy rysowane na końcu, na wierzchu. Koła terenu (trawa, drzewa) liczone raz przy zmianie mapy. W `main.gd` świat rysuje `pen.*` zamiast `draw_*` (te same argumenty).
+**Dlaczego:** pomiar na telefonie (realme 8i, Mali-G57), a nie zgadywanie. Sonda warstw (`tests/render_probe.gd`) pokazała ~600 wywołań rysowania na klatkę, z czego ~430 to statyczny teren: każde `draw_circle` to osobne wywołanie (Godot nie łączy wielokątów w paczki). Pusta gra miała 45 FPS; niższa rozdzielczość renderu nic nie dawała (to nie wypełnianie pikseli), wyłączenie terenu dawało 60. W dużej bitwie klatka rosła do 60 ms — do tego wątek czekający na GPU był zrzucany przez system na mały rdzeń i zwalniał też sim.
+**Wynik:** wywołania 599 → 77 (świat 40, reszta to HUD i teren z krzywych); telefon: pusta gra 60 FPS, `perf_test` (Trudny, x3, do ~240 jednostek) mediana 17,6 ms, p95 22,9 ms (było 53–61 ms przy ~150 jednostkach). Na PC rysowanie GDScript też szybsze (2,0 → 1,2 ms).
+**Kompromis:** napisy świata zawsze na wierzchu (wcześniej np. jednostka mogła przykryć „60 zł" przy złożu). Koła mają 8–64 boków zależnie od promienia.
+**Status:** aktywna. Nowe rysowanie świata → `pen.*`; gołe `draw_circle` w pętli po jednostkach wraca problem.
+
+### D23 — Rasy wspólne z innymi grami; pierwsze grywalne: krety i gibony (2026-09-25)
+**Decyzja:** 12 ras z innej gry użytkownika (te same id i kolory — spójne lore między grami) jako dane w `scripts/races.gd`. Goryle zastąpione gibonami. Pierwsze grywalne rasy: krety i gibony — gracz wybiera jedną w menu, przeciwnikiem jest druga (`Races.rival`). Pozostałe rasy widoczne w menu jako „Wkrótce”. Rasa to na razie tożsamość: nazwa, kolor rasy (ramka karty w menu), hasło, podpisy nad fortecami, rasa gracza na ekranie końca. Tytuł gry bez zmian — roboczo „Tower Defense”.
+**Dlaczego:** użytkownik buduje kilka gier w jednym świecie i dopiero pracuje nad lore; menu z 12 rasami pokazuje kierunek bez przesądzania mechaniki. Statystyki ras świadomie pominięte.
+**Kompromis:** na mapie zostają barwy drużyn (niebieski — Ty, czerwony — wróg), nie kolory ras — brązowy kret i jasny gibon na ciemnej trawie byłyby mniej czytelne i słabo się od siebie odróżniały. Do zmiany razem z grafiką (P5). Wybór rasy nie jest zapamiętywany między uruchomieniami (jak wybór mapy).
+**Status:** aktywna. Asymetria ras (własne jednostki/mechaniki) — w backlogu, po lore.

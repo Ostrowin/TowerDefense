@@ -1,11 +1,13 @@
-extends SceneTree
+extends Node
 ## Benchmark wydajności: prawdziwa scena gry, bot gra długą partię na Trudnym na x3
 ## w czasie rzeczywistym (bez --fixed-fps — liczy się prawdziwy czas klatki).
 ## Co ~5 s gry wypisuje: czas klatki (śr./maks.), kroki sima na klatkę, liczbę
 ## jednostek/pocisków/efektów, obiekty i pamięć — widać, co rośnie pod koniec partii.
 ##
-##   godot --headless --path . --script res://tests/perf_test.gd [-- --map 2 --minutes 12]
+##   godot --headless --path . -- --bench res://tests/perf_test.gd [--map 2 --minutes 12]
+##   tools/android.ps1 -Bench                       (na telefonie, z prawdziwym GPU)
 ##
+## Uruchamia go main.gd (`--bench`) jako węzeł-dziecko sceny gry; `main` ustawia main.gd.
 ## Headless nie rysuje na GPU, ale cały koszt GDScript (_draw, HUD, sim) jest mierzony.
 
 const BOT_THINK := 0.5
@@ -34,7 +36,7 @@ const PLAN := [
 ]
 
 
-func _initialize() -> void:
+func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	for i in args.size() - 1:
 		if args[i] == "--map":
@@ -45,11 +47,9 @@ func _initialize() -> void:
 	Settings.path = "user://perf_settings.cfg"
 	Progress.reset_cache()
 	Progress.set_tutorial_done(true)
-	main = load("res://main.tscn").instantiate()
-	root.add_child(main)
 
 
-func _process(_delta: float) -> bool:
+func _process(_delta: float) -> void:
 	frame += 1
 	var now := Time.get_ticks_usec()
 	if frame == 3:
@@ -94,9 +94,11 @@ func _process(_delta: float) -> bool:
 						print("  %-12s %s" % [k, "%.0f" % v if k == "zdarzenia" else "%.2f ms" % (v / 1000.0)])
 			for p in [Progress.path, Settings.path]:
 				DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
-			return true
+			print("[bench] koniec")
+			set_process(false)
+			get_tree().quit()
+			return
 	last_us = now
-	return false
 
 
 func _bot(sim: Sim) -> void:
