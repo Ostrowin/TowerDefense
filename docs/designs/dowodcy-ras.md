@@ -783,11 +783,11 @@ Lane A: T4 → T5 → T7–T8 (sim, main) · Lane B: T6 (sim) — po T4, równol
 Synthesized from this review's findings. Each task derives from a specific
 finding above. Run with Claude Code or Codex; checkbox as you ship.
 
-- [ ] **ET1 (P1, human: ~2 dni / CC: ~30 min)** — Sim — `class Hero extends Unit` z wyjątkami liczników i pancerzem z `Cfg.COMMANDERS`
+- [x] **ET1 (P1, human: ~2 dni / CC: ~30 min)** — Sim — `class Hero extends Unit` z wyjątkami liczników i pancerzem z `Cfg.COMMANDERS`
   - Surfaced by: Architektura — R-A1 (D3)
   - Files: scripts/sim.gd, tests/bot_test.gd
   - Verify: bot_test --mechanics (wieża/jednostka/obszar zabijają bohatera; limity i obrona bez zmian)
-- [ ] **ET2 (P1, human: ~3 h / CC: ~20 min)** — tests — kontrakt regresji: tabela wzorcowa botów z 8d8fa4c + porównanie
+- [x] **ET2 (P1, human: ~3 h / CC: ~20 min)** — tests — kontrakt regresji: tabela wzorcowa botów z 8d8fa4c + porównanie
   - Surfaced by: Testy — R-T1 (D8)
   - Files: tests/bot_test.gd, tests/ (tabela wzorcowa)
   - Verify: pełny bot_test przed i po T5/T6

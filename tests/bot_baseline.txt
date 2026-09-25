@@ -1,0 +1,16 @@
+Trzy drogi  Normalny  idle      przegrana    71s     3      3      0      0        0
+Trzy drogi  Normalny  turtle    przegrana   299s    16    286     20      0        8
+Trzy drogi  Łatwy     balanced  WYGRANA     187s     7     86     94      4        1
+Trzy drogi  Normalny  balanced  WYGRANA     315s    17    416    320      6        2
+Trzy drogi  Trudny    balanced  WYGRANA     434s    33   1070    619      8        5
+Trzy drogi  Trudny    mass      WYGRANA     434s    33   1070    619      8        5
+Przesmyk    Normalny  idle      przegrana    70s     3      2      0      0        0
+Przesmyk    Łatwy     balanced  WYGRANA     191s     8     87     92      4        0
+Przesmyk    Normalny  balanced  WYGRANA     361s    21    566    372      7        2
+Przesmyk    Trudny    balanced  WYGRANA     375s    28    825    381      4        4
+Przesmyk    Trudny    mass      WYGRANA     375s    28    825    381      4        4
+Serpentyna  Normalny  idle      przegrana    79s     3      4      0      0        0
+Serpentyna  Łatwy     balanced  WYGRANA     211s     8    107    106      5        2
+Serpentyna  Normalny  balanced  WYGRANA     313s    17    412    293      6        4
+Serpentyna  Trudny    balanced  WYGRANA     361s    26    782    409      8        7
+Serpentyna  Trudny    mass      WYGRANA     350s    25    662    340      7       13

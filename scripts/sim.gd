@@ -84,10 +84,31 @@ class Unit:
 	var melee: bool
 	var anti_air: bool
 	var siege: bool
+	var armor := 0.0  ## jaką część obrażeń od strzał blokuje
+	var is_hero := false  ## dowódca (Hero) — szybszy test niż `is Hero` w gorących pętlach
 	var cd_left := 0.0
 	var slow_timer := 0.0
 	var slow_factor := 0.0  ## ułamek prędkości zabrany przez mróz
 	var flash := 0.0  ## tylko dla renderu: błysk po trafieniu
+
+
+## Dowódca (R4): jednostka sterowana rozkazami, bez ścieżki. Jest w `units` i `_grid`, więc wieże,
+## pociski, salwy i mróz widzą go jak każdą jednostkę; nie liczy się do limitów, armii ani obrony
+## ścieżek. Rekord trwa po śmierci (`heroes`), a do `units` wraca przy odrodzeniu.
+##
+##   idle ──rozkaz──▶ march (trasa A*, ignoruje wrogów) ──dotarł──▶ idle w nowym punkcie
+##   idle ──wróg w zasięgu + AGGRO──▶ fight (goni najdalej COMMANDER_LEASH od punktu)
+##   fight ──brak celu / za daleko──▶ back (wraca do punktu, ignoruje wrogów) ──▶ idle
+##   hp ≤ 0 ──▶ dead (Cfg.commander_respawn) ──▶ idle przy bazie, nietykalny COMMANDER_INVULNERABLE s
+class Hero extends Unit:
+	var commander: String
+	var state := "idle"  ## idle / march / fight / back / dead
+	var post: Vector2  ## punkt postoju — tu wraca po walce
+	var path := PackedVector2Array()
+	var path_i := 0
+	var respawn := 0.0  ## sekundy do odrodzenia (stan dead)
+	var invulnerable := 0.0
+	var building_mult: float
 
 
 class Building:
@@ -124,6 +145,7 @@ class Shot:
 	var slow := 0.0
 	var slow_time := 0.0
 	var speed: float
+	var no_base := false  ## pocisk dowódcy — nie rani bazy (R4)
 	var done := false
 
 
@@ -171,6 +193,8 @@ var ability_cd: Array[Dictionary] = [{}, {}]
 var commander := ""
 ## Per drużyna: umiejętności na pasku (3 dowódcy + rasowa albo Cfg.ABILITY_ORDER bez dowódcy).
 var ability_order: Array = [Cfg.ABILITY_ORDER.duplicate(), Cfg.ABILITY_ORDER.duplicate()]
+## Per drużyna: dowódca (null = drużyna bez dowódcy). Rekord żyje też po śmierci.
+var heroes: Array[Hero] = [null, null]
 var stance := "attack"  ## "attack" albo "defend"
 var elapsed := 0.0
 var wave := 0
@@ -235,6 +259,8 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 	for i in level["enemy_start_towers"]:
 		_add_building(1, "tower", enemy_slot_pos(i))
 	next_wave_lanes = _plan_lanes(1)
+	if commander != "":
+		heroes[0] = _make_hero(0, commander)
 
 
 # ================================================================ zapytania
@@ -301,7 +327,7 @@ func is_alive(b: Building) -> bool:
 func army_size(team: int) -> int:
 	var n := 0
 	for u in units:
-		if u.team == team and u.hp > 0:
+		if u.team == team and u.hp > 0 and not u.is_hero:
 			n += 1
 	return n
 
@@ -403,7 +429,7 @@ func lane_defense(lane_index: int) -> float:
 			power += 10.0
 		total += power
 	for u in units:
-		if u.team == 0 and u.lane == lane_index:
+		if u.team == 0 and u.lane == lane_index and not u.is_hero:
 			total += 3.0
 	return total
 
@@ -413,17 +439,42 @@ func enemy_fury() -> float:
 	return 1.0 + Cfg.ENEMY_FURY_PER_WAVE * maxi(wave - Cfg.ENEMY_FURY_WAVE, 0)
 
 
+## Gotowa = odnowiona i (dla umiejętności dowódcy) dowódca żyje. Odnowienie biegnie też po śmierci (R3).
 func ability_ready(ability: String, team := 0) -> bool:
-	return ability_cd[team].get(ability, INF) <= 0.0
+	if ability_cd[team].get(ability, INF) > 0.0:
+		return false
+	return not (_is_hero_ability(ability, team) and not hero_alive(team))
 
 
-## Czy umiejętność da się użyć w tym miejscu (przywołanie: tylko przy ścieżce, na swojej połowie).
+## Czy umiejętność da się użyć w tym miejscu: w zasięgu rzucania od dowódcy (`cast_range` > 0),
+## przywołanie tylko przy ścieżce — bez zasięgu od dowódcy dodatkowo na swojej połowie.
 func ability_target_ok(ability: String, at: Vector2, team := 0) -> bool:
 	var cfg: Dictionary = Cfg.ABILITIES[ability]
+	if not cfg["target"]:
+		return true
+	var cast_range: float = cfg.get("cast_range", 0.0)
+	if cast_range > 0.0 and heroes[team] != null and heroes[team].pos.distance_to(at) > cast_range:
+		return false
 	if cfg["kind"] != "summon_units":
 		return true
-	var own_half := at.x < size.x / 2.0 if team == 0 else at.x > size.x / 2.0
-	return own_half and lanes[nearest_lane(at)].distance_to(at) <= cfg["max_lane_dist"]
+	if cast_range <= 0.0:
+		var own_half := at.x < size.x / 2.0 if team == 0 else at.x > size.x / 2.0
+		if not own_half:
+			return false
+	return lanes[nearest_lane(at)].distance_to(at) <= cfg["max_lane_dist"]
+
+
+## Dowódca drużyny (null = bez dowódcy). Martwy ma `state == "dead"` i nie ma go w `units`.
+func hero(team := 0) -> Hero:
+	return heroes[team]
+
+
+func hero_alive(team := 0) -> bool:
+	return heroes[team] != null and heroes[team].state != "dead"
+
+
+func _is_hero_ability(ability: String, team: int) -> bool:
+	return heroes[team] != null and Cfg.COMMANDERS[heroes[team].commander]["abilities"].has(ability)
 
 
 ## Limit jednostek drużyny na mapie (gracz: armia, wróg: wrogowie na mapie).
@@ -491,6 +542,21 @@ func set_stance(s: String) -> void:
 	stance = s
 
 
+## Rozkaz marszu dowódcy: trasa A* do `pos` (rzeka po mostach; cel na wodzie → najbliższy ląd).
+## Idąc ignoruje wrogów; na miejscu to nowy punkt postoju. false = brak dowódcy albo nie żyje.
+func order_hero(pos: Vector2, team := 0) -> bool:
+	var h := heroes[team]
+	if result != 0 or h == null or h.state == "dead":
+		return false
+	h.path = path_to(h.pos, pos)
+	h.path_i = 1
+	h.post = h.path[-1]
+	h.state = "march"
+	h.on_path = false
+	events.append({"type": "hero_order", "team": team, "pos": h.post})
+	return true
+
+
 ## Używa umiejętności drużyny `team`. Działanie wynika z typu efektu (`kind` w Cfg.ABILITIES),
 ## nie z nazwy umiejętności. `at` ignorowane dla umiejętności bez celu (Naprawa).
 func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
@@ -539,6 +605,7 @@ func step(dt: float) -> void:
 	var events_at_start := events.size()
 	var t := Time.get_ticks_usec() if profile else 0
 	_update_strikes(dt)
+	_update_respawns(dt)
 	_update_waves(dt)
 	t = _prof("fale", t)
 	_rebuild_grid()
@@ -729,6 +796,9 @@ func _update_building(b: Building, dt: float) -> void:
 # ---------------------------------------------------------------- jednostki
 
 func _update_unit(u: Unit, dt: float) -> void:
+	if u.is_hero:
+		_update_hero(u as Hero, dt)
+		return
 	var rng_ := u.attack_range
 	u.cd_left -= dt
 	u.flash = maxf(0.0, u.flash - dt)
@@ -802,6 +872,139 @@ func _update_unit(u: Unit, dt: float) -> void:
 		_follow_lane(u, _rally_s(u), speed * dt)
 
 
+## Maszyna stanów dowódcy (opis przy klasie Hero). Martwego obsługuje `_update_respawns`.
+func _update_hero(h: Hero, dt: float) -> void:
+	h.cd_left -= dt
+	h.flash = maxf(0.0, h.flash - dt)
+	h.invulnerable = maxf(0.0, h.invulnerable - dt)
+	if h.slow_timer > 0.0:
+		h.slow_timer -= dt
+		if h.slow_timer <= 0.0:
+			h.slow_factor = 0.0
+	var step_len := h.base_speed * (1.0 - h.slow_factor) * dt
+	var foe_team := 1 - h.team
+	match h.state:
+		"march":
+			if _walk_path(h, step_len):
+				h.state = "idle"
+		"back":
+			if _walk_path(h, step_len):
+				h.state = "idle"
+		"idle", "fight":
+			var sight := h.attack_range + Cfg.AGGRO
+			var foe := _nearest_unit(foe_team, h.pos, sight, h.anti_air)
+			if foe != null and foe.pos.distance_to(h.post) > Cfg.COMMANDER_LEASH + h.attack_range:
+				foe = null  # za daleko od punktu — nie goni
+			var tb: Building = null
+			if foe == null:
+				tb = _nearest_building(foe_team, h.pos, h.attack_range + Cfg.BUILDING_AGGRO)
+				if tb != null and tb.pos.distance_to(h.post) > Cfg.COMMANDER_LEASH + h.attack_range:
+					tb = null
+			if foe == null and tb == null:
+				if h.pos.distance_to(h.post) > 1.0:
+					_hero_return(h)
+				else:
+					h.state = "idle"
+				return
+			h.state = "fight"
+			var target_pos := foe.pos if foe != null else tb.pos
+			var reach := h.attack_range + h.radius + (foe.radius if foe != null else BUILDING_R)
+			if h.pos.distance_to(target_pos) > reach:
+				var next := h.pos.move_toward(target_pos, step_len)
+				if next.distance_to(h.post) > Cfg.COMMANDER_LEASH:
+					_hero_return(h)  # smycz — wraca do punktu
+					return
+				h.pos = next
+			elif h.cd_left <= 0:
+				if h.melee:
+					h.cd_left = h.cooldown
+					if foe != null:
+						_damage_unit(foe, h.dmg, "melee")
+					else:
+						_damage_building(tb, h.dmg * h.building_mult)
+					events.append({"type": "hit", "pos": target_pos})
+				else:
+					_ranged_attack(h, target_pos, foe, tb, -1)
+
+
+## Powrót do punktu postoju trasą (ignoruje wrogów, żeby nie szarpać się na granicy smyczy).
+func _hero_return(h: Hero) -> void:
+	h.state = "back"
+	h.path = path_to(h.pos, h.post)
+	h.path_i = 1
+
+
+## Krok po trasie dowódcy. true = dotarł do końca.
+func _walk_path(h: Hero, step_len: float) -> bool:
+	while h.path_i < h.path.size():
+		var p := h.path[h.path_i]
+		var d := h.pos.distance_to(p)
+		if d > step_len:
+			h.pos = h.pos.move_toward(p, step_len)
+			return false
+		h.pos = p
+		step_len -= d
+		h.path_i += 1
+	return true
+
+
+## Martwi dowódcy: odliczanie i odrodzenie przy bazie.
+func _update_respawns(dt: float) -> void:
+	for h in heroes:
+		if h == null or h.state != "dead":
+			continue
+		h.respawn -= dt
+		if h.respawn > 0.0:
+			continue
+		h.pos = _hero_spawn_pos(h.team)
+		h.prev_pos = h.pos
+		h.post = h.pos
+		h.hp = h.max_hp
+		h.slow_timer = 0.0
+		h.slow_factor = 0.0
+		h.invulnerable = Cfg.COMMANDER_INVULNERABLE
+		h.state = "idle"
+		units.append(h)
+		events.append({"type": "hero_respawn", "team": h.team, "pos": h.pos})
+
+
+## Miejsce pojawienia się dowódcy: tuż przed bazą, w stronę środka mapy.
+func _hero_spawn_pos(team: int) -> Vector2:
+	var b := base_pos(team)
+	return b + (size / 2.0 - b).normalized() * (Cfg.BASE_R + 24.0)
+
+
+func _make_hero(team: int, id: String) -> Hero:
+	var c: Dictionary = Cfg.COMMANDERS[id]
+	var h := Hero.new()
+	h.id = _take_id()
+	h.team = team
+	h.kind = id
+	h.commander = id
+	h.is_hero = true
+	h.radius = c["r"]
+	h.attack_range = c["range"]
+	h.base_speed = c["speed"]
+	h.cooldown = c["cd"]
+	h.projectile = c["projectile"]
+	h.splash = c.get("splash", 0.0)
+	h.melee = h.projectile == ""
+	h.anti_air = c["anti_air"]
+	h.armor = c["armor"]
+	h.max_hp = c["hp"]
+	h.hp = h.max_hp
+	h.dmg = c["dmg"]
+	h.building_mult = c.get("building_mult", Cfg.COMMANDER_BUILDING_MULT)
+	h.building_dmg = h.dmg * h.building_mult
+	h.lane = 0
+	h.on_path = false
+	h.pos = _hero_spawn_pos(team)
+	h.prev_pos = h.pos
+	h.post = h.pos
+	units.append(h)
+	return h
+
+
 ## Idzie wzdłuż ścieżki do `goal_s`. Jeśli walka zepchnęła jednostkę ze ścieżki,
 ## najpierw wraca do najbliższego jej punktu — szukanego tylko w pobliżu dotychczasowego
 ## `s`, żeby na krętej ścieżce nie „przeskoczyć" na sąsiednią pętlę.
@@ -836,6 +1039,7 @@ func _ranged_attack(u: Unit, at: Vector2, unit: Unit, building: Building, base_t
 	s.target_unit = unit
 	s.target_building = building
 	s.target_base = base_team
+	s.no_base = u.is_hero
 
 
 ## Wystawia jednostkę na ścieżce. `at_s` < 0 = przy własnej bazie.
@@ -857,6 +1061,7 @@ func _spawn_unit(team: int, kind: String, lvl: int, hp_mult: float, lane_index: 
 	u.melee = u.projectile == ""
 	u.anti_air = Cfg.ANTI_AIR.has(u.projectile)
 	u.siege = st.get("siege", false)
+	u.armor = st.get("armor", 0.0)
 	u.lane = lane_index
 	u.lane_offset = rng.randf_range(-Cfg.PATH_HALF + 8.0, Cfg.PATH_HALF - 8.0)
 	if at_s >= 0.0:
@@ -932,7 +1137,7 @@ func _impact(s: Shot) -> void:
 			for b in buildings:
 				if b.team == foe_team and b.kind != "basegun" and b.hp > 0 and b.pos.distance_to(s.target_pos) <= s.splash + BUILDING_R:
 					_damage_building(b, s.building_dmg)
-			if s.target_base == foe_team or base_pos(foe_team).distance_to(s.target_pos) <= s.splash + Cfg.BASE_R:
+			if not s.no_base and (s.target_base == foe_team or base_pos(foe_team).distance_to(s.target_pos) <= s.splash + Cfg.BASE_R):
 				_damage_base(foe_team, s.building_dmg)
 		return
 	if s.target_unit != null and s.target_unit.hp > 0:
@@ -948,11 +1153,19 @@ func _impact(s: Shot) -> void:
 func _damage_unit(u: Unit, dmg: float, kind: String) -> void:
 	if u.hp <= 0:
 		return
+	if u.is_hero and (u as Hero).invulnerable > 0.0:
+		return
 	if kind == "arrow":
-		dmg *= 1.0 - Cfg.UNITS[u.kind].get("armor", 0.0)
+		dmg *= 1.0 - u.armor
 	u.hp -= dmg
 	u.flash = 0.12
 	if u.hp > 0:
+		return
+	if u.is_hero:
+		var h := u as Hero
+		h.state = "dead"
+		h.respawn = Cfg.commander_respawn(wave)
+		events.append({"type": "hero_died", "pos": h.pos, "team": h.team, "respawn": h.respawn})
 		return
 	events.append({"type": "death", "pos": u.pos, "team": u.team, "kind": u.kind})
 	if u.team == 1:
@@ -1003,7 +1216,8 @@ func _rebuild_grid() -> void:
 	for u in units:
 		if u.hp > 0:
 			_grid_add(_grid[u.team], u.pos, u)
-			team_count[u.team] += 1
+			if not u.is_hero:
+				team_count[u.team] += 1
 	for b in buildings:
 		if b.hp > 0 and b.kind != "basegun":
 			_grid_add(_bgrid[b.team], b.pos, b)

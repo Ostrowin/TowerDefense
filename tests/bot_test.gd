@@ -31,7 +31,12 @@ const TURTLE_PLAN := [
 	["frost", Vector3(1, 250, -70)], ["tower", Vector3(0, 250, 70)], ["tower", Vector3(2, 250, -70)],
 ]
 
+## Kontrakt regresji (D8): gra bez dowódcy daje dokładnie te mecze botów co tabela wzorcowa.
+## Tabelę nadpisuje się wyłącznie świadomie: `... bot_test.gd -- --write-baseline` (po zamierzonej zmianie balansu).
+const BASELINE_PATH := "res://tests/bot_baseline.txt"
+
 var failures := 0
+var rows: Array[String] = []
 
 
 func _init() -> void:
@@ -73,6 +78,7 @@ func _init() -> void:
 	_test_abilities()
 	_test_abilities_both_teams()
 	_test_commander_data()
+	_test_hero()
 	_test_progress()
 	_test_population_caps()
 	_test_wave_composition()
@@ -88,9 +94,27 @@ func _init() -> void:
 			for d in Cfg.DIFFICULTIES.size():
 				_report(lv, d, "balanced")
 			_report(lv, 2, "mass")
+		_compare_baseline(args.has("--write-baseline"))
 
 	print("\n%s" % ("OK" if failures == 0 else "BŁĘDY: %d" % failures))
 	quit(1 if failures > 0 else 0)
+
+
+## Porównuje wiersze meczów z tabelą wzorcową (albo ją zapisuje przy --write-baseline).
+func _compare_baseline(write: bool) -> void:
+	if write:
+		var f := FileAccess.open(BASELINE_PATH, FileAccess.WRITE)
+		f.store_string("\n".join(rows) + "\n")
+		print("\nzapisano tabelę wzorcową: ", BASELINE_PATH)
+		return
+	if not FileAccess.file_exists(BASELINE_PATH):
+		_check(false, "brak tabeli wzorcowej %s (--write-baseline)" % BASELINE_PATH)
+		return
+	var expected := FileAccess.get_file_as_string(BASELINE_PATH).strip_edges().split("\n")
+	_check(expected.size() == rows.size(), "tabela wzorcowa: %d wierszy, mecze: %d" % [expected.size(), rows.size()])
+	for i in mini(expected.size(), rows.size()):
+		if expected[i].strip_edges() != rows[i].strip_edges():
+			_check(false, "mecz różni się od wzorca:\n    było:   %s\n    jest:   %s" % [expected[i], rows[i]])
 
 
 ## Lista liczb z argumentu `--flag 0,2`; bez flagi — 0..count-1.
@@ -112,9 +136,11 @@ func _print_header() -> void:
 
 func _report(lv: int, d: int, strategy: String) -> void:
 	var r := _play(lv, d, strategy)
-	print("%-11s %-9s %-9s %-9s %5ds %5d %6d %6d %6d %8d" % [
+	var row := "%-11s %-9s %-9s %-9s %5ds %5d %6d %6d %6d %8d" % [
 		Levels.ALL[lv]["name"], Cfg.DIFFICULTIES[d]["name"], strategy, ["przegrana", "remis", "WYGRANA"][r.result + 1],
-		int(r.elapsed), r.wave, r.stats["kills"], r.stats["units_made"], r.stats["towers_razed"], r.stats["buildings_lost"]])
+		int(r.elapsed), r.wave, r.stats["kills"], r.stats["units_made"], r.stats["towers_razed"], r.stats["buildings_lost"]]
+	print(row)
+	rows.append(row)
 	var where := "%s/%s" % [Levels.ALL[lv]["name"], Cfg.DIFFICULTIES[d]["name"]]
 	if strategy == "idle":
 		_check(r.result == -1, "bezczynny gracz musi przegrać (%s)" % where)
@@ -732,6 +758,115 @@ func _test_commander_data() -> void:
 	_check(Sim.new(1, 1).ability_order[0] == Cfg.ABILITY_ORDER, "Sim bez dowódcy — dzisiejszy zestaw")
 
 
+## Dowódca w Sim (T5, R4, D3): marsz przez most, walka na smyczy, śmierć i odrodzenie,
+## cel dla wież/jednostek/obszaru, poza limitami i obroną ścieżek, zasięg rzucania.
+func _test_hero() -> void:
+	# marsz przez rzekę po moście, bez wchodzenia w wodę
+	var lv := -1
+	for i in Levels.ALL.size():
+		if not Levels.ALL[i]["river"].is_empty():
+			lv = i
+			break
+	var sim := _empty_sim(lv, "sapper")
+	var h := sim.hero()
+	_check(h != null and sim.units.has(h), "dowódca stoi na mapie od startu")
+	_check(sim.army_size(0) == 0 and sim.team_count[0] == 0, "dowódca nie liczy się do armii")
+	var br: Dictionary = sim.bridges[0]
+	var lane: Sim.Lane = sim.lanes[br["lane"]]
+	h.pos = lane.point_at(br["s0"] - 160.0)
+	var goal := lane.point_at(br["s1"] + 160.0)
+	_check(sim.order_hero(goal), "rozkaz marszu przyjęty")
+	var wet := false
+	for i in 30 * 30:
+		sim.step(DT)
+		wet = wet or not sim._nav_point_ok(h.pos)
+		if h.state == "idle":
+			break
+	_check(h.state == "idle" and h.pos.distance_to(goal) < 5.0, "dowódca dochodzi za rzekę (%.0f px od celu)" % h.pos.distance_to(goal))
+	_check(not wet, "dowódca przechodzi rzekę tylko po moście")
+
+	# walka i powrót do punktu (smycz)
+	sim = _empty_sim(0, "sapper")
+	h = sim.hero()
+	var post := sim.lanes[1].point_at(500)
+	h.pos = post
+	h.post = post
+	sim.base_hp = [1e9, 1e9]
+	sim._spawn_unit(1, "grunt", 1, 1.0, 1, 600)
+	var foe: Sim.Unit = sim.units[-1]
+	var far := 0.0
+	for i in 30 * 20:
+		sim.step(DT)
+		far = maxf(far, h.pos.distance_to(post))
+		if foe.hp <= 0 and h.state == "idle":
+			break
+	_check(foe.hp <= 0, "dowódca zabija wroga w pobliżu")
+	_check(far <= Cfg.COMMANDER_LEASH + 1.0, "goni najdalej na smycz (%.0f px)" % far)
+	_check(h.state == "idle" and h.pos.distance_to(post) < 2.0, "po walce wraca do punktu")
+	# wróg poza smyczą — dowódca stoi
+	sim._spawn_unit(1, "grunt", 1, 1.0, 1, 500 + 400)
+	var lure: Sim.Unit = sim.units[-1]
+	lure.base_speed = 0.0
+	for i in 30 * 3:
+		sim.step(DT)
+	_check(h.pos.distance_to(post) < 2.0, "wróg daleko od punktu nie ściąga dowódcy")
+
+	# D3: wieża, jednostka i obszar ranią i zabijają dowódcę
+	for how in ["tower", "unit", "splash"]:
+		sim = _empty_sim(0, "sapper")
+		h = sim.hero()
+		sim.base_hp = [1e9, 1e9]
+		h.pos = sim.lanes[1].point_at(900)
+		h.post = h.pos
+		h.hp = 30.0
+		match how:
+			"tower":
+				sim._add_building(1, "tower", h.pos + Vector2(0, 120))
+			"unit":
+				sim._spawn_unit(1, "brute", 1, 5.0, 1, 900)  # gruby — dowódca go nie zdąży zabić
+			"splash":
+				var s := sim._fire(1, "cannonball", h.pos + Vector2(100, 0), h.pos, 50.0, 55.0)
+				s.target_pos = h.pos
+		for i in 30 * 10:
+			sim.step(DT)
+			if h.state == "dead":
+				break
+		_check(h.state == "dead" and not sim.units.has(h), "dowódcę zabija: %s" % how)
+
+	# śmierć → odrodzenie przy bazie z nietykalnością; umiejętności wyszarzone, rasowa działa
+	sim = _empty_sim(0, "sniper")
+	h = sim.hero()
+	sim.wave = 5
+	sim.trickle_timer = INF  # bez pojedynczych orków między falami
+	sim._damage_unit(h, 1e6, "melee")
+	_check(h.state == "dead" and is_equal_approx(h.respawn, Cfg.commander_respawn(5)), "po śmierci odlicza odrodzenie (30 s w fali 5)")
+	_check(not sim.ability_ready("barrage") and sim.ability_ready("dig_in"), "umiejętności dowódcy wyszarzone, rasowa działa")
+	_check(not sim.order_hero(sim.p_base), "martwy dowódca nie przyjmuje rozkazów")
+	sim.ability_cd[0]["barrage"] = 5.0
+	for i in 30 * 31:
+		sim.step(DT)
+	_check(h.state == "idle" and sim.units.has(h) and h.hp == h.max_hp, "dowódca odradza się z pełnym HP")
+	_check(h.pos.distance_to(sim.p_base) < Cfg.BASE_R + 40.0, "odradza się przy bazie")
+	_check(sim.ability_cd[0]["barrage"] == 0.0 and sim.ability_ready("barrage"), "odnowienie biegło w czasie śmierci")
+	_check(h.invulnerable > 0.0, "po odrodzeniu nietykalny")
+	var hp := h.hp
+	sim._damage_unit(h, 50.0, "melee")
+	_check(h.hp == hp, "nietykalny nie traci HP")
+
+	# zasięg rzucania od dowódcy; bez celu (Ostrzał gracza) poza zasięgiem = odmowa
+	var near := h.pos + Vector2(100, 0)
+	var out := h.pos + Vector2(Cfg.ABILITIES["barrage"]["cast_range"] + 50.0, 0)
+	_check(sim.ability_target_ok("barrage", near) and not sim.ability_target_ok("barrage", out), "zasięg rzucania liczony od dowódcy")
+
+	# nie rusza limitów ani obrony ścieżek
+	var plain := _empty_sim(0)
+	sim = _empty_sim(0, "sapper")
+	sim.hero().pos = sim.lanes[1].point_at(300)
+	sim.step(DT)
+	plain.step(DT)
+	_check(sim.team_count[0] == 0 and sim.lane_defense(1) == plain.lane_defense(1), "dowódca poza limitem i obroną ścieżek")
+
+
 func _test_progress() -> void:
 	Progress.reset_cache()
 	_check(Progress.best("x_test", 1) < 0, "brak rekordu na starcie")
@@ -784,8 +919,8 @@ func _test_wave_composition() -> void:
 
 
 ## Sim bez wież wroga i bez fal — czysta scena do testów mechanik.
-func _empty_sim(lv := 0) -> Sim:
-	var sim := Sim.new(1, 1, lv)
+func _empty_sim(lv := 0, commander := "") -> Sim:
+	var sim := Sim.new(1, 1, lv, commander)
 	sim.buildings = sim.buildings.filter(func(b: Sim.Building) -> bool: return b.kind == "basegun")
 	sim.wave_timer = INF
 	return sim

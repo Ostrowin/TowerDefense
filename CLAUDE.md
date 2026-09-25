@@ -29,7 +29,7 @@ Android (`tools/android.ps1`, PowerShell): eksport APK (release, podpis kluczem 
 Szablony eksportu: tylko pliki Androida w `%APPDATA%\Godot\export_templates\4.7.2.stable\`. SDK: `C:\Program Files (x86)\Android\android-sdk`, JDK 21: `C:\Program Files\Android\openjdk\jdk-21.0.8` (oba z Visual Studio).
 Uwaga: powłoka Bash w Claude Code jest w piaskownicy — zapisy poza projektem (np. `%APPDATA%`) rób przez PowerShell.
 
-Po zmianie balansu odpal `-- --balance` i porównaj tabelę wyników. Po zmianie mapy (`Levels`) odpal pełny bot_test — sprawdza, czy nic nie ląduje na ścieżce, a pętle ścieżki nie nachodzą na siebie.
+Po zmianie balansu odpal `-- --balance` i porównaj tabelę wyników. Pełny bot_test porównuje mecze botów (gra bez dowódcy) z `tests/bot_baseline.txt` — różnica = błąd; wzorzec nadpisuje się tylko świadomie: `bot_test.gd -- --write-baseline`. Po zmianie mapy (`Levels`) odpal pełny bot_test — sprawdza, czy nic nie ląduje na ścieżce, a pętle ścieżki nie nachodzą na siebie.
 Wydajność mierz na TRWAJĄCEJ partii (`sim.result == 0`) — skończona partia nie liczy kroków i daje fałszywie niskie czasy.
 Nie odpalaj dwóch `bot_test` naraz (np. na dwóch kopiach repo) — dzielą `user://test_progress.cfg` i testy rekordów się wysypią.
 Smoke test wstrzykuje zdarzenia przez `root.push_input(e, true)` — okno headless ma 64×64, bez `true` pozycje się rozjeżdżają.
