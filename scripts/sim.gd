@@ -93,6 +93,10 @@ class Unit:
 	var attack_speed := 1.0  ## dzieli czas odnowienia ciosu
 	var armor_bonus := 0.0
 	var lifesteal := 0.0  ## ułamek zadanych obrażeń wręcz wracający jako HP
+	## Podkop (`burrow`): sekundy pod ziemią — poza siatką celów, nietykalna, idzie naprzód ścieżką;
+	## przy wynurzeniu wstrząs z `burrow_cfg`.
+	var burrow := 0.0
+	var burrow_cfg: Dictionary
 	var cd_left := 0.0
 	var slow_timer := 0.0
 	var slow_factor := 0.0  ## ułamek prędkości zabrany przez mróz
@@ -217,7 +221,7 @@ var spawn_cd := 0.0
 var trickle_timer := Cfg.ENEMY_TRICKLE
 var result := 0  ## 0 = gra trwa, 1 = wygrana, -1 = przegrana
 var events: Array[Dictionary] = []
-var stats := {"kills": 0, "units_made": 0, "gold_earned": 0.0, "towers_razed": 0, "buildings_lost": 0, "abilities_used": 0}
+var stats := {"kills": 0, "units_made": 0, "gold_earned": 0.0, "towers_razed": 0, "buildings_lost": 0, "abilities_used": 0, "hero_deaths": 0}
 var rng := RandomNumberGenerator.new()
 ## Profilowanie faz kroku (benchmark tests/perf_test.gd): czasy w µs, sumowane.
 var profile := false
@@ -640,6 +644,16 @@ func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
 			events.append({"type": "summon", "pos": b.pos, "team": team, "kind": b.kind})
 		"buff":
 			_cast_buff(team, at, cfg)
+		"burrow":
+			var lane_i := nearest_lane(at)
+			var n := 0
+			for u in units:
+				if u.team == team and u.hp > 0 and u.lane == lane_i and not u.flying and not u.is_hero:
+					u.burrow = cfg["duration"]
+					u.burrow_cfg = cfg
+					u.on_path = false  # z walki najpierw wraca na ścieżkę (pod ziemią)
+					n += 1
+			events.append({"type": "burrow", "pos": at, "team": team, "lane": lane_i, "count": n})
 		"line":
 			_cast_line(team, at, cfg)
 		"execute":
@@ -702,7 +716,7 @@ func _cast_line(team: int, at: Vector2, cfg: Dictionary) -> void:
 func _cast_execute(team: int, at: Vector2, cfg: Dictionary) -> void:
 	var best: Unit = null
 	for u in units:
-		if u.team != team and u.hp > 0 and u.pos.distance_to(at) <= cfg["radius"] + u.radius:
+		if u.team != team and u.hp > 0 and u.burrow <= 0.0 and u.pos.distance_to(at) <= cfg["radius"] + u.radius:
 			if best == null or u.hp > best.hp:
 				best = u
 	if best == null:
@@ -1006,6 +1020,9 @@ func _update_unit(u: Unit, dt: float) -> void:
 			u.slow_factor = 0.0
 	var speed := u.base_speed * (1.0 - u.slow_factor) * u.speed_mult
 	var foe_team := 1 - u.team
+	if u.burrow > 0.0:
+		_update_burrowed(u, speed, dt)
+		return
 	var foe_base := base_pos(foe_team)
 	var base_in_range := u.pos.distance_to(foe_base) <= rng_ + Cfg.BASE_R
 
@@ -1228,6 +1245,19 @@ func _rally_s(u: Unit) -> float:
 	return rally_s - depth.get(u.kind, 0.0) - (u.id % 3) * 12.0
 
 
+## Pod ziemią: idzie naprzód ścieżką (szybciej), ignoruje wrogów; po czasie wynurza się ze wstrząsem.
+func _update_burrowed(u: Unit, speed: float, dt: float) -> void:
+	u.burrow -= dt
+	var cfg := u.burrow_cfg
+	_follow_lane(u, lanes[u.lane].length if u.team == 0 else 0.0, speed * cfg["speed_mult"] * dt)
+	if u.burrow > 0.0:
+		return
+	u.burrow = 0.0
+	for foe in _units_near(1 - u.team, u.pos, cfg["quake_radius"], false):
+		_damage_unit(foe, cfg["quake_dmg"], "blast")
+	events.append({"type": "quake", "pos": u.pos, "radius": cfg["quake_radius"], "team": u.team})
+
+
 ## Cios wręcz z mnożnikiem obrażeń i wysysaniem życia (wzmocnienia).
 func _melee_hit(u: Unit, foe: Unit) -> void:
 	var dmg := u.dmg * u.dmg_mult
@@ -1383,7 +1413,7 @@ func _impact(s: Shot) -> void:
 
 ## `kind` = rodzaj obrażeń (pocisk albo "melee") — pancerz blokuje część strzał.
 func _damage_unit(u: Unit, dmg: float, kind: String) -> void:
-	if u.hp <= 0:
+	if u.hp <= 0 or u.burrow > 0.0:
 		return
 	if u.is_hero and (u as Hero).invulnerable > 0.0:
 		return
@@ -1397,6 +1427,8 @@ func _damage_unit(u: Unit, dmg: float, kind: String) -> void:
 		var h := u as Hero
 		h.state = "dead"
 		h.respawn = Cfg.commander_respawn(wave)
+		if h.team == 0:
+			stats["hero_deaths"] += 1
 		events.append({"type": "hero_died", "pos": h.pos, "team": h.team, "respawn": h.respawn})
 		return
 	events.append({"type": "death", "pos": u.pos, "team": u.team, "kind": u.kind})
@@ -1449,7 +1481,8 @@ func _rebuild_grid() -> void:
 	team_count = [0, 0]
 	for u in units:
 		if u.hp > 0:
-			_grid_add(_grid[u.team], u.pos, u)
+			if u.burrow <= 0.0:  # pod ziemią nikt go nie widzi
+				_grid_add(_grid[u.team], u.pos, u)
 			if not u.is_hero:
 				team_count[u.team] += 1
 	for b in buildings:

@@ -266,7 +266,7 @@ const ABILITY_ORDER: Array[String] = ["arrows", "levy", "repair"]
 ## Typy efektów, które Sim już obsługuje. Dowódca jest grywalny (`ready`), gdy wszystkie jego
 ## umiejętności i umiejętność rasy mają typ z tej listy — rośnie z T6/T9–T11b.
 const IMPLEMENTED_KINDS: Array[String] = ["strike", "summon_units", "global", "zone", "summon_building",
-	"buff", "line", "execute", "demolish"]
+	"buff", "line", "execute", "demolish", "burrow"]
 ## Umiejętności `zone` i `summon_building` nie dalej niż tyle od bazy przeciwnika (R2).
 const NO_CAST_NEAR_BASE := 150.0
 ## `demolish`: w jakim promieniu od wskazanego punktu szuka budynku wroga.
@@ -285,7 +285,7 @@ const MAX_ARMOR := 0.85
 # Odrodzenie jest wspólne dla wszystkich (commander_respawn), bez pola per dowódca.
 
 const COMMANDERS := {
-	"veteran": {"race": "", "name": "Weteran", "role": "stary wyga — dzisiejsze umiejętności",
+	"veteran": {"race": "", "name": "Weteran", "role": "stary wyga, zna każdą sztuczkę",
 		"hp": 420.0, "dmg": 18.0, "range": 24.0, "cd": 0.9, "speed": 70.0, "r": 12.0, "armor": 0.2,
 		"projectile": "", "anti_air": false, "abilities": ["arrows", "levy", "repair"]},
 

@@ -46,6 +46,9 @@ func _process(_delta: float) -> bool:
 			_check(main.menu_layer.visible, "menu widoczne")
 			var playable: Array = main.race_buttons.filter(func(b: Button) -> bool: return not b.disabled)
 			_check(main.race_buttons.size() == 12 and playable.size() == 4, "12 ras w menu, grywalne cztery")
+			var cards: Dictionary = main.commander_buttons
+			_check(cards.size() == 3 and not cards.has("veteran"), "krety: 3 karty dowódców, bez Weterana")
+			_check(not cards["sapper"].disabled and main.commander_id == "sapper", "krety: Saper grywalny i domyślny")
 			main.race_buttons[0].emit_signal("pressed")  # niedźwiedzie — „Wkrótce"
 			_check(Races.ALL[main.race_index]["id"] == "mole", "zablokowanej rasy nie da się wybrać")
 			main.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon")].emit_signal("pressed")
@@ -53,6 +56,12 @@ func _process(_delta: float) -> bool:
 		3:
 			_check(Races.ALL[main.race_index]["id"] == "gibbon", "wybór rasy w menu")
 			_check(main.race_desc.text.contains("Przeciwnik: losowy"), "menu zapowiada losowego przeciwnika")
+			_check(main.race_desc.text.contains("Pieśń"), "menu podaje umiejętność rasy")
+			var cards: Dictionary = main.commander_buttons
+			_check(cards.size() == 3 and not cards.has("veteran"), "gibony: 3 karty, bez Weterana")
+			_check(main.commander_id == "warbeat" and cards["warbeat"].button_pressed, "zmiana rasy wybiera jej grywalnego dowódcę")
+			cards["iron_grip"].emit_signal("pressed")
+			_check(main.commander_id == "warbeat", "karta „Wkrótce” nie zmienia wyboru")
 			_check(main.level_index == 2 and sim.level["id"] == "serpentyna", "wybór mapy w menu")
 			main.diff_buttons[1].emit_signal("pressed")
 		4:
@@ -60,6 +69,7 @@ func _process(_delta: float) -> bool:
 			_check(rival >= 0 and rival != main.race_index and Races.ALL[rival]["playable"], "przeciwnik wylosowany spośród innych grywalnych ras")
 			_check(main.banner_sub.begins_with("Przeciwnik: %s" % Races.ALL[maxi(rival, 0)]["name"]), "baner startu podaje przeciwnika")
 			_check(main.state == main.State.PLAY and sim.difficulty["name"] == "Normalny", "trudność startuje grę")
+			_check(sim.commander == "warbeat", "partia z dowódcą wybranym w menu")
 			_check(main.tutorial_step == 0 and main.tutorial_panel.visible, "samouczek przy pierwszej grze")
 			main.speed_mult = 3
 			sim.gold = 5000

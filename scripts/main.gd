@@ -98,8 +98,9 @@ var selected: Sim.Building = null
 ## Tryb dowódcy (R6, D6): stuknięcie w pusty teren = rozkaz marszu, dowódca zostaje zaznaczony.
 var hero_selected := false
 var hero_ordered := false  ## samouczek: gracz wydał dowódcy rozkaz
-## Dowódca gracza w partii (id z Cfg.COMMANDERS); do czasu wyboru w menu (T8) — pierwszy grywalny rasy.
+## Dowódca gracza (id z Cfg.COMMANDERS) — wybór w menu po rasie; domyślnie pierwszy grywalny rasy.
 var commander_id := ""
+var commander_pick := {}  ## indeks rasy → ostatnio wybrany dowódca (w obrębie sesji)
 var speed_mult := 1
 var accum := 0.0
 var time := 0.0
@@ -197,6 +198,8 @@ var tutorial_label: Label
 var menu_layer: Control
 var race_buttons: Array[Button] = []
 var race_desc: Label
+var commander_row: HBoxContainer
+var commander_buttons := {}  ## id dowódcy → karta w menu
 var map_buttons: Array[Button] = []
 var map_desc: Label
 var diff_buttons: Array[Button] = []
@@ -250,7 +253,8 @@ func _start_bench() -> void:
 
 func _start(d: int) -> void:
 	difficulty = d
-	commander_id = _default_commander(race_index)
+	if commander_id == "" or not Races.commanders(race_index).has(commander_id):
+		commander_id = _default_commander(race_index)
 	sim = Sim.new(d, -1, level_index, commander_id)
 	hero_ordered = false
 	_make_terrain()
@@ -283,8 +287,11 @@ func _select_level(i: int) -> void:
 	_show_menu()
 
 
-## Pierwszy grywalny dowódca rasy (do T8 — potem wybór w menu).
+## Domyślny dowódca rasy: ostatnio wybrany w tej sesji, inaczej pierwszy grywalny.
 func _default_commander(race_i: int) -> String:
+	var picked: String = commander_pick.get(race_i, "")
+	if picked != "" and Cfg.commander_ready(picked):
+		return picked
 	for c in Races.commanders(race_i):
 		if Cfg.commander_ready(c):
 			return c
@@ -294,6 +301,14 @@ func _default_commander(race_i: int) -> String:
 func _select_race(i: int) -> void:
 	if Races.ALL[i]["playable"]:
 		race_index = i
+		commander_id = _default_commander(i)
+		_fill_commander_row()
+
+
+func _select_commander(id: String) -> void:
+	if Cfg.commander_ready(id):
+		commander_id = id
+		commander_pick[race_index] = id
 
 
 func _clear_view_state() -> void:
@@ -576,6 +591,17 @@ func _consume_events() -> void:
 				for i in 8:
 					_burst(a.lerp(b, (i + 0.5) / 8.0), 2, Color(1, 0.95, 0.8), 50.0, 0.35)
 				sfx.play("volley", 0.0)
+			"burrow":
+				var lane: Sim.Lane = sim.lanes[e["lane"]]
+				for i in 6:
+					_burst(lane.point_at(lane.offset_of(pos) + (i - 2.5) * 40.0), 4, Color(0.5, 0.38, 0.24), 70.0, 0.5)
+				if e["team"] == 0:
+					_float_text(pos + Vector2(0, -24), "Podkop! (%d)" % e["count"], Color(0.85, 0.7, 0.5))
+				sfx.play("build", 0.0)
+			"quake":
+				_burst(pos, 8, Color(0.55, 0.42, 0.28), 110.0, 0.5)
+				_ring(pos, e["radius"], Color(0.8, 0.65, 0.45))
+				sfx.play("explosion", 0.15)
 			"execute":
 				_burst(pos, 16, WARN_COLOR, 130.0, 0.5)
 				_ring(pos, 30.0, WARN_COLOR)
@@ -1294,6 +1320,12 @@ func _build_menu(ui: Control) -> void:
 				b.add_theme_stylebox_override(look, sb)
 		race_buttons.append(b)
 	race_desc = _label("", 15, box, Color(1, 1, 1, 0.8))
+	# dowódcy wybranej rasy — karty budowane od nowa przy zmianie rasy
+	commander_row = HBoxContainer.new()
+	commander_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	commander_row.add_theme_constant_override("separation", 10)
+	box.add_child(commander_row)
+	_fill_commander_row()
 	var maps := HBoxContainer.new()
 	maps.alignment = BoxContainer.ALIGNMENT_CENTER
 	maps.add_theme_constant_override("separation", 10)
@@ -1315,6 +1347,37 @@ func _build_menu(ui: Control) -> void:
 	box.add_child(extra)
 	_button("Jak grać", Vector2(180, 46), _open_overlay.bind("help"), extra)
 	_button("Ustawienia", Vector2(180, 46), _open_overlay.bind("settings"), extra)
+
+
+## Karty dowódców rasy: nazwa, rola, umiejętności (Q/E/R); niegotowi — „Wkrótce”.
+func _fill_commander_row() -> void:
+	if commander_row == null:
+		return
+	for child in commander_row.get_children():
+		child.queue_free()
+	commander_buttons.clear()
+	if commander_id == "":
+		commander_id = _default_commander(race_index)
+	var ids := Races.commanders(race_index)
+	# karty mieszczą się w szerokości ekranu (4 karty przy dużym interfejsie na 16:9)
+	var w := minf(290.0, floorf((screen.x - 40.0 - 10.0 * (ids.size() - 1)) / ids.size()))
+	for id in ids:
+		var c: Dictionary = Cfg.COMMANDERS[id]
+		var ready := Cfg.commander_ready(id)
+		var names := PackedStringArray()
+		for a in c["abilities"]:
+			names.append(Cfg.ABILITIES[a]["short"])
+		var text := "%s\n%s\n%s" % [c["name"], c["role"] if ready else "Wkrótce", " · ".join(names)]
+		var b := _button(text, Vector2(w, 78), _select_commander.bind(id), commander_row)
+		b.toggle_mode = true
+		b.disabled = not ready
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.tooltip_text = "%s — %s" % [c["name"], c["role"]]
+		b.add_theme_font_size_override("font_size", 13)
+		b.add_theme_color_override("font_pressed_color", HERO_COLOR)
+		b.add_theme_color_override("font_hover_pressed_color", HERO_COLOR)
+		commander_buttons[id] = b
 
 
 func _build_pause(ui: Control) -> void:
@@ -1398,6 +1461,7 @@ func _rebuild_ui() -> void:
 	ability_buttons.clear()
 	lane_buttons.clear()
 	race_buttons.clear()
+	commander_buttons.clear()
 	map_buttons.clear()
 	diff_buttons.clear()
 	_build_ui()
@@ -1487,7 +1551,11 @@ func _update_menu() -> void:
 	for i in race_buttons.size():
 		race_buttons[i].button_pressed = i == race_index
 	var race: Dictionary = Races.ALL[race_index]
-	race_desc.text = "%s — %s  Przeciwnik: losowy" % [race["name"], race["blurb"]]
+	var racial := Races.racial(race_index)
+	race_desc.text = "%s — %s  %sPrzeciwnik: losowy" % [race["name"], race["blurb"],
+		"Umiejętność rasy: %s · " % Cfg.ABILITIES[racial]["name"] if racial != "" else ""]
+	for id in commander_buttons:
+		commander_buttons[id].button_pressed = id == commander_id
 	for i in map_buttons.size():
 		var lv: Dictionary = Levels.ALL[i]
 		map_buttons[i].text = "%s\n%s" % [lv["name"], _stars_text(Progress.stars(lv["id"]))]
@@ -2062,6 +2130,12 @@ func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha:
 func _draw_unit(u: Sim.Unit) -> void:
 	if u.is_hero:
 		_draw_hero(u as Sim.Hero)
+		return
+	if u.burrow > 0.0:  # Podkop: kopczyk ziemi w kolorze drużyny zamiast jednostki
+		var m := u.prev_pos.lerp(u.pos, render_alpha)
+		pen.circle(m + Vector2(0, 2), u.radius, Color(0.3, 0.22, 0.14))
+		pen.circle(m, u.radius * 0.7, Color(0.45, 0.34, 0.22))
+		pen.circle(m + Vector2(0, -u.radius * 0.3), 2.5, TEAM_COLORS[u.team])
 		return
 	var r := u.radius
 	var dir := 1.0 if u.team == 0 else -1.0

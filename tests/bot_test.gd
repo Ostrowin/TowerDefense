@@ -35,6 +35,9 @@ const TURTLE_PLAN := [
 ## Tabelę nadpisuje się wyłącznie świadomie: `... bot_test.gd -- --write-baseline` (po zamierzonej zmianie balansu).
 const BASELINE_PATH := "res://tests/bot_baseline.txt"
 
+## Dowódcy w macierzy balansu R11 pełnego bot_test (reszta: `--balance --commander <id>`).
+const COMMANDER_MATRIX: Array[String] = ["sapper"]
+
 var failures := 0
 var rows: Array[String] = []
 
@@ -48,10 +51,11 @@ func _init() -> void:
 		var maps := _int_list(args, "--maps", Levels.ALL.size())
 		var diffs := _int_list(args, "--diffs", Cfg.DIFFICULTIES.size())
 		var bot := args[args.find("--bot") + 1] if args.has("--bot") else "balanced"
+		var commander := args[args.find("--commander") + 1] if args.has("--commander") else ""
 		_print_header()
 		for lv in maps:
 			for d in diffs:
-				_report(lv, d, bot)
+				_report(lv, d, bot, commander)
 		quit()
 		return
 
@@ -80,6 +84,7 @@ func _init() -> void:
 	_test_commander_data()
 	_test_hero()
 	_test_effect_kinds()
+	_test_burrow()
 	_test_progress()
 	_test_population_caps()
 	_test_wave_composition()
@@ -96,6 +101,13 @@ func _init() -> void:
 				_report(lv, d, "balanced")
 			_report(lv, 2, "mass")
 		_compare_baseline(args.has("--write-baseline"))
+		# R11: bot balanced z dowódcą wygrywa Łatwy i Normalny (asercja w _report); Trudny — w tabeli
+		for commander in COMMANDER_MATRIX:
+			print("\n== mecze botów z dowódcą: %s ==" % Cfg.COMMANDERS[commander]["name"])
+			_print_header()
+			for lv in Levels.ALL.size():
+				for d in Cfg.DIFFICULTIES.size():
+					_report(lv, d, "balanced", commander)
 
 	print("\n%s" % ("OK" if failures == 0 else "BŁĘDY: %d" % failures))
 	quit(1 if failures > 0 else 0)
@@ -135,13 +147,16 @@ func _print_header() -> void:
 	print("%-11s %-9s %-9s %-9s %6s %5s %6s %6s %6s %8s" % ["mapa", "trudność", "bot", "wynik", "czas", "fala", "zabici", "armia", "wieże", "stracone"])
 
 
-func _report(lv: int, d: int, strategy: String) -> void:
-	var r := _play(lv, d, strategy)
+func _report(lv: int, d: int, strategy: String, commander := "") -> void:
+	var r := _play(lv, d, strategy, commander)
 	var row := "%-11s %-9s %-9s %-9s %5ds %5d %6d %6d %6d %8d" % [
 		Levels.ALL[lv]["name"], Cfg.DIFFICULTIES[d]["name"], strategy, ["przegrana", "remis", "WYGRANA"][r.result + 1],
 		int(r.elapsed), r.wave, r.stats["kills"], r.stats["units_made"], r.stats["towers_razed"], r.stats["buildings_lost"]]
+	if commander == "":
+		rows.append(row)  # do tabeli wzorcowej tylko gra bez dowódcy (D8)
+	else:
+		row += "   %s: umiejętności %d, zgonów %d" % [commander, r.stats["abilities_used"], r.stats.get("hero_deaths", 0)]
 	print(row)
-	rows.append(row)
 	var where := "%s/%s" % [Levels.ALL[lv]["name"], Cfg.DIFFICULTIES[d]["name"]]
 	if strategy == "idle":
 		_check(r.result == -1, "bezczynny gracz musi przegrać (%s)" % where)
@@ -153,8 +168,8 @@ func _report(lv: int, d: int, strategy: String) -> void:
 
 # ================================================================ bot
 
-func _play(lv: int, difficulty: int, strategy: String) -> Sim:
-	var sim := Sim.new(difficulty, 1234, lv)
+func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
+	var sim := Sim.new(difficulty, 1234, lv, commander)
 	var plan: Array = TURTLE_PLAN if strategy == "turtle" else BALANCED_PLAN
 	var plan_i := 0
 	var think := 0.0
@@ -182,9 +197,130 @@ func _play(lv: int, difficulty: int, strategy: String) -> Sim:
 				plan_i += 1
 		elif not _upgrade_cheapest(sim) and strategy != "turtle":
 			_expand(sim)
-		_use_abilities(sim)
+		if sim.hero() != null:
+			_hero_bot(sim, strategy)
+		else:
+			_use_abilities(sim)
 		_set_stance(sim, strategy)
 	return sim
+
+
+# ---------------------------------------------------------------- bot dowódcy (R9)
+
+## Dowódca bota: balanced/mass — stoi na ścieżce następnej fali na linii zbiórki, przy HP < 30%
+## wraca pod bazę; turtle — zawsze pod bazą. Umiejętności według tabeli R9 (po typie efektu).
+func _hero_bot(sim: Sim, strategy: String) -> void:
+	var h := sim.hero()
+	if not sim.hero_alive():
+		_cast_racial(sim)
+		return
+	var post := sim._hero_spawn_pos(0)
+	if strategy != "turtle" and h.hp >= h.max_hp * 0.3:
+		var lane := sim.lanes[sim.next_wave_lanes[0]]
+		post = lane.point_at(sim.rally_s)
+	if h.post.distance_to(post) > 40.0 and h.state != "march":
+		sim.order_hero(post)
+	for a in sim.ability_order[0]:
+		if sim.ability_ready(a) and not Cfg.RACIAL.values().has(a):
+			_cast_by_rules(sim, a)
+	_cast_racial(sim)
+
+
+## Umiejętność rasy: Podkop, gdy na jednej ścieżce idzie w natarciu ≥ 6 własnych jednostek.
+func _cast_racial(sim: Sim) -> void:
+	var racial := ""
+	for a in sim.ability_order[0]:
+		if Cfg.RACIAL.values().has(a):
+			racial = a
+	if racial == "" or not sim.ability_ready(racial) or sim.stance != "attack":
+		return
+	var per_lane := {}
+	for u in sim.units:
+		if u.team == 0 and not u.flying and not u.is_hero and u.burrow <= 0.0:
+			per_lane[u.lane] = per_lane.get(u.lane, 0) + 1
+	for li in per_lane:
+		if per_lane[li] >= 6:
+			sim.use_ability(racial, sim.lanes[li].point_at(sim.lanes[li].length / 2.0))
+			return
+
+
+## R9: kiedy i gdzie rzucić umiejętność danego typu (wszystko w zasięgu od dowódcy).
+func _cast_by_rules(sim: Sim, a: String) -> void:
+	var cfg: Dictionary = Cfg.ABILITIES[a]
+	var h := sim.hero()
+	var reach: float = cfg["cast_range"] if cfg["cast_range"] > 0.0 else 1e9
+	var foes: Array[Sim.Unit] = []
+	for u in sim.units:
+		if u.team == 1 and u.hp > 0 and u.pos.distance_to(h.pos) <= reach:
+			foes.append(u)
+	match cfg["kind"]:
+		"strike", "line":
+			var r: float = cfg.get("radius", 60.0)
+			var best := Vector2.INF
+			var best_n := 2
+			for u in foes:
+				var n := 0
+				for o in foes:
+					if o.pos.distance_to(u.pos) <= r:
+						n += 1
+				if n > best_n:
+					best_n = n
+					best = u.pos
+			if best != Vector2.INF:
+				sim.use_ability(a, best if cfg["target"] else Vector2.ZERO)
+		"zone":
+			# na ścieżce 60 px przed czołem grupy (czoło = wróg najbliżej bazy gracza)
+			var lead: Sim.Unit = null
+			for u in foes:
+				if not u.flying and (lead == null or u.s < lead.s):
+					lead = u
+			if lead != null:
+				sim.use_ability(a, sim.lanes[lead.lane].point_at(lead.s - 60.0))
+		"summon_building":
+			if foes.is_empty():
+				return
+			for b in sim.buildings:
+				if b.team == 0 and Cfg.is_shooter(b.kind) and b.pos.distance_to(h.pos) < 150.0:
+					return
+			var target := foes[0].pos
+			var best := Vector2.INF
+			for dx in range(-4, 5):
+				for dy in range(-4, 5):
+					var c := Cfg.snap(h.pos + Vector2(dx, dy) * Cfg.GRID)
+					if sim.ability_target_ok(a, c) and (best == Vector2.INF or c.distance_to(target) < best.distance_to(target)):
+						best = c
+			if best != Vector2.INF:
+				sim.use_ability(a, best)
+		"summon_units":
+			var ground := foes.filter(func(u: Sim.Unit) -> bool: return not u.flying)
+			if ground.size() >= 3:
+				var u: Sim.Unit = ground[0]
+				sim.use_ability(a, sim.lanes[u.lane].point_at(maxf(u.s - 60.0, 80.0)))
+		"buff":
+			var own := 0
+			for u in sim.units:
+				if u.team == 0 and not u.is_hero and u.pos.distance_to(h.pos) <= maxf(cfg.get("radius", 120.0), 120.0):
+					own += 1
+			if own >= 4 and not foes.is_empty():
+				sim.use_ability(a, h.pos)
+		"execute":
+			var big: Sim.Unit = null
+			for u in foes:
+				if u.hp >= 150.0 and (big == null or u.hp > big.hp):
+					big = u
+			if big != null:
+				sim.use_ability(a, big.pos)
+		"demolish":
+			var near: Sim.Building = null
+			for b in sim.buildings:
+				if b.team == 1 and b.kind != "basegun" and b.pos.distance_to(h.pos) <= reach:
+					if near == null or b.pos.distance_to(h.pos) < near.pos.distance_to(h.pos):
+						near = b
+			if near != null:
+				sim.use_ability(a, near.pos)
+		"global":
+			if sim.base_hp[0] < Cfg.BASE_HP[0] * 0.6:
+				sim.use_ability(a)
 
 
 ## Postawa bota:
@@ -1006,6 +1142,44 @@ func _test_effect_kinds() -> void:
 		_check(not sim.use_ability("demo_charge", own_b.pos, team), "ładunek nie we własny budynek (%s)" % who)
 		_check(sim.use_ability("demo_charge", enemy_b.pos, team), "ładunek burzący (%s)" % who)
 		_check(enemy_b.hp < enemy_b.max_hp and own_b.hp == own_b.max_hp, "ładunek rani budynek wroga (%s)" % who)
+
+
+## Podkop (`burrow`, T9): jednostki na ścieżce pod ziemią — nietykalne i niewidoczne dla wież
+## i jednostek, idą szybciej naprzód, wynurzają się ze wstrząsem. Dla obu drużyn.
+func _test_burrow() -> void:
+	for team in 2:
+		var foe_t := 1 - team
+		var who := "team %d" % team
+		var sim := _fx_sim()
+		sim.base_hp = [1e9, 1e9]
+		var s0 := 500.0 if team == 0 else sim.lanes[1].length - 500.0
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, s0)
+		var digger: Sim.Unit = sim.units[-1]
+		sim._spawn_unit(team, "soldier", 1, 1.0, 0, s0)
+		var other_lane: Sim.Unit = sim.units[-1]
+		var tower := sim._add_building(foe_t, "tower", sim.lanes[1].slot_at(s0 + (150.0 if team == 0 else -150.0), 70))
+		_check(sim.use_ability("dig_in", digger.pos, team), "Podkop (%s)" % who)
+		_check(digger.burrow > 0.0 and other_lane.burrow == 0.0, "pod ziemię schodzi tylko wskazana ścieżka (%s)" % who)
+		var hp := digger.hp
+		sim._damage_unit(digger, 50.0, "melee")
+		_check(digger.hp == hp, "pod ziemią nietykalny (%s)" % who)
+		var start_s := digger.s
+		for i in 30 * 2:
+			sim.step(DT)
+			_check(sim._nearest_unit(team, tower.pos, 500.0, true) != digger, "wieża nie widzi jednostki pod ziemią (%s)" % who)
+		_check(digger.hp == hp, "wieża nie rani pod ziemią (%s)" % who)
+		var moved := absf(digger.s - start_s)
+		_check(moved > Cfg.UNITS["soldier"]["speed"] * 2.0 * 1.1, "pod ziemią szybciej naprzód (%s, %.0f px)" % [who, moved])
+		# wynurzenie: wstrząs rani wroga obok
+		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1)
+		var victim: Sim.Unit = sim.units[-1]
+		victim.base_speed = 0.0
+		victim.s = digger.s
+		victim.pos = digger.pos
+		digger.burrow = 0.05
+		sim.step(DT)
+		sim.step(DT)
+		_check(digger.burrow == 0.0 and victim.hp < victim.max_hp, "wynurzenie ze wstrząsem rani wrogów (%s)" % who)
 
 
 ## Sim do testów typów efektów: obie drużyny mają gotowe wszystkie umiejętności z Cfg.
