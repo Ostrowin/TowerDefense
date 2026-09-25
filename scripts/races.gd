@@ -35,6 +35,26 @@ static func first_playable() -> int:
 	return 0
 
 
+## Dowódcy rasy (id z Cfg.COMMANDERS) w kolejności menu. Dopóki żaden nie jest grywalny,
+## na końcu jest zastępca „Weteran" — rasa zostaje grywalna (R10).
+static func commanders(index: int) -> Array[String]:
+	var race: String = ALL[index]["id"]
+	var out: Array[String] = []
+	var any_ready := false
+	for c in Cfg.COMMANDER_ORDER:
+		if Cfg.COMMANDERS[c]["race"] == race:
+			out.append(c)
+			any_ready = any_ready or Cfg.commander_ready(c)
+	if not any_ready:
+		out.append("veteran")
+	return out
+
+
+## Umiejętność rasy (id z Cfg.ABILITIES) albo "" — rasa bez własnej umiejętności.
+static func racial(index: int) -> String:
+	return Cfg.RACIAL.get(ALL[index]["id"], "")
+
+
 ## Przeciwnik gracza: losowo jedna z pozostałych grywalnych ras (losowana przy starcie partii).
 static func random_rival(index: int, rng: RandomNumberGenerator) -> int:
 	var others: Array[int] = []

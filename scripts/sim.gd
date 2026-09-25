@@ -167,6 +167,10 @@ var strikes: Array[Dictionary] = []  ## trwające salwy (typ `strike`): {pos, le
 ## Per drużyna: umiejętność → sekundy do gotowości. Wróg ma na razie ten sam zestaw co gracz
 ## (jeszcze go nie używa — przyjdą dowódcy), ale każdy efekt już działa dla obu stron.
 var ability_cd: Array[Dictionary] = [{}, {}]
+## Dowódca gracza (id z Cfg.COMMANDERS); "" = bez dowódcy — gra jak przed dowódcami (D8).
+var commander := ""
+## Per drużyna: umiejętności na pasku (3 dowódcy + rasowa albo Cfg.ABILITY_ORDER bez dowódcy).
+var ability_order: Array = [Cfg.ABILITY_ORDER.duplicate(), Cfg.ABILITY_ORDER.duplicate()]
 var stance := "attack"  ## "attack" albo "defend"
 var elapsed := 0.0
 var wave := 0
@@ -200,8 +204,10 @@ var _nav_bridge := {}  ## Vector2i → indeks ścieżki: pola mostów (przejezdn
 var _nav_near := {}  ## Vector2i → true: pola przy wodzie — tylko tam punkt trzeba sprawdzać dokładnie
 
 
-func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0) -> void:
+func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, commander_id := "") -> void:
 	difficulty = Cfg.DIFFICULTIES[difficulty_index]
+	commander = commander_id
+	ability_order[0] = Cfg.commander_abilities(commander)
 	if seed_value >= 0:
 		rng.seed = seed_value
 	else:
@@ -221,7 +227,7 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0) 
 	gold = difficulty["start_gold"]
 	wave_timer = difficulty["first_wave"]
 	for team in 2:
-		for a in Cfg.ABILITY_ORDER:
+		for a in ability_order[team]:
 			ability_cd[team][a] = 0.0
 	for team in 2:
 		var gun := _add_building(team, "basegun", base_pos(team))

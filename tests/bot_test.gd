@@ -72,6 +72,7 @@ func _init() -> void:
 	_test_frost_slows()
 	_test_abilities()
 	_test_abilities_both_teams()
+	_test_commander_data()
 	_test_progress()
 	_test_population_caps()
 	_test_wave_composition()
@@ -691,6 +692,44 @@ func _test_abilities_both_teams() -> void:
 	_check(sim.use_ability("repair", Vector2.ZERO, 1), "wróg używa naprawy (global)")
 	_check(t.hp > 100.0 and sim.base_hp[1] > 100.0, "naprawa wroga leczy jego budynki i bazę")
 	_check(mine_b.hp == 10.0 and sim.base_hp[0] == 100.0, "naprawa wroga nie leczy gracza")
+
+
+## Dane dowódców (T4): spójne odwołania, 3 dowódców na grywalną rasę, zastępca, formuła odrodzenia.
+func _test_commander_data() -> void:
+	for id in Cfg.ABILITIES:
+		var a: Dictionary = Cfg.ABILITIES[id]
+		for key in ["name", "short", "kind", "cooldown", "target", "cast_range"]:
+			_check(a.has(key), "umiejętność %s ma %s" % [id, key])
+		if a["kind"] == "summon_units":
+			_check(Cfg.UNITS.has(a["unit"]), "%s przywołuje znaną jednostkę" % id)
+	_check(Cfg.COMMANDER_ORDER.size() == Cfg.COMMANDERS.size(), "każdy dowódca jest w COMMANDER_ORDER")
+	for id in Cfg.COMMANDERS:
+		var c: Dictionary = Cfg.COMMANDERS[id]
+		_check(Cfg.COMMANDER_ORDER.has(id), "%s w kolejności menu" % id)
+		for key in ["race", "name", "role", "hp", "dmg", "range", "cd", "speed", "r", "armor", "projectile", "anti_air"]:
+			_check(c.has(key), "dowódca %s ma %s" % [id, key])
+		_check(c["abilities"].size() == 3, "%s ma 3 umiejętności" % id)
+		for a in Cfg.commander_abilities(id):
+			_check(Cfg.ABILITIES.has(a), "%s: umiejętność %s istnieje" % [id, a])
+	for race in Cfg.RACIAL:
+		_check(Cfg.ABILITIES[Cfg.RACIAL[race]]["cast_range"] == 0.0, "umiejętność rasy %s bez zasięgu" % race)
+	for i in Races.ALL.size():
+		if not Races.ALL[i]["playable"]:
+			continue
+		var list := Races.commanders(i)
+		var own := list.filter(func(c: String) -> bool: return Cfg.COMMANDERS[c]["race"] == Races.ALL[i]["id"])
+		_check(own.size() == 3, "%s: 3 dowódców" % Races.ALL[i]["name"])
+		_check(Races.racial(i) != "", "%s: umiejętność rasy" % Races.ALL[i]["name"])
+		_check(list.any(Cfg.commander_ready), "%s: jest grywalny dowódca (albo Weteran)" % Races.ALL[i]["name"])
+	_check(Cfg.commander_ready("veteran") and Cfg.commander_abilities("veteran") == Cfg.ABILITY_ORDER,
+		"Weteran = dzisiejsze umiejętności, bez rasowej")
+	_check(Cfg.commander_abilities("sapper") == ["minefield", "drill_turret", "demo_charge", "dig_in"], "pasek Sapera + Podkop")
+	_check(Cfg.commander_respawn(0) == 20.0 and Cfg.commander_respawn(5) == 30.0 and Cfg.commander_respawn(50) == 40.0,
+		"odrodzenie 20 s + 2 s/falę, maks. 40 s")
+	var sim := Sim.new(1, 1, 0, "sapper")
+	_check(sim.ability_cd[0].has("dig_in") and not sim.ability_cd[0].has("arrows"), "Sim z dowódcą: jego umiejętności")
+	_check(sim.ability_cd[1].has("arrows"), "wróg bez dowódcy — dzisiejszy zestaw")
+	_check(Sim.new(1, 1).ability_order[0] == Cfg.ABILITY_ORDER, "Sim bez dowódcy — dzisiejszy zestaw")
 
 
 func _test_progress() -> void:
