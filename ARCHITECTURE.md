@@ -139,6 +139,16 @@ właściwe miejsce.
   `idle → march` (trasa A*, ignoruje wrogów) `→ idle`; `idle ⇄ fight` (goni do `COMMANDER_LEASH`
   od punktu postoju) `→ back → idle`; `dead` (rekord zostaje w `heroes`, wraca do `units` przy
   odrodzeniu). Rozkaz: `order_hero(pos)`. Umiejętności dowódcy czekają, gdy nie żyje; rasowa działa zawsze.
+- Awans (D27): `Hero.xp`/`hero_level`; `_award_xp` przy śmierci wroga i `_award_building_xp` przy zburzeniu
+  (promień `HERO_XP_RADIUS`, zabicie osobiste rozpoznaje `_hero_blow` — ustawiany na czas ciosu, pocisku
+  `Shot.from_hero`, rzucenia i ticków salw/stref dowódcy). Awans dokłada ofertę do `hero_offers[team]`,
+  `choose_upgrade(i)` zmienia kopię konfiguracji w `ability_cfg[team]`; `ability_config(id, team)` —
+  jedyne miejsce odczytu konfiguracji umiejętności w Sim i widoku.
+- Wyzwanie dnia (D29): `Cfg.daily(data)` liczy zestaw z ziarna daty; `Sim.mods` (id z `Cfg.DAILY_MODS`)
+  i `Sim.mod(klucz)` = iloczyn mnożników aktywnych modyfikatorów, czytany w miejscach, których dotyczą
+  (dochód, koszt wież `build_cost`, dowódca, odnowienia, złoto startowe, skład i odstęp fal, HP wrogów).
+- Tryb (`Sim.mode`): `battle` albo `survival` (D28) — w przetrwaniu `_damage_base` ignoruje fortecę wroga,
+  a `enemy_fury` rośnie od `SURVIVAL_FURY_WAVE` o `SURVIVAL_FURY_PER_WAVE` na falę; rekord w `Progress`.
 - Grywalność dowódcy wynika z danych: `Cfg.commander_ready` = Sim zna typy wszystkich jego umiejętności
   (`Cfg.IMPLEMENTED_KINDS`). `Sim.new(..., commander)`; bez dowódcy (`""`) gra jest identyczna jak
   przed dowódcami — pilnuje tego tabela wzorcowa w `bot_test` (kontrakt regresji D8).
@@ -183,7 +193,7 @@ Stany ekranu + nakładki (`overlay`: ustawienia, jak grać) — widoczność war
 wynika co klatkę ze stanu, nie jest przełączana ręcznie:
 
 ```
-MENU ──(rasa + dowódca + mapa + trudność)──▶ PLAY ⇄ PAUSED (Esc/Wstecz/P/II, auto-pauza w tle na Androidzie)
+MENU ──(rasa + dowódca + tryb + mapa + trudność)──▶ PLAY ⇄ PAUSED (Esc/Wstecz/P/II, auto-pauza w tle na Androidzie)
                              │ sim.result != 0
                              ▼
                            OVER ──▶ PLAY (Jeszcze raz) / MENU (też Esc/Wstecz)

@@ -50,6 +50,41 @@ static func stars(map_id: String) -> int:
 	return n
 
 
+## Przetrwanie (T15): najwięcej fal per mapa × trudność × dowódca. true = nowy rekord.
+##   [trzy_drogi]
+##   survival_1_sapper = 34
+static func record_survival(map_id: String, difficulty: int, commander: String, waves: int) -> bool:
+	var key := "survival_%d_%s" % [difficulty, commander]
+	if waves <= _data().get_value(map_id, key, 0):
+		return false
+	_data().set_value(map_id, key, waves)
+	_save()
+	return true
+
+
+## Rekord fal w przetrwaniu (0 = jeszcze nie grane).
+static func best_survival(map_id: String, difficulty: int, commander: String) -> int:
+	return _data().get_value(map_id, "survival_%d_%s" % [difficulty, commander], 0)
+
+
+## Wyzwanie dnia (T16): rekord per data. Bitwa — czas wygranej (mniej = lepiej), przetrwanie —
+## fale (więcej = lepiej); `score` to odpowiednio sekundy albo fale. true = nowy rekord dnia.
+##   [daily]
+##   2026-09-26 = 412.5
+static func record_daily(date: String, mode: String, score: float) -> bool:
+	var prev: Variant = _data().get_value("daily", date, null)
+	if prev != null and (score <= prev if mode == "survival" else score >= prev):
+		return false
+	_data().set_value("daily", date, score)
+	_save()
+	return true
+
+
+## Rekord wyzwania z daty `date` albo -1, gdy jeszcze nie zagrane (bitwa: tylko wygrane).
+static func best_daily(date: String) -> float:
+	return _data().get_value("daily", date, -1.0)
+
+
 static func tutorial_done() -> bool:
 	return _data().get_value("meta", "tutorial_done", false)
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — TowerDefense (Godot)
 
-Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** (nie nauka). Silnik: **Godot 4.7 + GDScript**. Cel wysyłki: **Android**. Historia decyzji: [DECISIONS.md](DECISIONS.md) (D15–D25; D15–D16 zastępują ustalenia z ery MonoGame). Budowa kodu: [ARCHITECTURE.md](ARCHITECTURE.md).
+Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** (nie nauka). Silnik: **Godot 4.7 + GDScript**. Cel wysyłki: **Android**. Historia decyzji: [DECISIONS.md](DECISIONS.md) (D15–D29; D15–D16 zastępują ustalenia z ery MonoGame). Budowa kodu: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Struktura
 - `scripts/cfg.gd` (`Cfg`) — balans i konfiguracja (jednostki, budynki, umiejętności, fale). Strojenie = zmiana liczb tutaj.

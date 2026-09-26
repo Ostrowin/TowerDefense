@@ -53,6 +53,7 @@ func _process(_delta: float) -> bool:
 			_check(Races.ALL[main.race_index]["id"] == "mole", "zablokowanej rasy nie da się wybrać")
 			main.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon")].emit_signal("pressed")
 			main.map_buttons[2].emit_signal("pressed")
+			main.mode_button.emit_signal("pressed")
 		3:
 			_check(Races.ALL[main.race_index]["id"] == "gibbon", "wybór rasy w menu")
 			_check(main.race_desc.text.contains("Przeciwnik: losowy"), "menu zapowiada losowego przeciwnika")
@@ -64,6 +65,9 @@ func _process(_delta: float) -> bool:
 			cards["warbeat"].emit_signal("pressed")
 			_check(main.commander_id == "warbeat", "karta wybiera dowódcę")
 			_check(main.level_index == 2 and sim.level["id"] == "serpentyna", "wybór mapy w menu")
+			_check(main.game_mode == "survival" and main.mode_button.text.contains("Przetrwanie"), "przełącznik trybu w menu")
+			main.mode_button.emit_signal("pressed")
+			_check(main.game_mode == "battle", "powrót do bitwy")
 			main.diff_buttons[1].emit_signal("pressed")
 		4:
 			var rival: int = main.rival_index
@@ -197,6 +201,27 @@ func _process(_delta: float) -> bool:
 			_key(KEY_ESCAPE)
 		50:
 			_check(not main.hero_selected and main.state == main.State.PLAY, "Esc odznacza dowódcę (bez pauzy)")
+			sim._gain_xp(sim.hero(), Cfg.HERO_XP[0])
+		52:
+			_check(sim.hero().hero_level == 2 and main.upgrade_panel.visible, "awans pokazuje ofertę ulepszeń")
+			_check(main.portrait_button.text.contains("poz. 2"), "portret pokazuje poziom")
+			main.upgrade_buttons[1].emit_signal("pressed")
+		54:
+			_check(sim.hero_offers[0].is_empty() and not main.upgrade_panel.visible, "wybór ulepszenia zamyka ofertę")
+			_check(not sim.ability_cfg[0].is_empty(), "ulepszenie trafia do konfiguracji gracza")
+			main._start_daily()
+		56:
+			var today := Cfg.daily(Time.get_date_string_from_system())
+			_check(main.state == main.State.PLAY and sim.commander == today["commander"] and sim.mods == today["mods"]
+				and sim.level_index == today["map"] and sim.mode == today["mode"], "wyzwanie dnia startuje zestaw z daty")
+			_check(main.daily_label.visible and main.daily_label.text.contains(Cfg.DAILY_MODS[today["mods"][0]]["name"]), "HUD pokazuje modyfikatory dnia")
+			main._show_menu()
+		58:
+			_check(main.state == main.State.MENU and Races.ALL[main.race_index]["id"] == "gibbon" and main.commander_id == "warbeat"
+				and main.level_index == 2 and main.game_mode == "battle", "po wyzwaniu menu wraca do wyborów gracza")
+			main._start(1)
+		60:
+			_check(main.state == main.State.PLAY and sim.mods.is_empty() and sim.commander == "warbeat", "zwykła gra po wyzwaniu bez modyfikatorów")
 		1200:
 			# dokładamy gospodarkę i armię, żeby dojść do końca partii
 			sim.gold += 8000

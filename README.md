@@ -37,6 +37,12 @@ Dowódca to jedyna postać, którą sterujesz: stuknij go (albo portret), potem 
 (rzekę przechodzi mostem), sam walczy i wraca na swój punkt; po śmierci odradza się przy bazie. Jego umiejętności
 rzucasz w zasięgu od niego; umiejętność rasy działa zawsze.
 
+## Tryby
+
+- **Bitwa** — zburz fortecę wroga, zanim on zburzy Twoją bazę. Rekord: czas wygranej, gwiazdki za trudności.
+- **Wyzwanie dnia** — codziennie inny zestaw, taki sam dla każdego: mapa, tryb, rasa i dowódca z daty plus dwa modyfikatory (jeden pomaga, jeden przeszkadza — np. „Bogate złoża” i „Hordy”). Własny rekord na każdy dzień.
+- **Przetrwanie** — forteca wroga nie pada, fale rosną bez końca (od fali 25 coraz szybciej). Wynik: ile fal wytrzymasz; rekord osobno dla mapy, trudności i dowódcy.
+
 ## Mapy
 
 | Mapa | Charakter |

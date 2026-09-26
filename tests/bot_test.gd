@@ -37,6 +37,8 @@ const BASELINE_PATH := "res://tests/bot_baseline.txt"
 
 var failures := 0
 var rows: Array[String] = []
+var level_times: Array[int] = []
+var game_mode := "battle"  ## `--mode survival` w `--balance` (T15)  ## czasy awansów dowódcy w bieżącym meczu (raport)
 
 
 func _init() -> void:
@@ -49,6 +51,7 @@ func _init() -> void:
 		var diffs := _int_list(args, "--diffs", Cfg.DIFFICULTIES.size())
 		var bot := args[args.find("--bot") + 1] if args.has("--bot") else "balanced"
 		var commander := args[args.find("--commander") + 1] if args.has("--commander") else ""
+		game_mode = args[args.find("--mode") + 1] if args.has("--mode") else "battle"
 		_print_header()
 		for lv in maps:
 			for d in diffs:
@@ -84,6 +87,9 @@ func _init() -> void:
 	_test_burrow()
 	_test_gibbon_kinds()
 	_test_hyena_boar_kinds()
+	_test_hero_level()
+	_test_survival()
+	_test_daily()
 	_test_progress()
 	_test_population_caps()
 	_test_wave_composition()
@@ -148,6 +154,7 @@ func _print_header() -> void:
 
 
 func _report(lv: int, d: int, strategy: String, commander := "") -> void:
+	level_times.clear()
 	var r := _play(lv, d, strategy, commander)
 	var row := "%-11s %-9s %-9s %-9s %5ds %5d %6d %6d %6d %8d" % [
 		Levels.ALL[lv]["name"], Cfg.DIFFICULTIES[d]["name"], strategy, ["przegrana", "remis", "WYGRANA"][r.result + 1],
@@ -155,12 +162,16 @@ func _report(lv: int, d: int, strategy: String, commander := "") -> void:
 	if commander == "":
 		rows.append(row)  # do tabeli wzorcowej tylko gra bez dowódcy (D8)
 	else:
-		row += "   %s: umiejętności %d, zgonów %d" % [commander, r.stats["abilities_used"], r.stats.get("hero_deaths", 0)]
+		row += "   %s: umiejętności %d, zgonów %d, XP %d, awanse %s" % [commander, r.stats["abilities_used"], r.stats.get("hero_deaths", 0), int(r.hero().xp),
+			"/".join(level_times.map(func(t: int) -> String: return "%ds" % t)) if not level_times.is_empty() else "—"]
 	print(row)
 	var where := "%s/%s" % [Levels.ALL[lv]["name"], Cfg.DIFFICULTIES[d]["name"]]
 	if strategy == "idle":
 		_check(r.result == -1, "bezczynny gracz musi przegrać (%s)" % where)
-	if strategy == "balanced" and d <= 1:
+	if r.mode == "survival":
+		# przetrwanie: forteca stoi, partia kończy się upadkiem bazy gracza — wynik to fala
+		_check(r.result == -1 and r.base_hp[1] == Cfg.BASE_HP[1], "przetrwanie kończy się porażką, forteca cała (%s)" % where)
+	elif strategy == "balanced" and d <= 1:
 		_check(r.result == 1, "bot balanced powinien wygrać (%s)" % where)
 	if strategy == "balanced" or strategy == "mass":
 		_check(r.result != 0, "partia musi się rozstrzygnąć w %d min (%s, %s)" % [MAX_TIME / 60.0, where, strategy])
@@ -169,7 +180,7 @@ func _report(lv: int, d: int, strategy: String, commander := "") -> void:
 # ================================================================ bot
 
 func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
-	var sim := Sim.new(difficulty, 1234, lv, commander)
+	var sim := Sim.new(difficulty, 1234, lv, commander, game_mode)
 	var plan: Array = TURTLE_PLAN if strategy == "turtle" else BALANCED_PLAN
 	var plan_i := 0
 	var think := 0.0
@@ -232,6 +243,11 @@ func _hero_bot(sim: Sim, strategy: String) -> void:
 		if sim.ability_ready(a) and not Cfg.RACIAL.values().has(a):
 			_cast_by_rules(sim, a)
 	_cast_racial(sim)
+	# awans: bot bierze „moc”, jeśli jest w ofercie, inaczej pierwszą opcję
+	if not sim.hero_offers[0].is_empty():
+		var offer: Array = sim.hero_offers[0][0]
+		sim.choose_upgrade(1 if offer[1]["kind"] == "power" and offer[0]["kind"] != "power" else 0)
+		level_times.append(int(sim.elapsed))
 
 
 ## Umiejętność rasy: Podkop, gdy na jednej ścieżce idzie w natarciu ≥ 6 własnych jednostek.
@@ -1382,6 +1398,167 @@ func _test_hyena_boar_kinds() -> void:
 		var s0 := foe.s
 		sim._melee_hit(ally, foe)
 		_check((foe.s - s0) * fwd > 30.0 and not ally.buffs.has("knockback"), "pierwszy cios odrzuca, potem już nie (%s)" % who)
+
+
+## Awans dowódcy (T14): doświadczenie w pobliżu i za zabicie osobiste, progi, statystyki,
+## oferta 2 ulepszeń, ulepszenie tylko dla swojej drużyny, doświadczenie po śmierci.
+func _test_hero_level() -> void:
+	var sim := _fx_sim()
+	var h := sim._make_hero(0, "sapper")
+	sim.heroes[0] = h
+	h.pos = sim.lanes[1].point_at(700)
+	var bounty: float = Cfg.UNITS["grunt"]["bounty"]
+	sim._spawn_unit(1, "grunt", 1, 1.0, 1, 760)
+	sim._damage_unit(sim.units[-1], 1e6, "arrow")
+	_check(is_equal_approx(h.xp, bounty), "wróg ginący obok daje nagrodę jako doświadczenie")
+	sim._spawn_unit(1, "grunt", 1, 1.0, 1, 1300)
+	sim._damage_unit(sim.units[-1], 1e6, "arrow")
+	_check(is_equal_approx(h.xp, bounty), "wróg ginący daleko nie daje doświadczenia")
+	sim._spawn_unit(1, "grunt", 1, 1.0, 1, 1300)
+	var far: Sim.Unit = sim.units[-1]
+	far.hp = 1.0
+	sim._melee_hit(h, far)
+	_check(is_equal_approx(h.xp, bounty * (2.0 + Cfg.HERO_XP_OWN_BONUS)), "zabicie osobiste daje więcej (także z daleka)")
+	var cast_xp := h.xp
+	sim._spawn_unit(1, "grunt", 1, 1.0, 1, 1300)
+	sim.units[-1].pos = h.pos + Vector2(100, 0)
+	sim.units[-1].hp = 1.0
+	sim.use_ability("minefield", h.pos + Vector2(100, 0))
+	sim.step(DT)
+	sim.step(DT)
+	_check(h.xp - cast_xp >= bounty * (1.0 + Cfg.HERO_XP_OWN_BONUS) - 0.01, "zabicie umiejętnością dowódcy (mina) jest osobiste")
+
+	var before_tower := h.xp
+	var tower := sim._add_building(1, "tower", h.pos + Vector2(0, 120))
+	sim._damage_building(tower, 1e6)
+	_check(is_equal_approx(h.xp - before_tower, Cfg.TOWER_KILL_BOUNTY), "zburzona wieża obok daje doświadczenie")
+
+	# awans: próg, statystyki, oferta 2 różnych ulepszeń
+	var hp0 := h.max_hp
+	sim._gain_xp(h, Cfg.HERO_XP[0])
+	_check(h.hero_level == 2 and is_equal_approx(h.max_hp, hp0 * (1.0 + Cfg.HERO_STAT_PER_LEVEL)), "próg → poziom 2, więcej HP")
+	_check(sim.hero_offers[0].size() == 1 and sim.hero_offers[0][0].size() == 2, "awans daje ofertę 2 ulepszeń")
+	var offer: Array = sim.hero_offers[0][0]
+	_check(offer[0]["label"] != offer[1]["label"], "opcje oferty są różne")
+	_check(sim.choose_upgrade(1), "wybór ulepszenia")
+	_check(sim.hero_offers[0].is_empty() and not sim.choose_upgrade(0), "po wyborze oferta znika")
+	sim._gain_xp(h, 1e6)
+	_check(h.hero_level == Cfg.HERO_MAX_LEVEL and sim.hero_offers[0].size() == 1, "poziom maksymalny = %d" % Cfg.HERO_MAX_LEVEL)
+
+	# ulepszenia ogólne działają na konfigurację drużyny, Cfg zostaje
+	sim = _fx_sim()
+	h = sim._make_hero(0, "sapper")
+	sim.heroes[0] = h
+	var base_cd: float = Cfg.ABILITIES["minefield"]["cooldown"]
+	var base_dmg: float = Cfg.ABILITIES["minefield"]["dmg"]
+	sim.hero_offers[0] = [[{"ability": "minefield", "kind": "cooldown", "label": "a"}, {"ability": "minefield", "kind": "power", "label": "b"}]]
+	sim.choose_upgrade(0)
+	_check(is_equal_approx(sim.ability_config("minefield", 0)["cooldown"], base_cd * Cfg.UPGRADE_COOLDOWN), "odnowienie −25%")
+	_check(Cfg.ABILITIES["minefield"]["cooldown"] == base_cd and sim.ability_config("minefield", 1)["cooldown"] == base_cd,
+		"ulepszenie nie rusza Cfg ani drugiej drużyny")
+	sim.hero_offers[0] = [[{"ability": "minefield", "kind": "power", "label": "a"}, {"ability": "minefield", "kind": "reach", "label": "b"}]]
+	sim.choose_upgrade(0)
+	_check(is_equal_approx(sim.ability_config("minefield", 0)["dmg"], base_dmg * Cfg.UPGRADE_POWER), "moc +30%")
+	h.pos = sim.lanes[1].point_at(700)
+	sim.use_ability("minefield", h.pos + Vector2(60, 0))
+	_check(is_equal_approx(sim.ability_cd[0]["minefield"], base_cd * Cfg.UPGRADE_COOLDOWN), "rzucenie używa ulepszonej konfiguracji")
+	sim.hero_offers[0] = [[{"ability": "demo_charge", "kind": "manual", "label": "a", "set": {"building_dmg": 999.0}}, {}]]
+	sim.choose_upgrade(0)
+	_check(sim.ability_config("demo_charge", 0)["building_dmg"] == 999.0, "ulepszenie ręczne (Cfg.UPGRADES) nadpisuje wartości")
+
+	# doświadczenie zostaje po śmierci; dowódca wroga zbiera je za poległych gracza
+	var xp := h.xp + 50.0
+	sim._gain_xp(h, 50.0)
+	sim._damage_unit(h, 1e6, "melee")
+	_check(h.state == "dead" and h.xp == xp, "doświadczenie zostaje po śmierci")
+	var foe_h := sim._make_hero(1, "iron_grip")
+	sim.heroes[1] = foe_h
+	foe_h.pos = sim.lanes[1].point_at(900)
+	sim._spawn_unit(0, "soldier", 1, 1.0, 1, 900)
+	sim._damage_unit(sim.units[-1], 1e6, "arrow")
+	_check(foe_h.xp > 0.0, "dowódca wroga zbiera doświadczenie za poległych gracza")
+
+
+## Tryb przetrwania (T15): forteca wroga nie pada, furia od SURVIVAL_FURY_WAVE, koniec = baza gracza.
+func _test_survival() -> void:
+	var sim := Sim.new(1, 1, 0, "sapper", "survival")
+	sim.base_hp[1] = 10.0
+	sim._damage_base(1, 1e6)
+	sim.step(DT)
+	_check(sim.base_hp[1] == 10.0 and sim.result == 0, "w przetrwaniu forteca wroga nie pada")
+	var battle := Sim.new(1, 1, 0, "sapper")
+	sim.wave = Cfg.SURVIVAL_FURY_WAVE + 5
+	battle.wave = Cfg.SURVIVAL_FURY_WAVE + 5
+	_check(sim.enemy_fury() > 1.0 and battle.enemy_fury() == 1.0, "furia w przetrwaniu rusza od fali %d" % Cfg.SURVIVAL_FURY_WAVE)
+	sim._damage_base(0, 1e6)
+	sim.step(DT)
+	_check(sim.result == -1, "przetrwanie kończy się upadkiem bazy gracza")
+	_check(Sim.new(1, 1, 0).mode == "battle", "domyślny tryb to bitwa")
+
+	Progress.reset_cache()
+	_check(Progress.best_survival("x_test", 1, "sapper") == 0, "brak rekordu przetrwania na starcie")
+	_check(Progress.record_survival("x_test", 1, "sapper", 20), "pierwszy wynik to rekord")
+	_check(not Progress.record_survival("x_test", 1, "sapper", 18), "gorszy wynik nie jest rekordem")
+	_check(Progress.record_survival("x_test", 1, "sniper", 5), "inny dowódca — osobny rekord")
+	_check(Progress.best_survival("x_test", 2, "sapper") == 0, "inna trudność — osobny rekord")
+	Progress.reset_cache()
+	_check(Progress.best_survival("x_test", 1, "sapper") == 20, "rekord przetrwania przetrwał zapis")
+
+
+## Wyzwanie dnia (T16): powtarzalność ziarna, poprawny zestaw, działanie modyfikatorów, rekord dnia.
+func _test_daily() -> void:
+	var a := Cfg.daily("2026-09-26")
+	_check(a == Cfg.daily("2026-09-26"), "ta sama data = ten sam zestaw")
+	var differs := false
+	for day in range(1, 8):
+		if Cfg.daily("2026-10-%02d" % day) != a:
+			differs = true
+	_check(differs, "inne dni dają inne zestawy")
+	_check(Races.ALL[a["race"]]["playable"] and Cfg.COMMANDERS[a["commander"]]["race"] == Races.ALL[a["race"]]["id"]
+		and Cfg.commander_ready(a["commander"]), "dowódca dnia grywalny i z rasy dnia")
+	_check(Cfg.DAILY_MODS[a["mods"][0]]["good"] and not Cfg.DAILY_MODS[a["mods"][1]]["good"], "jeden modyfikator na plus, jeden na minus")
+
+	# ziarno dnia = identyczna partia (fale, ścieżki, losowania) przy tych samych rozkazach
+	var runs: Array[String] = []
+	for k in 2:
+		var sim := Sim.new(a["difficulty"], a["seed"], a["map"], a["commander"], a["mode"], a["mods"])
+		for i in 30 * 90:
+			sim.step(DT)
+		runs.append("%d %d %.2f %s" % [sim.wave, sim.units.size(), sim.gold, sim.next_wave_lanes])
+	_check(runs[0] == runs[1], "partia z ziarnem dnia jest powtarzalna (%s)" % runs[0])
+
+	# modyfikatory
+	var plain := Sim.new(1, 7, 0, "sapper")
+	var rich := Sim.new(1, 7, 0, "sapper", "battle", ["rich", "cheap_towers", "hero", "frenzy"])
+	_check(is_equal_approx(rich.extractor_income(0, 1), plain.extractor_income(0, 1) * 1.5), "Bogate złoża: wydobycie ×1,5")
+	_check(rich.build_cost("tower") < plain.build_cost("tower") and rich.build_cost("barracks") == plain.build_cost("barracks"),
+		"Tanie wieże: taniej tylko wieże")
+	_check(is_equal_approx(rich.hero().max_hp, plain.hero().max_hp * 1.5), "Bohater: dowódca ×1,5")
+	rich.hero().pos = rich.lanes[1].point_at(500)
+	rich.use_ability("minefield", rich.hero().pos + Vector2(40, 0))
+	_check(is_equal_approx(rich.ability_cd[0]["minefield"], Cfg.ABILITIES["minefield"]["cooldown"] * 0.6), "Szał umiejętności: odnowienia ×0,6")
+	var hard := Sim.new(1, 7, 0, "sapper", "battle", ["poor", "hordes", "tough", "rush"])
+	_check(is_equal_approx(hard.gold, plain.gold * 0.5) and is_equal_approx(hard.income(), plain.income() * 0.5), "Bieda: złoto i dochód ×0,5")
+	_check(hard.wave_timer < plain.wave_timer, "Pośpiech: fale szybciej")
+	hard.wave_timer = 0.0
+	plain.wave_timer = 0.0
+	hard.step(DT)
+	plain.step(DT)
+	_check(hard.spawn_queue.size() + hard.army_size(1) > plain.spawn_queue.size() + plain.army_size(1), "Hordy: więcej wrogów w fali")
+	var foe_hp := func(s: Sim) -> float:
+		for u in s.units:
+			if u.team == 1 and u.kind == "grunt":
+				return u.max_hp
+		return 0.0
+	_check(is_equal_approx(foe_hp.call(hard), foe_hp.call(plain) * 1.3), "Twardzi wrogowie: HP ×1,3 (%.0f vs %.0f)" % [foe_hp.call(hard), foe_hp.call(plain)])
+
+	# rekord dnia
+	Progress.reset_cache()
+	_check(Progress.best_daily("x_day") < 0, "brak rekordu dnia na starcie")
+	_check(Progress.record_daily("x_day", "battle", 400.0) and not Progress.record_daily("x_day", "battle", 450.0)
+		and Progress.record_daily("x_day", "battle", 380.0), "bitwa: rekord dnia = szybsza wygrana")
+	_check(Progress.record_daily("x_surv", "survival", 30) and not Progress.record_daily("x_surv", "survival", 25)
+		and Progress.best_daily("x_surv") == 30, "przetrwanie: rekord dnia = więcej fal")
 
 
 ## Sim do testów typów efektów: obie drużyny mają gotowe wszystkie umiejętności z Cfg.

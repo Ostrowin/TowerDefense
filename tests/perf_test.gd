@@ -161,6 +161,8 @@ func _hero(sim: Sim) -> void:
 	var post := sim.lanes[1].point_at(front - 50.0)
 	if h.post.distance_to(post) > 60.0 and h.state != "march":
 		sim.order_hero(post)
+	if not sim.hero_offers[0].is_empty():
+		sim.choose_upgrade(0)
 	if not stress:
 		return
 	var foe: Sim.Unit = null

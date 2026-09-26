@@ -148,3 +148,21 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 **Kompromis:** macierz balansu R11 w pełnym `bot_test` sprawdza każdego dowódcę tylko na Normalnym (Łatwy i Trudny — `--balance --commander`), żeby test nie rósł z każdym dowódcą (~8 min). Balans dowódców to punkt startowy z botów — do strojenia grą (Nekromanta i Snajper najszybsi na Łatwym — przewagę daje ciało strzelca, nie umiejętności; do decyzji po grze).
 **Status:** aktywna.
 
+
+### D27 — Awans dowódcy w partii: doświadczenie z walki, ulepszenia ogólne (2026-09-26)
+**Decyzja:** dowódca zbiera doświadczenie i awansuje na poziom 2 i 3 (progi 250 / 900, `Cfg.HERO_XP`); każdy poziom = +20% HP i obrażeń oraz oferta 2 ulepszeń do wyboru (gra się nie zatrzymuje, oferta czeka). Doświadczenie: wróg albo budynek wroga zniszczony w promieniu 220 px od dowódcy daje jego nagrodę; **zabicie osobiste** (cios, pocisk, umiejętność dowódcy — także miny i salwy) dodatkowo 2× tyle. Doświadczenie zostaje po śmierci. Ulepszenia na start **ogólne** według typu efektu (moc +30% / odnowienie −25% / obszar-zasięg +25%, nazwa mówi, co się zmienia) — działają od razu dla 12 dowódców; ręczne ulepszenia to wpisy `Cfg.UPGRADES`, które nadpisują ogólne danej umiejętności. Ulepszona konfiguracja żyje per drużyna w `Sim.ability_cfg` — `Cfg` zostaje nietknięty.
+**Dlaczego:** wybór użytkownika: „ogólne teraz, ręczne później” oraz „ryzyko i skill muszą być opłacalne” — stąd bonus za zabicie osobiste i doświadczenie za burzenie przy dowódcy (bez niego dowódca pchający natarcie pod wieżami wroga prawie nie awansował). Progi z botów: poziom 2 zwykle po 90–160 s, poziom 3 tylko przy dowódcy w walce.
+**Kompromis:** ogólne ulepszenia mają mniej klimatu niż ręczne (np. „3 miny naraz”); bot wybiera prostą regułą („moc”, jeśli jest).
+**Status:** aktywna. Ręczne ulepszenia — do dopisywania stopniowo.
+
+### D28 — Tryb przetrwania (2026-09-26)
+**Decyzja:** drugi tryb gry obok bitwy (`Sim.new(..., commander, "survival")`, przełącznik w menu): forteca wroga nie przyjmuje obrażeń, partia kończy się upadkiem bazy gracza, wynik = osiągnięta fala. Fale, Wódz co 10 fal i budowa wież wroga jak w bitwie; furia rusza od fali 25 (`SURVIVAL_FURY_WAVE`) i rośnie o 12% na falę (`SURVIVAL_FURY_PER_WAVE`, w bitwie 6% od fali 40). Rekord fal per mapa × trudność × dowódca (`Progress.record_survival`), widoczny na przyciskach trudności i na ekranie końca.
+**Dlaczego:** wybór użytkownika — furia od fali 25 (partia ~10–15 min, gra „w autobusie”) i rekord osobny dla każdej trudności i dowódcy (Łatwy nie przykrywa Trudnego). Przyrost 6% okazał się za łagodny: bot na Normalnym dożywał fali 70–115 (15–25+ min), na Łatwym dobijał do limitu 25 min — stąd 12%.
+**Kompromis:** jednostki gracza w natarciu dalej idą pod fortecę i biją ją bez skutku (prostsze niż osobne zachowanie armii w przetrwaniu).
+**Status:** aktywna.
+
+### D29 — Wyzwanie dnia (2026-09-26)
+**Decyzja:** przycisk „Wyzwanie dnia” w menu startuje zestaw wyliczony z daty (`Cfg.daily("RRRR-MM-DD")`): mapę, tryb (bitwa/przetrwanie), rasę i dowódcę (spośród grywalnych), trudność zawsze Normalny, oraz 2 modyfikatory — jeden na plus, jeden na minus (`Cfg.DAILY_MODS`, 8 mnożników: Bogate złoża, Tanie wieże, Bohater, Szał umiejętności / Bieda, Hordy, Twardzi wrogowie, Pośpiech). Partia gra na ziarnie dnia (`Sim.new(..., seed, ..., mods)`), więc fale i losowania są tego dnia takie same dla każdego. Rekord dnia per data w `Progress` (bitwa — czas wygranej, przetrwanie — fale); zwykłe rekordy z wyzwania nie są zapisywane. Po wyzwaniu menu wraca do wyborów gracza.
+**Dlaczego:** wybór użytkownika — „wszystko z ziarna” (wszyscy grają tym samym, wyniki porównywalne, gracz poznaje dowódców, których sam by nie wybrał) i zaproponowana lista modyfikatorów.
+**Kompromis:** data lokalna telefonu (nie serwerowa) — wyzwanie zmienia się o północy czasu gracza; ziarno z `hash()` Godota jest stałe między platformami, ale nie gwarantowane między wersjami silnika.
+**Status:** aktywna.

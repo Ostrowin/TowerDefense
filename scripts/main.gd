@@ -101,7 +101,14 @@ var hero_selected := false
 var hero_ordered := false  ## samouczek: gracz wydał dowódcy rozkaz
 ## Dowódca gracza (id z Cfg.COMMANDERS) — wybór w menu po rasie; domyślnie pierwszy grywalny rasy.
 var commander_id := ""
-var commander_pick := {}  ## indeks rasy → ostatnio wybrany dowódca (w obrębie sesji)
+var commander_pick := {}
+var game_mode := "battle"  ## "battle" / "survival" (T15) — przełącznik w menu
+var mode_button: Button
+## Wyzwanie dnia (T16): zestaw z Cfg.daily (pusty = zwykła gra) i wybory z menu sprzed wyzwania,
+## przywracane po powrocie do menu.
+var daily := {}
+var daily_prev := {}
+var daily_label: Label  ## indeks rasy → ostatnio wybrany dowódca (w obrębie sesji)
 var speed_mult := 1
 var accum := 0.0
 var time := 0.0
@@ -187,6 +194,9 @@ var build_buttons := {}
 var ability_slots: Array[Button] = []  ## pola paska umiejętności (Q/E/R/T)
 var ability_buttons := {}  ## umiejętność → jej pole na pasku (odświeżane z `sim.ability_order`)
 var portrait_button: Button
+var upgrade_panel: PanelContainer  ## oferta awansu dowódcy (T14): 2 ulepszenia do wyboru
+var upgrade_title: Label
+var upgrade_buttons: Array[Button] = []
 var sel_panel: PanelContainer
 var sel_title: Label
 var sel_body: Label
@@ -256,7 +266,10 @@ func _start(d: int) -> void:
 	difficulty = d
 	if commander_id == "" or not Races.commanders(race_index).has(commander_id):
 		commander_id = _default_commander(race_index)
-	sim = Sim.new(d, -1, level_index, commander_id)
+	if daily.is_empty():
+		sim = Sim.new(d, -1, level_index, commander_id, game_mode)
+	else:
+		sim = Sim.new(d, daily["seed"], level_index, commander_id, game_mode, daily["mods"])
 	hero_ordered = false
 	_make_terrain()
 	_clear_view_state()
@@ -272,12 +285,24 @@ func _start(d: int) -> void:
 	rival_index = Races.random_rival(race_index, rnd)
 	_banner("Przygotuj się!", "Przeciwnik: %s · pierwsza fala za %d s: %s" % [
 		Races.ALL[rival_index]["name"], int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
+	if not daily.is_empty():
+		_banner("Wyzwanie dnia — %s" % daily["date"], "%s — %s · %s · %s · %s" % [Races.ALL[race_index]["name"],
+			Cfg.COMMANDERS[commander_id]["name"], sim.level["name"], "Przetrwanie" if game_mode == "survival" else "Bitwa",
+			_mods_text(daily["mods"])])
+		banner_life = 5.0
 
 
 func _show_menu() -> void:
 	state = State.MENU
 	overlay = ""
 	rival_index = -1
+	if not daily.is_empty():  # po wyzwaniu dnia wracają wybory gracza z menu
+		level_index = daily_prev["level"]
+		race_index = daily_prev["race"]
+		commander_id = daily_prev["commander"]
+		game_mode = daily_prev["mode"]
+		daily = {}
+		_fill_commander_row()
 	sim = Sim.new(difficulty, -1, level_index)
 	_make_terrain()
 	_clear_view_state()
@@ -304,6 +329,29 @@ func _select_race(i: int) -> void:
 		race_index = i
 		commander_id = _default_commander(i)
 		_fill_commander_row()
+
+
+## Wyzwanie dnia: zestaw z dzisiejszej daty (lokalnej), start od razu.
+func _start_daily() -> void:
+	daily_prev = {"level": level_index, "race": race_index, "commander": commander_id, "mode": game_mode}
+	daily = Cfg.daily(Time.get_date_string_from_system())
+	level_index = daily["map"]
+	race_index = daily["race"]
+	commander_id = daily["commander"]
+	game_mode = daily["mode"]
+	_start(daily["difficulty"])
+
+
+func _mods_text(ids: Array) -> String:
+	var parts := PackedStringArray()
+	for id in ids:
+		var m: Dictionary = Cfg.DAILY_MODS[id]
+		parts.append("%s %s (%s)" % ["+" if m["good"] else "−", m["name"], m["desc"]])
+	return " · ".join(parts)
+
+
+func _toggle_mode() -> void:
+	game_mode = "survival" if game_mode == "battle" else "battle"
 
 
 func _select_commander(id: String) -> void:
@@ -438,7 +486,13 @@ func _on_game_end() -> void:
 	tutorial_step = -1
 	var won := sim.result == 1
 	var map_id: String = sim.level["id"]
-	new_record = won and Progress.record_win(map_id, difficulty, sim.elapsed)
+	var survival := sim.mode == "survival"
+	if not daily.is_empty():  # modyfikatory zmieniają grę — tylko rekord dnia, zwykłe zostają
+		new_record = (survival or won) and Progress.record_daily(daily["date"], sim.mode, sim.wave if survival else sim.elapsed)
+	elif survival:
+		new_record = Progress.record_survival(map_id, difficulty, sim.commander, sim.wave)
+	else:
+		new_record = won and Progress.record_win(map_id, difficulty, sim.elapsed)
 	var loser_base := sim.base_pos(1 if won else 0)
 	for i in 5:
 		_burst(loser_base + Vector2(randf_range(-40, 40), randf_range(-30, 30)), 18, Color(1, 0.6, 0.2), 200.0)
@@ -448,6 +502,9 @@ func _on_game_end() -> void:
 	sfx.play("win" if won else "lose", 0.0)
 	over_title.text = "WYGRANA!" if won else "PRZEGRANA"
 	over_title.add_theme_color_override("font_color", GOLD_COLOR if won else TEAM_COLORS[1])
+	if survival:
+		over_title.text = "PRZETRWAŁEŚ %d FAL" % sim.wave
+		over_title.add_theme_color_override("font_color", GOLD_COLOR if new_record else Color.WHITE)
 	var s := sim.stats
 	var lines := PackedStringArray([
 		"%s%s · przeciwnik: %s · %s · %s · czas %s · fala %d" % [Races.ALL[race_index]["name"],
@@ -455,7 +512,13 @@ func _on_game_end() -> void:
 		"Zabici wrogowie: %d · wyprodukowane jednostki: %d · umiejętności: %d" % [s["kills"], s["units_made"], s["abilities_used"]],
 		"Zburzone wieże: %d · stracone budynki: %d · zarobione złoto: %d" % [s["towers_razed"], s["buildings_lost"], int(s["gold_earned"])],
 	])
-	if new_record:
+	if not daily.is_empty():
+		var best := Progress.best_daily(daily["date"])
+		var best_text := "—" if best < 0 else ("%d fal" % best if survival else _fmt_time(best))
+		lines.append("Wyzwanie dnia %s · %s" % [daily["date"], "NOWY REKORD DNIA!" if new_record else "rekord dnia: " + best_text])
+	elif survival:
+		lines.append("Nowy rekord przetrwania!" if new_record else "Rekord: %d fal" % Progress.best_survival(map_id, difficulty, sim.commander))
+	elif new_record:
 		lines.append("Nowy rekord!  Gwiazdki mapy: %s" % _stars_text(Progress.stars(map_id)))
 	over_stats.text = "\n".join(lines)
 
@@ -562,6 +625,15 @@ func _consume_events() -> void:
 					_float_text(pos + Vector2(0, -24), "Wieża zburzona!", Color.WHITE)
 				else:
 					_float_text(pos + Vector2(0, -24), "Zniszczono: %s" % Cfg.building(e["kind"])["name"], WARN_COLOR)
+			"hero_level":
+				if e["team"] == 0:
+					_banner("Awans dowódcy — poziom %d!" % e["level"], "Silniejszy dowódca · wybierz ulepszenie umiejętności (z lewej)")
+					_burst(pos, 30, HERO_COLOR, 160.0, 0.8)
+					_ring(pos, 70.0, HERO_COLOR)
+					sfx.play("win", 0.0)
+			"hero_upgrade":
+				if e["team"] == 0:
+					_float_text(pos + Vector2(0, -34), e["label"], HERO_COLOR)
 			"hero_order":
 				if e["team"] == 0:
 					_ring(pos, 18.0, HERO_COLOR)
@@ -1063,7 +1135,7 @@ func _place(p: Vector2) -> void:
 	if not sim.build(mode, cell):
 		_deny(cell)
 		return
-	if sim.gold < Cfg.BUILDINGS[mode]["cost"]:
+	if sim.gold < sim.build_cost(mode):
 		mode = ""
 
 
@@ -1074,12 +1146,17 @@ func _select_ability(ability: String) -> void:
 		sfx.play("error", 0.1)
 		return
 	hero_selected = false
-	if not Cfg.ABILITIES[ability]["target"]:
+	if not sim.ability_config(ability)["target"]:
 		sim.use_ability(ability)
 		mode = ""
 		return
 	mode = "" if mode == "ab:" + ability else "ab:" + ability
 	selected = null
+
+
+func _choose_upgrade(i: int) -> void:
+	if sim.choose_upgrade(i):
+		sfx.play("upgrade", 0.0)
 
 
 func _select_ability_slot(i: int) -> void:
@@ -1098,7 +1175,7 @@ func _use_targeted(p: Vector2) -> void:
 
 ## Dlaczego umiejętności nie da się rzucić w `p` (komunikat pod palcem).
 func _deny_reason(ability: String, p: Vector2) -> String:
-	var cfg: Dictionary = Cfg.ABILITIES[ability]
+	var cfg: Dictionary = sim.ability_config(ability)
 	var h := sim.hero()
 	if cfg.get("cast_range", 0.0) > 0.0 and h != null and h.pos.distance_to(p) > cfg["cast_range"]:
 		return "Poza zasięgiem dowódcy"
@@ -1227,6 +1304,7 @@ func _build_ui() -> void:
 	gold_label = _label("", 30, info, GOLD_COLOR)
 	income_label = _label("", 16, info)
 	wave_label = _label("", 16, info)
+	daily_label = _label("", 14, info, GOLD_COLOR)
 	perf_label = _label("", 13, info, Color(0.7, 1.0, 0.7))
 
 	# prawy górny róg: sterowanie grą
@@ -1294,6 +1372,18 @@ func _build_ui() -> void:
 	portrait_button.add_theme_color_override("font_color", HERO_COLOR)
 	portrait_button.add_theme_color_override("font_pressed_color", HERO_COLOR)
 	portrait_button.position = Vector2(16, screen.y - 72 - 64)
+
+	# nad portretem: oferta awansu — gra się nie zatrzymuje, oferta czeka na wybór
+	upgrade_panel = PanelContainer.new()
+	hud.add_child(upgrade_panel)
+	var up_box := VBoxContainer.new()
+	up_box.add_theme_constant_override("separation", 6)
+	upgrade_panel.add_child(up_box)
+	upgrade_title = _label("", 16, up_box, HERO_COLOR)
+	for i in 2:
+		var ub := _button("", Vector2(260, 46), _choose_upgrade.bind(i), up_box)
+		ub.add_theme_font_size_override("font_size", 15)
+		upgrade_buttons.append(ub)
 
 	# prawy dół (nad paskiem): panel zaznaczonego budynku
 	sel_panel = PanelContainer.new()
@@ -1376,8 +1466,11 @@ func _build_menu(ui: Control) -> void:
 	extra.alignment = BoxContainer.ALIGNMENT_CENTER
 	extra.add_theme_constant_override("separation", 10)
 	box.add_child(extra)
-	_button("Jak grać", Vector2(180, 46), _open_overlay.bind("help"), extra)
-	_button("Ustawienia", Vector2(180, 46), _open_overlay.bind("settings"), extra)
+	mode_button = _button("", Vector2(250, 46), _toggle_mode, extra)
+	var daily_button := _button("Wyzwanie dnia", Vector2(200, 46), _start_daily, extra)
+	daily_button.add_theme_color_override("font_color", GOLD_COLOR)
+	_button("Jak grać", Vector2(160, 46), _open_overlay.bind("help"), extra)
+	_button("Ustawienia", Vector2(160, 46), _open_overlay.bind("settings"), extra)
 
 
 ## Karty dowódców rasy: nazwa, rola, umiejętności (Q/E/R); niegotowi — „Wkrótce”.
@@ -1475,7 +1568,9 @@ func _build_help(ui: Control) -> void:
 		+ "na mapie — pójdzie tam (rzekę przechodzi mostem), sam walczy i wraca na swój punkt. Stuknięcie\n"
 		+ "w budynek albo złoże zdejmuje zaznaczenie. Po śmierci wraca do bazy po chwili.\n"
 		+ "Umiejętności dowódcy (Q/E/R) rzucasz w zasięgu od niego — okrąg pokazuje, dokąd sięga;\n"
-		+ "gdy dowódca nie żyje, czekają. Umiejętność rasy (T) działa zawsze.\n\n"
+		+ "gdy dowódca nie żyje, czekają. Umiejętność rasy (T) działa zawsze.\n"
+		+ "Tryb Przetrwanie (przycisk w menu): forteca wroga nie pada — liczy się, ile fal wytrzymasz.\n"
+		+ "Wyzwanie dnia: codziennie inna mapa, tryb, rasa i dowódca oraz dwa modyfikatory — taki sam dzień dla wszystkich.\n\n"
 		+ "Mapę przesuwasz przeciągając, przybliżasz kółkiem albo dwoma palcami.\n"
 		+ "Skróty: 1–6 budowa · Q/E/R/T umiejętności · H dowódca · Spacja postawa · U ulepsz · Del sprzedaj\n"
 		+ "Tab ścieżka · F prędkość · WASD przesuwanie · C cała mapa · M dźwięk · Esc pauza",
@@ -1490,6 +1585,7 @@ func _rebuild_ui() -> void:
 	build_buttons.clear()
 	ability_slots.clear()
 	ability_buttons.clear()
+	upgrade_buttons.clear()
 	lane_buttons.clear()
 	race_buttons.clear()
 	commander_buttons.clear()
@@ -1527,6 +1623,11 @@ func _update_hud() -> void:
 		wave_label.text = "Fala %d nadciąga! (zostało %d)" % [sim.wave, sim.spawn_queue.size()]
 	else:
 		wave_label.text = "Fala %d za %d s → %s" % [sim.wave + 1, ceili(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)]
+	if sim.mode == "survival":
+		wave_label.text = "Przetrwanie · " + wave_label.text
+	daily_label.visible = not sim.mods.is_empty()
+	if daily_label.visible:
+		daily_label.text = "Wyzwanie dnia: " + _mods_text(sim.mods)
 
 	stance_button.text = "Postawa: Atak" if sim.stance == "attack" else "Postawa: Obrona"
 	stance_button.self_modulate = Color(1, 0.75, 0.7) if sim.stance == "attack" else Color(0.7, 0.85, 1)
@@ -1536,10 +1637,10 @@ func _update_hud() -> void:
 
 	for key in build_buttons:
 		var b: Button = build_buttons[key]
-		var cfg: Dictionary = Cfg.BUILDINGS[key]
-		b.text = "%s\n%d" % [cfg["name"], cfg["cost"]]
+		var cost := sim.build_cost(key)  # z modyfikatorem dnia („Tanie wieże”)
+		b.text = "%s\n%d" % [Cfg.BUILDINGS[key]["name"], cost]
 		b.button_pressed = mode == key
-		b.disabled = sim.gold < cfg["cost"] and mode != key
+		b.disabled = sim.gold < cost and mode != key
 	var order: Array = sim.ability_order[0]
 	ability_buttons.clear()
 	for i in ability_slots.size():
@@ -1559,13 +1660,22 @@ func _update_hud() -> void:
 	var h := sim.hero()
 	portrait_button.visible = h != null and state == State.PLAY
 	if portrait_button.visible:
-		var hero_name: String = Cfg.COMMANDERS[h.commander]["name"]
+		var hero_name: String = "%s  poz. %d" % [Cfg.COMMANDERS[h.commander]["name"], h.hero_level]
+		var xp := "max" if h.hero_level >= Cfg.HERO_MAX_LEVEL else "XP %d/%d" % [int(h.xp), int(Cfg.HERO_XP[h.hero_level - 1])]
 		if sim.hero_alive():
-			portrait_button.text = "%s  (H)\nHP %d/%d" % [hero_name, ceili(h.hp), int(h.max_hp)]
+			portrait_button.text = "%s  (H)\nHP %d/%d · %s" % [hero_name, ceili(h.hp), int(h.max_hp), xp]
 		else:
-			portrait_button.text = "%s\npowrót za %d s" % [hero_name, ceili(h.respawn)]
+			portrait_button.text = "%s\npowrót za %d s · %s" % [hero_name, ceili(h.respawn), xp]
 		portrait_button.button_pressed = hero_selected
 		portrait_button.disabled = not sim.hero_alive()
+	var offers: Array = sim.hero_offers[0]
+	upgrade_panel.visible = not offers.is_empty() and state == State.PLAY
+	if upgrade_panel.visible:
+		upgrade_title.text = "Awans! Wybierz ulepszenie%s" % (" (+%d)" % (offers.size() - 1) if offers.size() > 1 else "")
+		for i in 2:
+			upgrade_buttons[i].text = offers[0][i]["label"]
+		upgrade_panel.reset_size()
+		upgrade_panel.position = Vector2(16, portrait_button.position.y - 8 - upgrade_panel.size.y)
 
 	tutorial_panel.visible = tutorial_step >= 0 and state == State.PLAY
 	if tutorial_panel.visible:
@@ -1596,8 +1706,15 @@ func _update_menu() -> void:
 	var cur: Dictionary = Levels.ALL[level_index]
 	map_desc.text = cur["desc"]
 	for d in diff_buttons.size():
-		var best := Progress.best(cur["id"], d)
-		diff_buttons[d].text = "%s\n%s" % [Cfg.DIFFICULTIES[d]["name"], "rekord %s" % _fmt_time(best) if best >= 0 else "—"]
+		var record := "—"
+		if game_mode == "survival":
+			var waves := Progress.best_survival(cur["id"], d, commander_id)
+			record = "rekord: %d fal" % waves if waves > 0 else "—"
+		else:
+			var best := Progress.best(cur["id"], d)
+			record = "rekord %s" % _fmt_time(best) if best >= 0 else "—"
+		diff_buttons[d].text = "%s\n%s" % [Cfg.DIFFICULTIES[d]["name"], record]
+	mode_button.text = "Tryb: Bitwa" if game_mode == "battle" else "Tryb: Przetrwanie"
 
 
 func _fill_selection_panel(b: Sim.Building) -> void:
@@ -2076,7 +2193,8 @@ func _draw_base(team: int) -> void:
 		pen.rect(body, Color(1, 1, 1, base_flash[team] * 4.0))
 	var frac := sim.base_hp[team] / Cfg.BASE_HP[team]
 	_hp_bar(p + Vector2(0, r + 18), 100, frac, 8)
-	pen.text(font, p + Vector2(-50, r + 42), "%d" % int(sim.base_hp[team]), HORIZONTAL_ALIGNMENT_CENTER, 100, 14, Color(1, 1, 1, 0.8))
+	var hp_text := "nie do zburzenia" if team == 1 and sim.mode == "survival" else "%d" % int(sim.base_hp[team])
+	pen.text(font, p + Vector2(-80, r + 42), hp_text, HORIZONTAL_ALIGNMENT_CENTER, 160, 14, Color(1, 1, 1, 0.8))
 
 
 func _draw_building(b: Sim.Building) -> void:
@@ -2340,7 +2458,7 @@ func _draw_ghost() -> void:
 		return
 	var ability := _ability_mode()
 	# zasięg rzucania wokół dowódcy — widoczny przez całe celowanie, także bez kursora (dotyk)
-	var cast_range: float = Cfg.ABILITIES[ability].get("cast_range", 0.0) if ability != "" else 0.0
+	var cast_range: float = sim.ability_config(ability).get("cast_range", 0.0) if ability != "" else 0.0
 	if cast_range > 0.0 and sim.hero_alive():
 		var hp := sim.hero().pos
 		pen.circle(hp, cast_range, Color(HERO_COLOR, 0.05))
@@ -2351,7 +2469,7 @@ func _draw_ghost() -> void:
 	if ability != "":
 		var ok := sim.ability_target_ok(ability, world)
 		var tint := Color(0.3, 1, 0.4) if ok else Color(1, 0.3, 0.3)
-		var r: float = Cfg.ABILITIES[ability].get("radius", 40.0)
+		var r: float = sim.ability_config(ability).get("radius", 40.0)
 		pen.circle(world, r, Color(tint, 0.12))
 		pen.arc(world, r, 0, TAU, 48, Color(tint, 0.8), 2.0)
 		return

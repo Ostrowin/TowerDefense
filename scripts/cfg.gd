@@ -237,7 +237,7 @@ const ABILITIES := {
 	"repeller": {"name": "Odpychacz", "short": "Odpych.", "kind": "summon_building", "cooldown": 45.0,
 		"target": true, "cast_range": 180.0, "building": "repeller", "duration": 15.0},
 	# --- dziki: Stratowanie
-	"boar_charge": {"name": "Szarża dowódcy", "short": "Szarża", "kind": "leap", "cooldown": 22.0, "target": true,
+	"boar_charge": {"name": "Szarża dowódcy", "short": "Natarcie", "kind": "leap", "cooldown": 22.0, "target": true,
 		"cast_range": 240.0, "radius": 70.0, "dmg": 45.0, "repel": 80.0},
 	"herd": {"name": "Tabun", "short": "Tabun", "kind": "summon_units", "cooldown": 50.0, "target": true,
 		"cast_range": 260.0, "count": 5, "unit": "soldier", "max_lane_dist": 90.0, "lifetime": 15.0},
@@ -347,6 +347,49 @@ const COMMANDER_LEASH := 120.0
 ## Dowódca bije budynki słabiej niż jednostki; bazy nie bije wcale.
 const COMMANDER_BUILDING_MULT := 0.5
 
+# ---------------------------------------------------------------- awans dowódcy (T14)
+# Doświadczenie: wróg ginący w promieniu HERO_XP_RADIUS od żywego dowódcy daje jego nagrodę
+# (bez nagrody — 10% jego maks. HP); zabicie osobiste (cios, pocisk, umiejętność dowódcy) —
+# dodatkowo HERO_XP_OWN_BONUS × tyle. Doświadczenie zostaje po śmierci.
+## Próg doświadczenia na poziom 2 i 3 (łącznie).
+const HERO_XP: Array[float] = [250.0, 900.0]
+const HERO_MAX_LEVEL := 3
+const HERO_XP_RADIUS := 220.0
+const HERO_XP_OWN_BONUS := 2.0
+## HP i obrażenia dowódcy rosną o tyle na poziom (względem poziomu 1).
+const HERO_STAT_PER_LEVEL := 0.2
+## Ogólne ulepszenia umiejętności przy awansie (wybór 1 z 2 losowych dla 3 umiejętności dowódcy):
+##   power    — siła efektu ×UPGRADE_POWER (obrażenia, liczba, czas, mnożnik — zależnie od typu)
+##   cooldown — odnowienie ×UPGRADE_COOLDOWN
+##   reach    — promień (albo zasięg rzucania / długość / czas) ×UPGRADE_REACH
+const UPGRADE_POWER := 1.3
+const UPGRADE_COOLDOWN := 0.75
+const UPGRADE_REACH := 1.25
+## Wyzwanie dnia (T16): modyfikatory jako mnożniki. Sim mnoży wszystkie aktywne (`Sim.mod(klucz)`).
+##   income_mult — wydobycie · tower_cost_mult — koszt wież (wieża, armata, mróz) · hero_mult — HP
+##   i obrażenia dowódcy · cooldown_mult — odnowienia umiejętności gracza · start_gold_mult,
+##   passive_mult — złoto startowe i dochód pasywny · wave_count_mult — liczba wrogów w fali ·
+##   enemy_hp_mult — HP wrogów · wave_interval_mult — odstęp między falami
+## `good`: true = ułatwienie, false = utrudnienie (dzień losuje po jednym z każdej grupy).
+const DAILY_MODS := {
+	"rich": {"name": "Bogate złoża", "desc": "wydobycie ×1,5", "good": true, "income_mult": 1.5},
+	"cheap_towers": {"name": "Tanie wieże", "desc": "koszt wież ×0,7", "good": true, "tower_cost_mult": 0.7},
+	"hero": {"name": "Bohater", "desc": "dowódca: HP i obrażenia ×1,5", "good": true, "hero_mult": 1.5},
+	"frenzy": {"name": "Szał umiejętności", "desc": "odnowienia ×0,6", "good": true, "cooldown_mult": 0.6},
+	"poor": {"name": "Bieda", "desc": "złoto startowe i dochód pasywny ×0,5", "good": false,
+		"start_gold_mult": 0.5, "passive_mult": 0.5},
+	"hordes": {"name": "Hordy", "desc": "fale +50% wrogów", "good": false, "wave_count_mult": 1.5},
+	"tough": {"name": "Twardzi wrogowie", "desc": "HP wrogów ×1,3", "good": false, "enemy_hp_mult": 1.3},
+	"rush": {"name": "Pośpiech", "desc": "odstęp między falami ×0,75", "good": false, "wave_interval_mult": 0.75},
+}
+## Trudność wyzwania dnia — stała, żeby wyniki z różnych dni dało się porównać.
+const DAILY_DIFFICULTY := 1
+
+## Ręczne ulepszenia — nadpisują ogólne dla danej umiejętności. Wpis: id umiejętności →
+## lista opcji {"label": "...", "set": {klucz: nowa wartość}}. Np.:
+##   "minefield": [{"label": "Większe miny", "set": {"radius": 70.0}}, {"label": "Mocniejsze miny", "set": {"dmg": 90.0}}]
+const UPGRADES := {}
+
 # ---------------------------------------------------------------- sprytny wróg
 ## Fala częściej wybiera słabo bronioną ścieżkę: waga ścieżki = 1 / (1 + obrona / LANE_DEFENSE_SCALE).
 ## Obrona = suma „siły" wież gracza w zasięgu ścieżki + jego jednostek na niej.
@@ -363,6 +406,11 @@ const ENEMY_HP_PER_WAVE := 0.07
 ## setki fal — furia ją rozstrzyga, nie ruszając balansu wczesnej i środkowej gry.
 const ENEMY_FURY_WAVE := 40
 const ENEMY_FURY_PER_WAVE := 0.06
+## Tryb przetrwania (T15): baza wroga nie do zburzenia, wynik = fale; furia rusza wcześniej
+## i rośnie szybciej, żeby partia miała koniec w ~10–15 min (przy +6%/falę bot na Normalnym
+## dożywał fali 70–115, 15–25+ min).
+const SURVIVAL_FURY_WAVE := 25
+const SURVIVAL_FURY_PER_WAVE := 0.12
 ## Odstęp między jednostkami wychodzącymi na tę samą ścieżkę; maleje z każdą falą.
 const SPAWN_GAP := 0.6
 const SPAWN_GAP_DECAY := 0.01
@@ -436,6 +484,38 @@ static func is_flying(kind: String) -> bool:
 
 static func is_production(kind: String) -> bool:
 	return BUILDINGS.has(kind) and BUILDINGS[kind].has("unit")
+
+
+## Wyzwanie dnia z daty "RRRR-MM-DD": ten sam zestaw dla każdego, kto gra tego dnia.
+## {date, seed, map, mode, race (indeks w Races.ALL), commander, mods [dobry, zły], difficulty}.
+static func daily(date: String) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	var seed_value := absi(hash("towerdefense-daily-" + date))
+	rng.seed = seed_value
+	var picks: Array[Dictionary] = []  # grywalni dowódcy grywalnych ras: {race, commander}
+	for i in Races.ALL.size():
+		if Races.ALL[i]["playable"]:
+			for c in Races.commanders(i):
+				if c != "veteran" and commander_ready(c):
+					picks.append({"race": i, "commander": c})
+	var pick: Dictionary = picks[rng.randi_range(0, picks.size() - 1)]
+	var good: Array[String] = []
+	var bad: Array[String] = []
+	for id in DAILY_MODS:
+		if DAILY_MODS[id]["good"]:
+			good.append(id)
+		else:
+			bad.append(id)
+	return {
+		"date": date,
+		"seed": seed_value,
+		"map": rng.randi_range(0, Levels.ALL.size() - 1),
+		"mode": "survival" if rng.randf() < 0.5 else "battle",
+		"race": pick["race"],
+		"commander": pick["commander"],
+		"mods": [good[rng.randi_range(0, good.size() - 1)], bad[rng.randi_range(0, bad.size() - 1)]],
+		"difficulty": DAILY_DIFFICULTY,
+	}
 
 
 ## Czas odrodzenia dowódcy w fali `wave` — jedna formuła dla wszystkich (R4).

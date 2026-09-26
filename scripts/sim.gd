@@ -124,6 +124,8 @@ class Hero extends Unit:
 	var respawn := 0.0  ## sekundy do odrodzenia (stan dead)
 	var invulnerable := 0.0
 	var building_mult: float
+	var xp := 0.0  ## doświadczenie (zostaje po śmierci)
+	var hero_level := 1
 
 
 class Building:
@@ -164,6 +166,7 @@ class Shot:
 	var slow_time := 0.0
 	var speed: float
 	var no_base := false  ## pocisk dowódcy — nie rani bazy (R4)
+	var from_hero := -1  ## drużyna dowódcy, który wystrzelił (zabicie osobiste → więcej XP)
 	var done := false
 
 
@@ -217,12 +220,23 @@ var bounty_until: Array[float] = [-INF, -INF]
 ## Per drużyna: umiejętność → sekundy do gotowości. Wróg ma na razie ten sam zestaw co gracz
 ## (jeszcze go nie używa — przyjdą dowódcy), ale każdy efekt już działa dla obu stron.
 var ability_cd: Array[Dictionary] = [{}, {}]
+## Tryb: "battle" (zburz fortecę wroga) albo "survival" (T15: forteca wroga nie do zburzenia,
+## wynik = osiągnięta fala, koniec = upadek bazy gracza; furia od SURVIVAL_FURY_WAVE).
+var mode := "battle"
+## Modyfikatory wyzwania dnia (id z Cfg.DAILY_MODS) — T16. Pusta lista = zwykła gra.
+var mods: Array[String] = []
 ## Dowódca gracza (id z Cfg.COMMANDERS); "" = bez dowódcy — gra jak przed dowódcami (D8).
 var commander := ""
 ## Per drużyna: umiejętności na pasku (3 dowódcy + rasowa albo Cfg.ABILITY_ORDER bez dowódcy).
 var ability_order: Array = [Cfg.ABILITY_ORDER.duplicate(), Cfg.ABILITY_ORDER.duplicate()]
 ## Per drużyna: dowódca (null = drużyna bez dowódcy). Rekord żyje też po śmierci.
 var heroes: Array[Hero] = [null, null]
+## Awans (T14). Per drużyna: umiejętność → jej konfiguracja po ulepszeniach (brak = Cfg.ABILITIES)
+## i kolejka ofert awansu (oferta = 2 opcje {ability, kind, label[, set]}), czekających na wybór.
+var ability_cfg: Array[Dictionary] = [{}, {}]
+var hero_offers: Array = [[], []]
+## Drużyna, której dowódca właśnie zadaje obrażenia (-1 = nikt) — zabicie osobiste.
+var _hero_blow := -1
 var stance := "attack"  ## "attack" albo "defend"
 var elapsed := 0.0
 var wave := 0
@@ -256,8 +270,11 @@ var _nav_bridge := {}  ## Vector2i → indeks ścieżki: pola mostów (przejezdn
 var _nav_near := {}  ## Vector2i → true: pola przy wodzie — tylko tam punkt trzeba sprawdzać dokładnie
 
 
-func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, commander_id := "") -> void:
+func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, commander_id := "", mode_id := "battle",
+		mod_ids: Array = []) -> void:
 	difficulty = Cfg.DIFFICULTIES[difficulty_index]
+	mode = mode_id
+	mods.assign(mod_ids)
 	commander = commander_id
 	ability_order[0] = Cfg.commander_abilities(commander)
 	if seed_value >= 0:
@@ -276,8 +293,8 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 	for l in level["lanes"]:
 		lanes.append(Lane.new(l["name"], l["points"]))
 	_find_bridges()
-	gold = difficulty["start_gold"]
-	wave_timer = difficulty["first_wave"]
+	gold = difficulty["start_gold"] * mod("start_gold_mult")
+	wave_timer = difficulty["first_wave"] * mod("wave_interval_mult")
 	for team in 2:
 		for a in ability_order[team]:
 			ability_cd[team][a] = 0.0
@@ -294,7 +311,7 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 # ================================================================ zapytania
 
 func income() -> float:
-	var total := Cfg.PASSIVE_INCOME
+	var total := Cfg.PASSIVE_INCOME * mod("passive_mult")
 	for b in buildings:
 		if b.team == 0 and b.kind == "extractor":
 			total += extractor_income(b.node_index, b.level)
@@ -302,7 +319,21 @@ func income() -> float:
 
 
 func extractor_income(node_index: int, lvl: int) -> float:
-	return Cfg.BUILDINGS["extractor"]["income"][lvl - 1] * richness[node_index]
+	return Cfg.BUILDINGS["extractor"]["income"][lvl - 1] * richness[node_index] * mod("income_mult")
+
+
+## Iloczyn wartości `key` ze wszystkich aktywnych modyfikatorów dnia (1.0 bez modyfikatorów).
+func mod(key: String) -> float:
+	var m := 1.0
+	for id in mods:
+		m *= Cfg.DAILY_MODS[id].get(key, 1.0)
+	return m
+
+
+## Koszt budowy — z modyfikatorem „Tanie wieże” dla wież.
+func build_cost(kind: String) -> int:
+	var cost: int = Cfg.BUILDINGS[kind]["cost"]
+	return roundi(cost * mod("tower_cost_mult")) if Cfg.is_tower(kind) else cost
 
 
 func base_pos(team: int) -> Vector2:
@@ -464,6 +495,8 @@ func lane_defense(lane_index: int) -> float:
 
 ## Mnożnik HP i obrażeń nowych wrogów w późnej grze (1.0 do fali ENEMY_FURY_WAVE).
 func enemy_fury() -> float:
+	if mode == "survival":
+		return 1.0 + Cfg.SURVIVAL_FURY_PER_WAVE * maxi(wave - Cfg.SURVIVAL_FURY_WAVE, 0)
 	return 1.0 + Cfg.ENEMY_FURY_PER_WAVE * maxi(wave - Cfg.ENEMY_FURY_WAVE, 0)
 
 
@@ -477,7 +510,7 @@ func ability_ready(ability: String, team := 0) -> bool:
 ## Czy umiejętność da się użyć w tym miejscu: w zasięgu rzucania od dowódcy (`cast_range` > 0),
 ## przywołanie tylko przy ścieżce — bez zasięgu od dowódcy dodatkowo na swojej połowie.
 func ability_target_ok(ability: String, at: Vector2, team := 0) -> bool:
-	var cfg: Dictionary = Cfg.ABILITIES[ability]
+	var cfg: Dictionary = ability_config(ability, team)
 	if not cfg["target"]:
 		return true
 	var cast_range: float = cfg.get("cast_range", 0.0)
@@ -506,6 +539,158 @@ func ability_target_ok(ability: String, at: Vector2, team := 0) -> bool:
 		if not own_half:
 			return false
 	return lanes[nearest_lane(at)].distance_to(at) <= cfg["max_lane_dist"]
+
+
+## Konfiguracja umiejętności drużyny `team` — po ulepszeniach z awansu (T14), inaczej z Cfg.
+func ability_config(ability: String, team := 0) -> Dictionary:
+	return ability_cfg[team].get(ability, Cfg.ABILITIES[ability])
+
+
+## Wybór ulepszenia z najstarszej oferty awansu (`i` = 0 albo 1). false = brak oferty.
+func choose_upgrade(i: int, team := 0) -> bool:
+	if hero_offers[team].is_empty() or i < 0 or i > 1:
+		return false
+	var opt: Dictionary = hero_offers[team].pop_front()[i]
+	var a: String = opt["ability"]
+	var cfg: Dictionary = ability_config(a, team).duplicate()
+	if opt.has("set"):
+		cfg.merge(opt["set"], true)
+	else:
+		_upgrade_cfg(cfg, opt["kind"])
+	ability_cfg[team][a] = cfg
+	events.append({"type": "hero_upgrade", "team": team, "label": opt["label"],
+		"pos": heroes[team].pos if heroes[team] != null else base_pos(team)})
+	return true
+
+
+## Ogólne ulepszenie według typu efektu (Cfg.UPGRADE_*).
+static func _upgrade_cfg(cfg: Dictionary, kind: String) -> void:
+	match kind:
+		"cooldown":
+			cfg["cooldown"] *= Cfg.UPGRADE_COOLDOWN
+		"reach":
+			for key in ["radius", "cast_range", "length", "duration"]:
+				if cfg.get(key, 0.0) > 0.0:
+					cfg[key] *= Cfg.UPGRADE_REACH
+					return
+		"power":
+			var k := Cfg.UPGRADE_POWER
+			match cfg["kind"]:
+				"summon_units":
+					cfg["count"] += 1
+				"buff", "weaken", "bounty_buff":
+					# mnożniki: rośnie nadwyżka ponad 1; wartości dodawane (pancerz, wysysanie) — całe
+					if cfg.get("stat", "") in ["armor", "lifesteal"]:
+						cfg["mult"] *= k
+					else:
+						cfg["mult"] = 1.0 + (cfg["mult"] - 1.0) * k
+				"summon_building", "taunt", "raise_dead", "burrow":
+					cfg["duration"] *= k
+				"pull":
+					cfg["radius"] *= k
+				"global":
+					cfg["heal"] *= k
+					cfg["base_heal"] *= k
+				_:
+					for key in ["dmg", "dps", "building_dmg", "distance"]:
+						if cfg.has(key):
+							cfg[key] *= k
+
+
+## Czy ogólne ulepszenie ma sens dla umiejętności (np. „obszar” bez promienia i zasięgu — nie).
+static func _upgrade_applies(cfg: Dictionary, kind: String) -> bool:
+	if kind != "reach":
+		return true
+	for key in ["radius", "cast_range", "length", "duration"]:
+		if cfg.get(key, 0.0) > 0.0:
+			return true
+	return false
+
+
+## Nazwa ogólnego ulepszenia — mówi, co naprawdę się zmieni (zależnie od typu i kluczy konfiguracji).
+static func _upgrade_label(cfg: Dictionary, kind: String) -> String:
+	match kind:
+		"cooldown":
+			return "odnowienie −25%"
+		"reach":
+			var names := {"radius": "obszar", "cast_range": "zasięg", "length": "długość", "duration": "czas"}
+			for key in ["radius", "cast_range", "length", "duration"]:
+				if cfg.get(key, 0.0) > 0.0:
+					return "%s +25%%" % names[key]
+	match cfg["kind"]:
+		"summon_units":
+			return "+1 jednostka"
+		"summon_building", "taunt", "raise_dead", "burrow":
+			return "czas +30%"
+		"pull":
+			return "zasięg chwytu +30%"
+		"global":
+			return "leczenie +30%"
+		"buff", "weaken", "bounty_buff":
+			return "efekt +30%"
+	return "obrażenia +30%"
+
+
+## Oferta awansu: 2 różne opcje spośród ulepszeń 3 umiejętności dowódcy (ręczne z Cfg.UPGRADES
+## zastępują ogólne danej umiejętności). Losowanie z rng sima — powtarzalne w testach.
+func _make_offer(team: int) -> Array:
+	var pool: Array[Dictionary] = []
+	for a in Cfg.COMMANDERS[heroes[team].commander]["abilities"]:
+		var short: String = Cfg.ABILITIES[a]["short"]
+		if Cfg.UPGRADES.has(a):
+			for opt in Cfg.UPGRADES[a]:
+				pool.append({"ability": a, "kind": "manual", "label": "%s: %s" % [short, opt["label"]], "set": opt["set"]})
+			continue
+		for kind in ["power", "cooldown", "reach"]:
+			if _upgrade_applies(ability_config(a, team), kind):
+				pool.append({"ability": a, "kind": kind, "label": "%s: %s" % [short, _upgrade_label(ability_config(a, team), kind)]})
+	var first := rng.randi_range(0, pool.size() - 1)
+	var second := rng.randi_range(0, pool.size() - 2)
+	if second >= first:
+		second += 1
+	return [pool[first], pool[second]]
+
+
+## Doświadczenie za poległego: dowódcy przeciwników w promieniu HERO_XP_RADIUS dostają jego
+## nagrodę; ten, który zadał cios (`_hero_blow`), dodatkowo HERO_XP_OWN_BONUS × tyle.
+func _award_xp(u: Unit) -> void:
+	for t in 2:
+		if t == u.team or not hero_alive(t):
+			continue
+		var h := heroes[t]
+		var own := _hero_blow == t
+		if not own and h.pos.distance_to(u.pos) > Cfg.HERO_XP_RADIUS:
+			continue
+		var value: float = Cfg.UNITS[u.kind].get("bounty", 0)
+		if value <= 0.0:
+			value = u.max_hp * 0.1
+		_gain_xp(h, value * (1.0 + Cfg.HERO_XP_OWN_BONUS if own else 1.0))
+
+
+## Zburzony budynek: te same zasady co za jednostkę, wartość = nagroda za wieżę.
+func _award_building_xp(b: Building) -> void:
+	for t in 2:
+		if t == b.team or not hero_alive(t):
+			continue
+		var own := _hero_blow == t
+		if own or heroes[t].pos.distance_to(b.pos) <= Cfg.HERO_XP_RADIUS:
+			_gain_xp(heroes[t], Cfg.TOWER_KILL_BOUNTY * (1.0 + Cfg.HERO_XP_OWN_BONUS if own else 1.0))
+
+
+func _gain_xp(h: Hero, amount: float) -> void:
+	h.xp += amount
+	while h.hero_level < Cfg.HERO_MAX_LEVEL and h.xp >= Cfg.HERO_XP[h.hero_level - 1]:
+		h.hero_level += 1
+		var c: Dictionary = Cfg.COMMANDERS[h.commander]
+		var mult := 1.0 + Cfg.HERO_STAT_PER_LEVEL * (h.hero_level - 1)
+		var hero_mult := mod("hero_mult") if h.team == 0 else 1.0
+		var new_max: float = c["hp"] * mult * hero_mult
+		h.hp += new_max - h.max_hp
+		h.max_hp = new_max
+		h.dmg = c["dmg"] * mult * hero_mult
+		h.building_dmg = h.dmg * h.building_mult
+		hero_offers[h.team].append(_make_offer(h.team))
+		events.append({"type": "hero_level", "team": h.team, "level": h.hero_level, "pos": h.pos})
 
 
 ## Dowódca drużyny (null = bez dowódcy). Martwy ma `state == "dead"` i nie ma go w `units`.
@@ -602,7 +787,7 @@ func unit_cap(team: int) -> int:
 # ================================================================ rozkazy gracza
 
 func build(kind: String, cell: Vector2) -> bool:
-	var cost: int = Cfg.BUILDINGS[kind]["cost"]
+	var cost := build_cost(kind)
 	if result != 0 or gold < cost or not can_place(cell):
 		return false
 	gold -= cost
@@ -679,14 +864,16 @@ func order_hero(pos: Vector2, team := 0) -> bool:
 func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
 	if result != 0 or not ability_ready(ability, team) or not ability_target_ok(ability, at, team):
 		return false
-	var cfg: Dictionary = Cfg.ABILITIES[ability]
+	var cfg: Dictionary = ability_config(ability, team)
 	if cfg["kind"] == "summon_units" and team_count[team] >= unit_cap(team):
 		return false
+	var by_hero := team if _is_hero_ability(ability, team) else -1
+	_hero_blow = by_hero  # obrażenia rzucone teraz = zabicia osobiste dowódcy
 	match cfg["kind"]:
 		"strike":
 			if not cfg["target"]:  # „wokół siebie" — przy dowódcy (bez dowódcy przy bazie)
 				at = heroes[team].pos if hero_alive(team) else base_pos(team)
-			strikes.append({"pos": at, "left": cfg["volleys"], "timer": 0.3 if cfg["target"] else 0.0, "team": team, "cfg": cfg})
+			strikes.append({"pos": at, "left": cfg["volleys"], "timer": 0.3 if cfg["target"] else 0.0, "team": team, "cfg": cfg, "hero": by_hero})
 		"summon_units":
 			var lane_i := nearest_lane(at)
 			var s := lanes[lane_i].offset_of(at)
@@ -700,7 +887,7 @@ func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
 					b.hp = minf(b.max_hp, b.hp + b.max_hp * cfg["heal"])
 			base_hp[team] = minf(Cfg.BASE_HP[team], base_hp[team] + cfg["base_heal"])
 		"zone":
-			zones.append({"pos": at, "left": cfg["duration"], "tick": 0.0, "team": team, "cfg": cfg})
+			zones.append({"pos": at, "left": cfg["duration"], "tick": 0.0, "team": team, "cfg": cfg, "hero": by_hero})
 		"summon_building":
 			var b := _add_building(team, cfg["building"], Cfg.snap(at))
 			b.temporary = true
@@ -783,7 +970,8 @@ func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
 			var target := _demolish_target(team, at)
 			_damage_building(target, cfg["building_dmg"])
 			events.append({"type": "explosion", "pos": target.pos, "radius": 30.0})
-	ability_cd[team][ability] = cfg["cooldown"]
+	_hero_blow = -1
+	ability_cd[team][ability] = cfg["cooldown"] * (mod("cooldown_mult") if team == 0 else 1.0)
 	if team == 0:
 		stats["abilities_used"] += 1
 	events.append({"type": "ability", "name": ability, "team": team, "pos": at if cfg["target"] else base_pos(team)})
@@ -860,6 +1048,7 @@ func _update_zones(dt: float) -> void:
 	for z in zones:
 		var cfg: Dictionary = z["cfg"]
 		var foe: int = 1 - z["team"]
+		_hero_blow = z.get("hero", -1)
 		z["left"] -= dt
 		if cfg["trigger"] == "enter":
 			var inside := _units_near(foe, z["pos"], cfg["radius"], false)
@@ -878,6 +1067,7 @@ func _update_zones(dt: float) -> void:
 			if cfg.has("slow"):
 				u.slow_timer = maxf(u.slow_timer, 1.2)
 				u.slow_factor = maxf(u.slow_factor, cfg["slow"])
+	_hero_blow = -1
 	zones = zones.filter(func(z: Dictionary) -> bool: return z["left"] > 0.0)
 
 
@@ -959,12 +1149,14 @@ func _update_strikes(dt: float) -> void:
 		st["timer"] = cfg["interval"]
 		st["left"] -= 1
 		var at: Vector2 = st["pos"]
+		_hero_blow = st.get("hero", -1)
 		events.append({"type": "volley", "pos": at, "radius": cfg["radius"], "team": st["team"]})
 		for u in units:
 			if u.team == foe and u.hp > 0 and u.pos.distance_to(at) <= cfg["radius"]:
 				_damage_unit(u, cfg["dmg"], cfg.get("dmg_type", "blast"))
 				if cfg.has("stun") and u.burrow <= 0.0:
 					_stun(u, cfg["stun"])
+	_hero_blow = -1
 	strikes = strikes.filter(func(st: Dictionary) -> bool: return st["left"] > 0)
 
 
@@ -978,19 +1170,23 @@ func _update_waves(dt: float) -> void:
 	if wave_timer <= 0:
 		wave += 1
 		var interval := maxf(Cfg.MIN_WAVE_INTERVAL, Cfg.FIRST_WAVE_INTERVAL - wave * Cfg.WAVE_INTERVAL_DECAY)
-		wave_timer = interval * difficulty["wave_interval"]
+		wave_timer = interval * difficulty["wave_interval"] * mod("wave_interval_mult")
 		var comp := Cfg.wave_composition(wave)
+		var extra := int(comp.size() * (mod("wave_count_mult") - 1.0))  # „Hordy”: dokładka z początku fali
+		for i in extra:
+			if comp[i] != "warlord":
+				comp.append(comp[i])
 		var wave_lanes := next_wave_lanes
 		for i in comp.size():
 			spawn_queue.append({"kind": comp[i], "lane": wave_lanes[i % wave_lanes.size()]})
 		if spawn_queue.size() > Cfg.MAX_SPAWN_QUEUE:
 			spawn_queue.resize(Cfg.MAX_SPAWN_QUEUE)  # nadmiar najnowszej fali przepada
-		events.append({"type": "wave", "n": wave, "boss": comp.has("warlord"), "count": comp.size(), "lanes": wave_lanes, "fury": wave == Cfg.ENEMY_FURY_WAVE})
+		events.append({"type": "wave", "n": wave, "boss": comp.has("warlord"), "count": comp.size(), "lanes": wave_lanes, "fury": wave == (Cfg.SURVIVAL_FURY_WAVE if mode == "survival" else Cfg.ENEMY_FURY_WAVE)})
 		next_wave_lanes = _plan_lanes(wave + 1)
 		if wave % Cfg.ENEMY_BUILD_EVERY == 0:
 			_enemy_build()
 
-	var hp_mult: float = difficulty["enemy_hp"] * (1.0 + Cfg.ENEMY_HP_PER_WAVE * maxi(wave - 1, 0)) * enemy_fury()
+	var hp_mult: float = difficulty["enemy_hp"] * (1.0 + Cfg.ENEMY_HP_PER_WAVE * maxi(wave - 1, 0)) * enemy_fury() * mod("enemy_hp_mult")
 	spawn_cd -= dt
 	if spawn_cd <= 0 and not spawn_queue.is_empty():
 		# Każda ścieżka wypuszcza po jednej jednostce naraz — inaczej przy dzielonych
@@ -1276,7 +1472,9 @@ func _update_hero(h: Hero, dt: float) -> void:
 					if foe != null:
 						_melee_hit(h, foe)
 					else:
+						_hero_blow = h.team
 						_damage_building(tb, h.dmg * h.dmg_mult * h.building_mult)
+						_hero_blow = -1
 					events.append({"type": "hit", "pos": target_pos})
 				else:
 					_ranged_attack(h, target_pos, foe, tb, -1)
@@ -1346,9 +1544,9 @@ func _make_hero(team: int, id: String) -> Hero:
 	h.melee = h.projectile == ""
 	h.anti_air = c["anti_air"]
 	h.armor = c["armor"]
-	h.max_hp = c["hp"]
+	h.max_hp = c["hp"] * (mod("hero_mult") if team == 0 else 1.0)
 	h.hp = h.max_hp
-	h.dmg = c["dmg"]
+	h.dmg = c["dmg"] * (mod("hero_mult") if team == 0 else 1.0)
 	h.building_mult = c.get("building_mult", Cfg.COMMANDER_BUILDING_MULT)
 	h.building_dmg = h.dmg * h.building_mult
 	h.lane = 0
@@ -1401,7 +1599,10 @@ func _update_burrowed(u: Unit, speed: float, dt: float) -> void:
 ## Cios wręcz z mnożnikiem obrażeń i wysysaniem życia (wzmocnienia).
 func _melee_hit(u: Unit, foe: Unit) -> void:
 	var dmg := u.dmg * u.dmg_mult
+	if u.is_hero:
+		_hero_blow = u.team
 	_damage_unit(foe, dmg, "melee")
+	_hero_blow = -1
 	if u.lifesteal > 0.0:
 		u.hp = minf(u.max_hp, u.hp + dmg * u.lifesteal)
 	if u.buffs.has("knockback"):  # Szarża: pierwszy cios odrzuca, potem wzmocnienie znika
@@ -1446,6 +1647,7 @@ func _ranged_attack(u: Unit, at: Vector2, unit: Unit, building: Building, base_t
 	s.target_building = building
 	s.target_base = base_team
 	s.no_base = u.is_hero
+	s.from_hero = u.team if u.is_hero else -1
 
 
 ## Wystawia jednostkę na ścieżce. `at_s` < 0 = przy własnej bazie.
@@ -1527,6 +1729,12 @@ func _update_shots(dt: float) -> void:
 
 
 func _impact(s: Shot) -> void:
+	_hero_blow = s.from_hero
+	_impact_hit(s)
+	_hero_blow = -1
+
+
+func _impact_hit(s: Shot) -> void:
 	var foe_team := 1 - s.team
 	if s.splash > 0:
 		var hits_air := Cfg.ANTI_AIR.has(s.kind)
@@ -1576,6 +1784,7 @@ func _damage_unit(u: Unit, dmg: float, kind: String) -> void:
 		events.append({"type": "hero_died", "pos": h.pos, "team": h.team, "respawn": h.respawn})
 		return
 	events.append({"type": "death", "pos": u.pos, "team": u.team, "kind": u.kind})
+	_award_xp(u)
 	if not raises.is_empty():
 		_check_raise(u)
 	if u.team == 1:
@@ -1599,6 +1808,7 @@ func _damage_building(b: Building, dmg: float) -> void:
 	events.append({"type": "building_destroyed", "pos": b.pos, "team": b.team, "kind": b.kind})
 	if b.temporary:
 		return  # bez nagrody i bez liczenia strat (R7)
+	_award_building_xp(b)
 	if b.team == 1:
 		stats["towers_razed"] += 1
 		_earn(Cfg.TOWER_KILL_BOUNTY, b.pos)
@@ -1607,8 +1817,8 @@ func _damage_building(b: Building, dmg: float) -> void:
 
 
 func _damage_base(team: int, dmg: float) -> void:
-	if base_hp[team] <= 0:
-		return
+	if base_hp[team] <= 0 or (team == 1 and mode == "survival"):
+		return  # w przetrwaniu forteca wroga stoi zawsze
 	base_hp[team] = maxf(0.0, base_hp[team] - dmg)
 	events.append({"type": "base_hit", "team": team, "pos": base_pos(team), "dmg": dmg})
 
