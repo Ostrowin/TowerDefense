@@ -7,18 +7,22 @@ project.godot            ekran wirtualny 1280×720, stretch canvas_items/expand,
                          Android: poziomo (obie strony), „Wstecz” obsługuje gra (quit_on_go_back = false)
 export_presets.cfg       preset „Android”: APK bez Gradle, arm64-v8a, pl.towerdefense.game (bez haseł — klucz z env)
 main.tscn                jeden węzeł Node2D ze skryptem scripts/main.gd
-scripts/cfg.gd           Cfg      — balans: jednostki, budynki, umiejętności, fale, trudności, stałe wspólne dla map
+scripts/cfg.gd           Cfg      — balans: jednostki, budynki (też tymczasowe), umiejętności, dowódcy, umiejętności ras,
+                         fale, trudności, stałe wspólne dla map
 scripts/levels.gd        Levels   — mapy jako dane (ścieżki, bazy, rzeka, złoża, sloty wież wroga, strefa budowy)
-scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + losowanie przeciwnika
+scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + losowanie przeciwnika,
+                         dowódcy rasy (`commanders`) i jej umiejętność (`racial`)
 scripts/sim.gd           Sim      — logika gry: stan, rozkazy gracza, step(dt), zdarzenia. Zero węzłów i rysowania.
 scripts/main.gd          widok: kamera, render (_draw + warstwa terenu), HUD, minimapa, menu, nakładki, samouczek
 scripts/painter.gd       Painter  — kształty (koła, łuki, linie, wielokąty) sklejane w jedno wywołanie rysowania
 scripts/sfx.gd           Sfx      — efekty i muzyka syntezowane w kodzie (bez plików audio), szyny SFX/Music
 scripts/progress.gd      Progress — rekordy i gwiazdki per mapa × trudność, stan samouczka (user://progress.cfg)
 scripts/settings.gd      Settings — głośności, skala interfejsu (user://settings.cfg)
-tests/bot_test.gd        testy mechanik + geometrii map + mecze botów (`-- --mechanics`, `-- --balance`)
+tests/bot_test.gd        testy mechanik + geometrii map + mecze botów (`-- --mechanics`, `-- --balance [--commander id]`);
+                         bot gra też dowódcą (R9); tabela meczów bez dowódcy porównywana z tests/bot_baseline.txt
 tests/ui_smoke_test.gd   odpala prawdziwą scenę, steruje nią zdarzeniami wejścia, gra do końca partii
 tests/perf_test.gd       benchmark późnej gry: prawdziwa scena + bot, czas rzeczywisty, czasy klatki i faz
+                         (`--commander id --stress` — dowódca rzuca każdą gotową umiejętność)
                          (w APK — `tools/android.ps1 -Bench` odpala go na telefonie)
 tests/render_probe.gd    koszt warstw renderu (teren / świat / HUD / rozdzielczość) — wywołania rysowania, FPS
                          (benchmarki to węzły uruchamiane przez grę: `-- --bench <skrypt>`)
@@ -107,10 +111,37 @@ właściwe miejsce.
 - Obrażenia mają rodzaj (`arrow`/`melee`/`cannonball`/`rock`/`frost`): pancerz blokuje część
   strzał, w latających trafia tylko `Cfg.ANTI_AIR`, mróz nakłada spowolnienie.
 - Budynek: `level` (1–3), `invested` (zwrot), `lane` (produkcja), `last_hit` (regeneracja).
-- Umiejętności: dane w `Cfg.ABILITIES` z typem efektu (`kind`: `strike`, `summon_units`, `global`);
-  `use_ability(id, at, team)` rozdziela po typie, nie po nazwie. Odnowienia per drużyna
-  (`ability_cd[team][id]`), trwające salwy w `strikes` niosą swoją drużynę i konfigurację —
-  obie strony mogą rzucać naraz (pod dowódców i bossa rywala, P6).
+- Umiejętności: dane w `Cfg.ABILITIES` z typem efektu (`kind`) i zasięgiem rzucania od dowódcy
+  (`cast_range`, 0 = bez ograniczenia); `use_ability(id, at, team)` rozdziela po typie, nie po
+  nazwie, `ability_target_ok` sprawdza cel (zasięg, ląd, wolne pole, nie pod bazą wroga). Odnowienia
+  per drużyna (`ability_cd[team][id]`); trwające efekty (`strikes`, `zones`, `raises`) niosą swoją
+  drużynę i konfigurację — obie strony mogą rzucać naraz. 17 typów, każdy z testem dla obu drużyn:
+
+  | typ | efekt | stan |
+  |---|---|---|
+  | `strike` | salwy w obszar (bez celu: wokół dowódcy), opcjonalnie `stun` | `strikes` |
+  | `summon_units` | jednostki przy ścieżce (opcj. `lifetime`) | `Unit.expire` |
+  | `global` | leczy budynki i bazę | — |
+  | `zone` | mina (wybuch przy wejściu) albo obrażenia co sekundę (+`slow`) | `zones` |
+  | `summon_building` | budowla z `Cfg.TEMP_BUILDINGS` na czas (wieżyczka, totem, odpychacz) | `Building.temporary` |
+  | `buff` | wzmocnienie: promień / ścieżka / sam dowódca / cała armia (+`knockback`) | `Unit.buffs` |
+  | `weaken` | wrogowie dostają więcej obrażeń | `Unit.buffs["vuln"]` |
+  | `line`, `repel` | przebicie / odrzut wzdłuż linii od dowódcy | — |
+  | `execute` | dobija najsilniejszego (Wódz i dowódcy odporni) | — |
+  | `demolish` | ładunek w budynek wroga | — |
+  | `pull`, `taunt`, `leap` | chwyt do dowódcy / prowokacja / skok dowódcy na ląd | `Unit.taunt` |
+  | `raise_dead` | polegli wrogowie wstają po naszej stronie (po kroku) | `raises` |
+  | `bounty_buff` | wyższe nagrody za zabicie | `bounty_mult/until` |
+  | `burrow` | armia na ścieżce pod ziemią: poza siatką celów, nietykalna, wstrząs przy wynurzeniu | `Unit.burrow` |
+
+- Dowódca (`Sim.Hero extends Unit`, `heroes[team]`): w `units` i siatce celów (wieże, pociski i obszar
+  widzą go bez przeróbek), ale poza `team_count`, `army_size` i `lane_defense`. Maszyna stanów
+  `idle → march` (trasa A*, ignoruje wrogów) `→ idle`; `idle ⇄ fight` (goni do `COMMANDER_LEASH`
+  od punktu postoju) `→ back → idle`; `dead` (rekord zostaje w `heroes`, wraca do `units` przy
+  odrodzeniu). Rozkaz: `order_hero(pos)`. Umiejętności dowódcy czekają, gdy nie żyje; rasowa działa zawsze.
+- Grywalność dowódcy wynika z danych: `Cfg.commander_ready` = Sim zna typy wszystkich jego umiejętności
+  (`Cfg.IMPLEMENTED_KINDS`). `Sim.new(..., commander)`; bez dowódcy (`""`) gra jest identyczna jak
+  przed dowódcami — pilnuje tego tabela wzorcowa w `bot_test` (kontrakt regresji D8).
 - Rzeka i mosty: `river` (krzywa z `Levels`, null bez rzeki) i `bridges` (`{lane, s0, s1}` —
   odcinki ścieżek nad wodą). Widok rysuje z nich teren i deski mostów.
 - Trasa po mapie: `path_to(a, b)` — `AStarGrid2D` (pola 20 px, woda z zapasem zablokowana,
@@ -120,17 +151,18 @@ właściwe miejsce.
 ## Krok symulacji (`Sim.step`)
 
 ```
-dochód → umiejętności (cooldowny, salwy)
+dochód → umiejętności (cooldowny, salwy) → odrodzenia dowódców
        → fale wroga (ścieżki ważone słabością obrony, każda ścieżka spawnuje równolegle,
                      dopływ orków, budowa wież co 4 fale, limity populacji,
                      od fali 40 „furia": HP i obrażenia nowych wrogów rosną)
-       → siatka przestrzenna
-       → budynki (regeneracja, wieże/działka strzelają, produkcja na swoją ścieżkę)
-       → jednostki (decyzja niżej) → pociski (lot, trafienie, obszar, spowolnienie)
-       → sprzątanie martwych → warunek końca
+       → siatka przestrzenna (bez jednostek pod ziemią) → strefy
+       → budynki (regeneracja, wieże/działka strzelają, produkcja, budowle tymczasowe: czas życia, pulsy)
+       → jednostki (decyzja niżej; dowódca — własna maszyna stanów) → pociski (lot, trafienie, obszar)
+       → sprzątanie martwych → wskrzeszeni wstają → warunek końca
 ```
 
-Decyzja jednostki naziemnej (pierwsza pasująca reguła wygrywa):
+Decyzja jednostki naziemnej (pierwsza pasująca reguła wygrywa; wcześniej: znika po `expire`,
+ogłuszona stoi, pod ziemią idzie naprzód ścieżką, sprowokowana za wroga uznaje dowódcę przeciwnika):
 
 ```
 [oblężnicza?] budynek wroga w zasięgu        → strzelaj w budynek
@@ -151,7 +183,7 @@ Stany ekranu + nakładki (`overlay`: ustawienia, jak grać) — widoczność war
 wynika co klatkę ze stanu, nie jest przełączana ręcznie:
 
 ```
-MENU ──(rasa + mapa + trudność)──▶ PLAY ⇄ PAUSED (Esc/Wstecz/P/II, auto-pauza w tle na Androidzie)
+MENU ──(rasa + dowódca + mapa + trudność)──▶ PLAY ⇄ PAUSED (Esc/Wstecz/P/II, auto-pauza w tle na Androidzie)
                              │ sim.result != 0
                              ▼
                            OVER ──▶ PLAY (Jeszcze raz) / MENU (też Esc/Wstecz)
@@ -176,8 +208,14 @@ wciśnij ─┬─ tryb budowy/umiejętności ──▶ podgląd pod palcem ─�
 dwa palce = szczypanie + przesuwanie · kółko = zoom · WASD/strzałki = przesuwanie
 ```
 
+Dowódca w widoku (R6/D6): stuknięcie w dowódcę (28 px ekranu) albo portret nad paskiem (H) zaznacza
+go; przy zaznaczonym stuknięcie w pusty teren = `order_hero` (zostaje zaznaczony), w budynek,
+złoże albo wieżę wroga = zwykła akcja i odznaczenie; Esc/Wstecz odznacza. Pasek: 6 budynków +
+Q/E/R (dowódca) + T (rasa); celowanie pokazuje zasięg rzucania wokół dowódcy, odmowa podaje powód.
+Menu: po rasie karty jej dowódców (niegrywalni — „Wkrótce”).
+
 Samouczek: lista kroków w `TUTORIAL`, każdy kończy się warunkiem sprawdzanym co klatkę
-(postawiony wydobywacz, produkcja, wieża, zaznaczenie, ruch kamery, użyta umiejętność).
+(postawiony wydobywacz, produkcja, wieża, zaznaczenie, ruch kamery, rozkaz dla dowódcy, użyta umiejętność).
 
 ## Kierunek dalszego rozbicia (gdy przyjdzie czas)
 

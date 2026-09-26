@@ -266,7 +266,8 @@ const ABILITY_ORDER: Array[String] = ["arrows", "levy", "repair"]
 ## Typy efektów, które Sim już obsługuje. Dowódca jest grywalny (`ready`), gdy wszystkie jego
 ## umiejętności i umiejętność rasy mają typ z tej listy — rośnie z T6/T9–T11b.
 const IMPLEMENTED_KINDS: Array[String] = ["strike", "summon_units", "global", "zone", "summon_building",
-	"buff", "line", "execute", "demolish", "burrow"]
+	"buff", "line", "execute", "demolish", "burrow", "pull", "taunt", "repel",
+	"weaken", "leap", "raise_dead", "bounty_buff"]
 ## Umiejętności `zone` i `summon_building` nie dalej niż tyle od bazy przeciwnika (R2).
 const NO_CAST_NEAR_BASE := 150.0
 ## `demolish`: w jakim promieniu od wskazanego punktu szuka budynku wroga.

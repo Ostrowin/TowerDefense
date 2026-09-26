@@ -59,9 +59,10 @@ func _process(_delta: float) -> bool:
 			_check(main.race_desc.text.contains("Pieśń"), "menu podaje umiejętność rasy")
 			var cards: Dictionary = main.commander_buttons
 			_check(cards.size() == 3 and not cards.has("veteran"), "gibony: 3 karty, bez Weterana")
-			_check(main.commander_id == "warbeat" and cards["warbeat"].button_pressed, "zmiana rasy wybiera jej grywalnego dowódcę")
-			cards["iron_grip"].emit_signal("pressed")
-			_check(main.commander_id == "warbeat", "karta „Wkrótce” nie zmienia wyboru")
+			_check(not cards["iron_grip"].disabled and not cards["wrecker"].disabled, "gibony: wszyscy trzej grywalni")
+			_check(main.commander_id == "iron_grip" and cards["iron_grip"].button_pressed, "zmiana rasy wybiera pierwszego grywalnego")
+			cards["warbeat"].emit_signal("pressed")
+			_check(main.commander_id == "warbeat", "karta wybiera dowódcę")
 			_check(main.level_index == 2 and sim.level["id"] == "serpentyna", "wybór mapy w menu")
 			main.diff_buttons[1].emit_signal("pressed")
 		4:

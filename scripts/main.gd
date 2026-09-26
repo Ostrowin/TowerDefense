@@ -54,6 +54,7 @@ const ABILITY_KEY_NAMES: Array[String] = ["Q", "E", "R", "T"]
 ## Promień trafienia w dowódcę — w pikselach ekranu, niezależnie od przybliżenia (R6).
 const HERO_PICK := 28.0
 const HERO_COLOR := Color(1.0, 0.85, 0.35)
+const CURSE_COLOR := Color(0.72, 0.45, 1.0)  ## klątwy i wskrzeszenie
 
 ## Samouczek: krok kończy się, gdy spełniony jest warunek `done` (sprawdzany co klatkę).
 const TUTORIAL: Array[Dictionary] = [
@@ -598,6 +599,32 @@ func _consume_events() -> void:
 				if e["team"] == 0:
 					_float_text(pos + Vector2(0, -24), "Podkop! (%d)" % e["count"], Color(0.85, 0.7, 0.5))
 				sfx.play("build", 0.0)
+			"weaken":
+				_ring(pos, e["radius"], CURSE_COLOR)
+				_burst(pos, 14, CURSE_COLOR, 90.0, 0.6)
+				sfx.play("frost", 0.1)
+			"leap":
+				_burst(e["from"], 8, Color(0.7, 0.6, 0.45), 60.0, 0.4)
+				_burst(pos, 18, Color(0.8, 0.65, 0.45), 140.0, 0.5)
+				_ring(pos, e["radius"], HERO_COLOR)
+				shake = maxf(shake, 4.0)
+				sfx.play("explosion", 0.1)
+			"raise_zone":
+				_ring(pos, e["radius"], CURSE_COLOR)
+				sfx.play("boss", 0.0)
+			"raised":
+				_burst(pos, 10, CURSE_COLOR, 80.0, 0.6)
+				sfx.play("levy", 0.15)
+			"pull":
+				var a: Vector2 = e["from"]
+				var b: Vector2 = e["to"]
+				for i in 6:
+					_burst(a.lerp(b, (i + 0.5) / 6.0), 2, HERO_COLOR, 40.0, 0.4)
+				sfx.play("hit", 0.0)
+			"taunt":
+				_ring(pos, e["radius"], WARN_COLOR)
+				_float_text(pos + Vector2(0, -34), "Do mnie!", WARN_COLOR)
+				sfx.play("boss", 0.0)
 			"quake":
 				_burst(pos, 8, Color(0.55, 0.42, 0.28), 110.0, 0.5)
 				_ring(pos, e["radius"], Color(0.8, 0.65, 0.45))
@@ -1086,6 +1113,10 @@ func _deny_reason(ability: String, p: Vector2) -> String:
 			return "Brak miejsca"
 		"demolish":
 			return "Wskaż budynek wroga"
+		"pull":
+			return "Brak celu (Wódz odporny)"
+		"leap":
+			return "Tylko na ląd"
 	return "Jeszcze nie"
 
 
@@ -1482,6 +1513,8 @@ func _update_hud() -> void:
 
 	gold_label.text = "%d zł" % int(sim.gold)
 	income_label.text = "+%.1f zł/s · armia %d/%d" % [sim.income(), sim.army_size(0), Cfg.MAX_ARMY]
+	if sim.elapsed < sim.bounty_until[0]:
+		income_label.text += " · łupy ×%.1f (%d s)" % [sim.bounty_mult[0], ceili(sim.bounty_until[0] - sim.elapsed)]
 	perf_label.visible = Settings.show_perf
 	if perf_label.visible:
 		perf_label.text = "FPS %d · sim %.1f ms (%d kr.) · rys. %.1f ms · HUD %.1f ms · jedn. %d · efekty %d" % [
@@ -2192,6 +2225,11 @@ func _draw_unit(u: Sim.Unit) -> void:
 				pen.polygon(PackedVector2Array([cx + Vector2(-4, 0), cx + Vector2(0, -8), cx + Vector2(4, 0)]), GOLD_COLOR)
 	if u.slow_timer > 0:
 		pen.arc(p, r + 3, 0, TAU, 12 if low_detail else 20, Color(FROST_COLOR, 0.9), 2.0)
+	if u.vuln > 1.0:
+		pen.arc(p, r + 2, 0, TAU, 12 if low_detail else 16, Color(CURSE_COLOR, 0.85), 2.0)
+	if u.stun > 0:  # ogłuszenie: krążące gwiazdki nad głową
+		for i in 2:
+			pen.circle(p + Vector2.from_angle(time * 6.0 + PI * i) * Vector2(r, r * 0.4) - Vector2(0, r + 4), 2.0, GOLD_COLOR)
 	if u.flash > 0:
 		pen.circle(p, r, Color(1, 1, 1, u.flash * 5.0))
 	if low_detail:
@@ -2227,6 +2265,10 @@ func _draw_hero(h: Sim.Hero) -> void:
 
 ## Strefy (`zone`): mina — mały znacznik, strefa obrażeń — pulsujący krąg.
 func _draw_zones() -> void:
+	for r in sim.raises:
+		var a := 0.12 + 0.05 * sin(time * 4.0)
+		pen.circle(r["pos"], r["radius"], Color(CURSE_COLOR, a))
+		pen.arc(r["pos"], r["radius"], 0, TAU, 40, Color(CURSE_COLOR, 0.6), 2.0)
 	for z in sim.zones:
 		var cfg: Dictionary = z["cfg"]
 		var pos: Vector2 = z["pos"]

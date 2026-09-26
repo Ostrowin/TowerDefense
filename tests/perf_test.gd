@@ -5,7 +5,10 @@ extends Node
 ## jednostek/pocisków/efektów, obiekty i pamięć — widać, co rośnie pod koniec partii.
 ##
 ##   godot --headless --path . -- --bench res://tests/perf_test.gd [--map 2 --minutes 12]
+##       [--commander magma] [--stress]   — dowódca gracza; --stress: rzuca każdą gotową umiejętność
+##                                          (scenariusz z kryteriów sukcesu: strefy, budowle, wzmocnienia)
 ##   tools/android.ps1 -Bench                       (na telefonie, z prawdziwym GPU)
+##   tools/android.ps1 -Bench -BenchArgs '--map','2','--minutes','10','--commander','magma','--stress'
 ##
 ## Uruchamia go main.gd (`--bench`) jako węzeł-dziecko sceny gry; `main` ustawia main.gd.
 ## Headless nie rysuje na GPU, ale cały koszt GDScript (_draw, HUD, sim) jest mierzony.
@@ -16,6 +19,8 @@ var main: Node
 var frame := 0
 var minutes := 12.0
 var map_index := 2
+var commander := ""
+var stress := false
 var think := 0.0
 var plan_i := 0
 var last_us := 0
@@ -43,6 +48,9 @@ func _ready() -> void:
 			map_index = int(args[i + 1])
 		elif args[i] == "--minutes":
 			minutes = float(args[i + 1])
+		elif args[i] == "--commander":
+			commander = args[i + 1]
+	stress = args.has("--stress")
 	Progress.path = "user://perf_progress.cfg"
 	Settings.path = "user://perf_settings.cfg"
 	Progress.reset_cache()
@@ -54,11 +62,15 @@ func _process(_delta: float) -> void:
 	var now := Time.get_ticks_usec()
 	if frame == 3:
 		main.level_index = map_index
+		if commander != "":
+			main.race_index = Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == Cfg.COMMANDERS[commander]["race"])
+			main.commander_id = commander
 		main._start(2)
 		main.speed_mult = 3
 		# baza gracza nie do zdobycia — mierzymy późną grę, nie przegraną
 		main.sim.base_hp[0] = 1e9
-		print("mapa %s, Trudny, x3, %d min gry" % [main.sim.level["name"], minutes])
+		print("mapa %s, Trudny, x3, %d min gry, dowódca: %s%s" % [main.sim.level["name"], minutes,
+			main.sim.commander if main.sim.commander != "" else "brak", " (stress)" if stress else ""])
 		print("%6s %5s %6s %6s %6s %6s %8s %8s %6s %6s %6s %6s %6s %7s" % ["gra", "fala", "jedn.", "pocis.", "iskry", "napisy",
 			"klatka", "maks", "sim", "kroki", "zdarz", "hud", "rys.", "pamięć"])
 	if frame > 3:
@@ -134,3 +146,33 @@ func _bot(sim: Sim) -> void:
 	if not sim.profile and sim.units.size() > 150:
 		sim.profile = true
 		sim.prof_data.clear()
+
+
+## Dowódca: idzie za czołem własnej armii; przy --stress rzuca każdą gotową umiejętność
+## w najbliższego wroga (albo przy sobie), żeby strefy, budowle i wzmocnienia się kumulowały.
+func _hero(sim: Sim) -> void:
+	var h := sim.hero()
+	if not sim.hero_alive():
+		return
+	var front := sim.rally_s
+	for u in sim.units:
+		if u.team == 0 and u.lane == 1 and not u.is_hero:
+			front = maxf(front, u.s)
+	var post := sim.lanes[1].point_at(front - 50.0)
+	if h.post.distance_to(post) > 60.0 and h.state != "march":
+		sim.order_hero(post)
+	if not stress:
+		return
+	var foe: Sim.Unit = null
+	for u in sim.units:
+		if u.team == 1 and (foe == null or u.pos.distance_to(h.pos) < foe.pos.distance_to(h.pos)):
+			foe = u
+	for a in sim.ability_order[0]:
+		if not sim.ability_ready(a):
+			continue
+		var tries: Array[Vector2] = [foe.pos if foe != null else h.pos, h.pos]
+		for k in 8:
+			tries.append(h.pos + Vector2.from_angle(TAU * k / 8.0) * 80.0)
+		for at in tries:
+			if sim.use_ability(a, at):
+				break

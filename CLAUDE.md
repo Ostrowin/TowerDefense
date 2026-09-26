@@ -16,9 +16,9 @@ Godot z wingeta (nie ma go w PATH):
 `C:\Users\lucci\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7.2-stable_win64_console.exe`
 - gra: `--path .`
 - import (po dodaniu `class_name`/plików): `--headless --import --path .`
-- testy Sim + boty: `--headless --path . --script res://tests/bot_test.gd` (kod wyjścia 1 = błąd; ~4 min)
+- testy Sim + boty: `--headless --path . --script res://tests/bot_test.gd` (kod wyjścia 1 = błąd; ~8 min — z macierzą dowódców R11 na Normalnym; Łatwy i Trudny przez `--balance --commander`)
 - same mechaniki (~20 s — głównie testy limitów populacji): `... bot_test.gd -- --mechanics`
-- same mecze botów (strojenie): `--headless --path . --script res://tests/bot_test.gd -- --balance` (`--commander sapper` = bot gra dowódcą według R9; pełny bot_test puszcza macierz R11 dla dowódców z `COMMANDER_MATRIX`)
+- same mecze botów (strojenie): `--headless --path . --script res://tests/bot_test.gd -- --balance` (`--commander sapper` = bot gra dowódcą według R9; pełny bot_test puszcza macierz R11: każdy grywalny dowódca na Normalnym)
 - smoke widoku: `--headless --path . --fixed-fps 60 --script res://tests/ui_smoke_test.gd` (szukaj `SCRIPT ERROR`)
 - wydajność późnej gry: `--headless --path . -- --bench res://tests/perf_test.gd --map 2 --minutes 10` (bez `--fixed-fps` — mierzy prawdziwy czas klatki; pusta scena headless to ~7 ms, to narzut silnika)
 - benchmarki (`perf_test`, `render_probe`) to węzły uruchamiane przez grę parametrem `-- --bench <skrypt>` — eksportowany Godot ignoruje `--script`

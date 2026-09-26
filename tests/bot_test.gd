@@ -35,9 +35,6 @@ const TURTLE_PLAN := [
 ## Tabelę nadpisuje się wyłącznie świadomie: `... bot_test.gd -- --write-baseline` (po zamierzonej zmianie balansu).
 const BASELINE_PATH := "res://tests/bot_baseline.txt"
 
-## Dowódcy w macierzy balansu R11 pełnego bot_test (reszta: `--balance --commander <id>`).
-const COMMANDER_MATRIX: Array[String] = ["sapper"]
-
 var failures := 0
 var rows: Array[String] = []
 
@@ -85,6 +82,8 @@ func _init() -> void:
 	_test_hero()
 	_test_effect_kinds()
 	_test_burrow()
+	_test_gibbon_kinds()
+	_test_hyena_boar_kinds()
 	_test_progress()
 	_test_population_caps()
 	_test_wave_composition()
@@ -101,13 +100,14 @@ func _init() -> void:
 				_report(lv, d, "balanced")
 			_report(lv, 2, "mass")
 		_compare_baseline(args.has("--write-baseline"))
-		# R11: bot balanced z dowódcą wygrywa Łatwy i Normalny (asercja w _report); Trudny — w tabeli
-		for commander in COMMANDER_MATRIX:
-			print("\n== mecze botów z dowódcą: %s ==" % Cfg.COMMANDERS[commander]["name"])
-			_print_header()
-			for lv in Levels.ALL.size():
-				for d in Cfg.DIFFICULTIES.size():
-					_report(lv, d, "balanced", commander)
+		# R11: bot balanced z każdym grywalnym dowódcą wygrywa Normalny na każdej mapie (asercja
+		# w _report). Łatwy i Trudny — `--balance --commander <id>`, żeby pełny test nie rósł z dowódcami.
+		print("\n== mecze botów z dowódcą (Normalny) ==")
+		_print_header()
+		for commander in Cfg.COMMANDER_ORDER:
+			if commander != "veteran" and Cfg.commander_ready(commander):
+				for lv in Levels.ALL.size():
+					_report(lv, 1, "balanced", commander)
 
 	print("\n%s" % ("OK" if failures == 0 else "BŁĘDY: %d" % failures))
 	quit(1 if failures > 0 else 0)
@@ -218,6 +218,14 @@ func _hero_bot(sim: Sim, strategy: String) -> void:
 	if strategy != "turtle" and h.hp >= h.max_hp * 0.3:
 		var lane := sim.lanes[sim.next_wave_lanes[0]]
 		post = lane.point_at(sim.rally_s)
+		# w natarciu: tuż za czołem własnej armii na ścieżce natarcia (tam jest walka)
+		if sim.stance == "attack":
+			var front := -1.0
+			for u in sim.units:
+				if u.team == 0 and u.lane == PUSH_LANE and not u.is_hero and not u.flying:
+					front = maxf(front, u.s)
+			if front > sim.rally_s:
+				post = sim.lanes[PUSH_LANE].point_at(front - 50.0)
 	if h.post.distance_to(post) > 40.0 and h.state != "march":
 		sim.order_hero(post)
 	for a in sim.ability_order[0]:
@@ -254,8 +262,33 @@ func _cast_by_rules(sim: Sim, a: String) -> void:
 		if u.team == 1 and u.hp > 0 and u.pos.distance_to(h.pos) <= reach:
 			foes.append(u)
 	match cfg["kind"]:
-		"strike", "line":
+		"pull":
+			var big: Sim.Unit = null
+			for u in foes:
+				if u.hp >= 150.0 and not u.flying and u.kind != "warlord" and (big == null or u.hp > big.hp):
+					big = u
+			if big != null and h.hp >= h.max_hp * 0.5:
+				sim.use_ability(a, big.pos)
+		"taunt":
+			var close := foes.filter(func(u: Sim.Unit) -> bool: return not u.flying and u.pos.distance_to(h.pos) <= cfg["radius"])
+			if close.size() >= 3 and h.hp >= h.max_hp * 0.5:
+				sim.use_ability(a)
+		"leap":
+			if h.hp < h.max_hp * 0.5:
+				return
+			for u in foes:
+				var n := 0
+				for o in foes:
+					if o.pos.distance_to(u.pos) <= cfg["radius"]:
+						n += 1
+				if n >= 3 and sim.ability_target_ok(a, u.pos):
+					sim.use_ability(a, u.pos)
+					return
+		"strike", "line", "repel", "weaken", "raise_dead":
 			var r: float = cfg.get("radius", 60.0)
+			if not cfg["target"]:
+				r = cfg["radius"]  # „wokół siebie" — grupa musi stać przy dowódcy
+				foes.assign(foes.filter(func(u: Sim.Unit) -> bool: return u.pos.distance_to(h.pos) <= r))
 			var best := Vector2.INF
 			var best_n := 2
 			for u in foes:
@@ -1182,9 +1215,178 @@ func _test_burrow() -> void:
 		_check(digger.burrow == 0.0 and victim.hp < victim.max_hp, "wynurzenie ze wstrząsem rani wrogów (%s)" % who)
 
 
+## Typy gibonów (T11): ogłuszenie w salwie, przyciągnięcie, prowokacja, odrzut — dla obu drużyn.
+func _test_gibbon_kinds() -> void:
+	for team in 2:
+		var foe_t := 1 - team
+		var who := "team %d" % team
+		var sim := _fx_sim()
+		sim.base_hp = [1e9, 1e9]
+		var lane: Sim.Lane = sim.lanes[1]
+		var h := sim._make_hero(team, "iron_grip")
+		sim.heroes[team] = h
+		h.pos = lane.point_at(700)
+		h.post = h.pos
+		var fwd := 1.0 if team == 0 else -1.0  # „naprzód" dla rzucającego wzdłuż ścieżki
+
+		# strike ze stun: Uderzenie o ziemię wokół dowódcy ogłusza
+		sim._spawn_unit(foe_t, "brute", 1, 5.0, 1, 700 + 30 * fwd)
+		var foe: Sim.Unit = sim.units[-1]
+		_check(sim.use_ability("ground_slam", Vector2.ZERO, team), "uderzenie o ziemię (%s)" % who)
+		sim.step(DT)
+		_check(foe.stun > 0.0 and foe.hp < foe.max_hp, "uderzenie wokół dowódcy rani i ogłusza (%s)" % who)
+		var stunned_at := foe.pos
+		for i in 10:
+			sim.step(DT)
+		_check(foe.pos == stunned_at, "ogłuszony stoi (%s)" % who)
+		foe.hp = 0.0
+
+		# pull: najsilniejszy wróg w obszarze ląduje przy dowódcy; Wódz odporny
+		sim = _fx_sim()
+		h = sim._make_hero(team, "iron_grip")
+		sim.heroes[team] = h
+		h.pos = lane.point_at(700)
+		var spot := lane.point_at(700 + 160 * fwd)
+		_check(not sim.ability_target_ok("grip", spot, team), "chwyt bez celu — odmowa (%s)" % who)
+		sim._spawn_unit(foe_t, "warlord", 1, 1.0, 1, 700 + 160 * fwd)
+		_check(not sim.ability_target_ok("grip", spot, team), "Wódz odporny na chwyt (%s)" % who)
+		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1, 700 + 170 * fwd)
+		foe = sim.units[-1]
+		_check(sim.use_ability("grip", spot, team), "chwyt (%s)" % who)
+		_check(foe.pos.distance_to(h.pos) < 40.0, "chwyt przyciąga wroga do dowódcy (%s)" % who)
+
+		# taunt: wrogowie w promieniu idą na dowódcę, choć normalnie by go nie widzieli
+		sim = _fx_sim()
+		sim.base_hp = [1e9, 1e9]
+		h = sim._make_hero(team, "iron_grip")
+		sim.heroes[team] = h
+		h.pos = lane.slot_at(700, 130)  # obok ścieżki, poza zasięgiem wzroku przechodzących
+		h.post = h.pos
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700)
+		foe = sim.units[-1]
+		foe.base_speed = 60.0
+		var d0 := foe.pos.distance_to(h.pos)
+		_check(sim.use_ability("war_roar", Vector2.ZERO, team), "ryk wojenny (%s)" % who)
+		_check(foe.taunt > 0.0, "ryk prowokuje wrogów w promieniu (%s)" % who)
+		for i in 30:
+			sim.step(DT)
+		_check(foe.pos.distance_to(h.pos) < d0 - 30.0, "sprowokowany idzie na dowódcę (%s)" % who)
+
+		# repel: fala uderzeniowa cofa wrogów na linii wzdłuż ich ścieżki, swoich nie
+		sim = _fx_sim()
+		h = sim._make_hero(team, "wrecker")
+		sim.heroes[team] = h
+		h.pos = lane.point_at(700)
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700 + 120 * fwd)
+		foe = sim.units[-1]
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700 + 60 * fwd)
+		var ally: Sim.Unit = sim.units[-1]
+		var foe_s := foe.s
+		var ally_s := ally.s
+		_check(sim.use_ability("shockwave", foe.pos, team), "fala uderzeniowa (%s)" % who)
+		_check((foe.s - foe_s) * fwd >= Cfg.ABILITIES["shockwave"]["distance"] - 1.0, "odrzut cofa wroga wzdłuż ścieżki (%s)" % who)
+		_check(ally.s == ally_s and foe.hp < foe.max_hp, "odrzut omija swoich i rani wroga (%s)" % who)
+
+
+## Typy hien i dzików (T11b): osłabienie, skok, wskrzeszenie, Padlina, krótko żyjące przywołania,
+## odrzut przy pierwszym ciosie — dla obu drużyn.
+func _test_hyena_boar_kinds() -> void:
+	var river_lv := 0
+	for i in Levels.ALL.size():
+		if not Levels.ALL[i]["river"].is_empty():
+			river_lv = i
+	for team in 2:
+		var foe_t := 1 - team
+		var who := "team %d" % team
+		var fwd := 1.0 if team == 0 else -1.0
+
+		# weaken: wróg dostaje więcej obrażeń, swój nie
+		var sim := _fx_sim()
+		var lane: Sim.Lane = sim.lanes[1]
+		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1, 700)
+		var foe: Sim.Unit = sim.units[-1]
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		var ally: Sim.Unit = sim.units[-1]
+		_check(sim.use_ability("curse", foe.pos, team), "klątwa (%s)" % who)
+		_check(foe.vuln > 1.0 and ally.vuln == 1.0, "klątwa osłabia tylko wrogów (%s)" % who)
+		var hp := foe.hp
+		sim._damage_unit(foe, 10.0, "melee")
+		_check(is_equal_approx(hp - foe.hp, 10.0 * Cfg.ABILITIES["curse"]["mult"]), "osłabiony dostaje więcej obrażeń (%s)" % who)
+
+		# leap: dowódca skacze na ląd i rani przy lądowaniu; do rzeki — odmowa
+		sim = _fx_sim(river_lv)
+		lane = sim.lanes[1]
+		var h := sim._make_hero(team, "cackle")
+		sim.heroes[team] = h
+		h.pos = lane.point_at(600)
+		var land := lane.point_at(600 + 150 * fwd)
+		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1, 600 + 150 * fwd)
+		foe = sim.units[-1]
+		_check(sim.use_ability("pounce", land, team), "skok (%s)" % who)
+		_check(h.pos == land and h.post == land, "dowódca ląduje w celu (%s)" % who)
+		_check(foe.hp < foe.max_hp, "lądowanie rani wrogów (%s)" % who)
+		var water := Vector2.INF  # woda z dala od mostów (na moście skakać wolno)
+		for p in sim.river.get_baked_points():
+			if Rect2(Vector2(200, 200), sim.size - Vector2(400, 400)).has_point(p) and _lane_gap(sim, p) > 80.0:
+				water = p
+				break
+		h.pos = water + Vector2(150, 0)
+		sim.ability_cd[team]["pounce"] = 0.0
+		_check(not sim.ability_target_ok("pounce", water, team), "skok do rzeki — odmowa (%s)" % who)
+
+		# raise_dead: wróg ginący w obszarze wstaje po naszej stronie
+		sim = _fx_sim()
+		lane = sim.lanes[1]
+		var spot := lane.point_at(700)
+		_check(sim.use_ability("raise", spot, team), "wskrzeszenie (%s)" % who)
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700)
+		foe = sim.units[-1]
+		var mine_before := sim.army_size(team)
+		sim._damage_unit(foe, 1e6, "melee")
+		sim.step(DT)
+		_check(sim.army_size(team) == mine_before + 1 and sim.units[-1].kind == "grunt" and sim.units[-1].team == team,
+			"poległy wróg wstaje po stronie rzucającego (%s)" % who)
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		ally = sim.units[-1]
+		var foes_before := sim.army_size(foe_t)
+		sim._damage_unit(ally, 1e6, "melee")
+		sim.step(DT)
+		_check(sim.army_size(foe_t) == foes_before, "własny poległy nie wstaje u wroga (%s)" % who)
+
+		# bounty_buff: Padlina podnosi nagrody gracza tylko wtedy, gdy rzuca ją gracz
+		sim = _fx_sim()
+		_check(sim.use_ability("carrion", Vector2.ZERO, team), "padlina (%s)" % who)
+		sim._spawn_unit(1, "brute", 1, 1.0, 1, 700)
+		var gold := sim.gold
+		sim._damage_unit(sim.units[-1], 1e6, "melee")
+		var expected: int = Cfg.UNITS["brute"]["bounty"]
+		if team == 0:
+			expected = roundi(expected * Cfg.ABILITIES["carrion"]["mult"])
+		_check(is_equal_approx(sim.gold - gold, expected), "nagroda za zabicie: %d (%s)" % [expected, who])
+
+		# summon_units z lifetime (Tabun) znika po czasie; Szarża — pierwszy cios odrzuca
+		sim = _fx_sim()
+		lane = sim.lanes[1]
+		var own_s := 400.0 if team == 0 else lane.length - 400.0
+		var n0 := sim.army_size(team)
+		_check(sim.use_ability("herd", lane.point_at(own_s), team), "tabun (%s)" % who)
+		_check(sim.army_size(team) > n0, "tabun przywołuje jednostki (%s)" % who)
+		sim.elapsed += Cfg.ABILITIES["herd"]["lifetime"] + 0.5
+		sim.step(DT)
+		_check(sim.army_size(team) == n0, "tabun znika po czasie (%s)" % who)
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		ally = sim.units[-1]
+		sim._spawn_unit(foe_t, "brute", 1, 5.0, 1, 700 + 25 * fwd)
+		foe = sim.units[-1]
+		_check(sim.use_ability("stampede", ally.pos, team), "szarża (%s)" % who)
+		var s0 := foe.s
+		sim._melee_hit(ally, foe)
+		_check((foe.s - s0) * fwd > 30.0 and not ally.buffs.has("knockback"), "pierwszy cios odrzuca, potem już nie (%s)" % who)
+
+
 ## Sim do testów typów efektów: obie drużyny mają gotowe wszystkie umiejętności z Cfg.
-func _fx_sim() -> Sim:
-	var sim := _empty_sim()
+func _fx_sim(lv := 0) -> Sim:
+	var sim := _empty_sim(lv)
 	for team in 2:
 		for a in Cfg.ABILITIES:
 			sim.ability_cd[team][a] = 0.0

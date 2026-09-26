@@ -166,7 +166,9 @@ przy HP < 30% wraca do bazy; rzuca według tabeli. `turtle`: dowódca zawsze prz
 
 ### R10. Stan pośredni (do T11) i dowódca-zastępca
 
-- Dowódcy niezaimplementowani są w menu jako „Wkrótce”. Na punkcie kontrolnym T9 krety mają grywalnego tylko Sapera.
+- Dowódcy niezaimplementowani są w menu jako „Wkrótce”. ~~Na punkcie kontrolnym T9 krety mają grywalnego tylko Sapera.~~
+  *(2026-09-25, po grze na telefonie)* Grywalność wynika z danych (`Cfg.commander_ready`): po T9 grywalni są
+  wszyscy trzej dowódcy kretów i Bojowy Rytm gibonów — zostają. T10 = strojenie Snajpera i Magmy botem (`--commander`).
 - Gibony do T11 mają jednego dowódcę-zastępcę **„Weteran”** z dzisiejszymi umiejętnościami (Deszcz strzał,
   Pobór, Naprawa) i bez umiejętności rasy — rasa zostaje grywalna, a boty mają punkt odniesienia do balansu.
 - Rekordy i gwiazdki zostają per mapa × trudność; ekran końca pokazuje rasę i dowódcę.

@@ -77,9 +77,9 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 **Otwarte:** komu Pobór i Naprawa (blokuje usunięcie „Weterana”) · szczegóły Etapu 4 (uwagi recenzenta w projekcie) → przegląd + `/plan-design-review` przed T14.
 
 - [x] **Etap 0 — fundamenty:** T1 rzeka i mosty w `Sim` · T2 nawigacja (`AStarGrid2D`, `Sim.path_to`) · T3 umiejętności jako typy efektów z `team` — mecze botów bez zmian
-- [ ] **Etap 1 — dowódca gracza:** ~~T4 dane dowódców~~ ✅ · ~~T5 bohater w `Sim`~~ ✅ · ~~T6 nowe typy efektów~~ ✅ · ~~T7 widok, dotyk, samouczek~~ ✅ · ~~T8 menu~~ ✅ · ~~T9 Saper + Podkop + bot + balans~~ ✅ (czeka: gra na telefonie) → **gra na telefonie**
-- [ ] **Etap 2 — reszta dowódców:** T10 Snajper, Magma · T11 gibony · T11b hieny i dziki (w iteracji — D1)
-- [ ] **Etap 3 — domknięcie:** ~~T12 boss rywala~~ (usunięte, D5) · T13 balans całości, kontrakt regresji, perf na telefonie, dokumentacja
+- [x] **Etap 1 — dowódca gracza:** ~~T4 dane dowódców~~ ✅ · ~~T5 bohater w `Sim`~~ ✅ · ~~T6 nowe typy efektów~~ ✅ · ~~T7 widok, dotyk, samouczek~~ ✅ · ~~T8 menu~~ ✅ · ~~T9 Saper + Podkop + bot + balans~~ ✅ → **gra na telefonie**
+- [x] **Etap 2 — reszta dowódców:** ~~T10 Snajper, Magma~~ ✅ · ~~T11 gibony~~ ✅ · ~~T11b hieny i dziki~~ ✅
+- [x] **Etap 3 — domknięcie:** ~~T12 boss rywala~~ (usunięte, D5) · ~~T13 balans całości, kontrakt regresji, perf, dokumentacja~~ ✅ (czeka: `-Bench --stress` na telefonie)
 - [ ] **Etap 4 — rozbudowa (CEO review):** T14 awans dowódcy w partii · T15 tryb przetrwania · T16 wyzwanie dnia z modyfikatorami · T17 pojedynek 2 graczy na jednym telefonie (największe ryzyko: symetryczna ekonomia wroga)
 
 ## Lore i rasy (do przemyślenia)
