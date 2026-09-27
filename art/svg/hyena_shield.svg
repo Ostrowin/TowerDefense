@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64.0 136" data-world="0.22">
+  <!-- Hiena-tarczownik: tarcza ze złomu z czaszką, włócznia z laserowym grotem, hełm. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M46 92 C34 90 24 96 16 108 C26 108 34 104 44 102 Z" fill="#9c7a30"/>
+    <path d="M22 100 C14 104 10 112 12 118 C18 116 26 110 30 104 Z" fill="#3a2a1a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M52 102 L44 120 L46 128 L58 128 L56 120 L62 106 Z" fill="#7d5f24"/>
+    <path d="M44 124 L44 136 L62 136 L60 124 Z" fill="#25282c"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M38 98 C36 82 46 68 64 64 C80 60 92 68 94 82 C96 98 86 112 70 114 C54 116 40 110 38 98 Z" fill="#b8923a"/>
+  </g>
+  <g fill="#4a3520" opacity="0.85">
+    <ellipse cx="44" cy="90" rx="3" ry="2"/><ellipse cx="48" cy="80" rx="2.5" ry="2"/>
+    <ellipse cx="42" cy="100" rx="2" ry="1.5"/><ellipse cx="66" cy="112" rx="2.5" ry="1.8"/><ellipse cx="30" cy="100" rx="2" ry="1.5"/>
+  </g>
+  <path d="M40 100 C44 110 56 114 66 114 C54 112 44 106 42 96 Z" fill="#7d5f24" opacity="0.7"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M62 104 L58 122 L60 128 L76 128 L72 120 L78 106 Z" fill="#b8923a"/>
+    <path d="M58 122 L58 136 L80 136 L78 124 Z" fill="#3b3f45"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 100 C56 108 74 110 90 100 L90 106 C74 116 56 114 44 106 Z" fill="#4a3a2a"/>
+    <rect x="50" y="102" width="9" height="9" rx="1" fill="#5c4a36"/>
+  </g>
+  <path d="M44 28 L40 34 L46 36 L40 42 L46 44 L40 52 L47 53 L42 62 L50 62 L46 70 L56 66 L56 34 Z"
+        fill="#2e2016" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M78 22 C78 8 94 6 96 18 C97 26 90 30 84 30 Z" fill="#7d5f24"/>
+    <path d="M46 44 C46 26 60 16 76 18 C92 20 100 32 98 44 C96 58 86 66 72 66 C56 66 46 58 46 44 Z" fill="#b8923a"/>
+    <path d="M84 38 C96 34 110 38 114 48 C116 58 108 64 98 64 C90 64 84 60 82 54 Z" fill="#b8923a"/>
+    <path d="M48 36 C48 22 62 14 76 16 C88 18 96 26 97 36 C84 32 62 32 48 36 Z" fill="#3b3f45"/>
+    <path d="M70 16 L72 8 L76 16" fill="#d8cdb4"/>
+    <path d="M50 30 C44 16 52 4 62 8 L60 12 L65 13 C70 18 68 28 62 34 Z" fill="#b8923a"/>
+  </g>
+  <path d="M53 26 C50 18 54 12 59 12 C63 16 62 24 59 30 Z" fill="#3a2a1a"/>
+  <path d="M82 22 C82 14 90 12 92 18 C92 22 88 26 85 26 Z" fill="#3a2a1a"/>
+  <path d="M92 38 C102 36 111 40 113 48 C114 56 108 62 100 62 C94 62 90 58 90 52 Z" fill="#3a2c20"/>
+  <ellipse cx="111" cy="45" rx="4" ry="3" fill="#120c08"/>
+  <ellipse cx="112" cy="44" rx="1.5" ry="0.8" fill="#6b5a4a"/>
+  <path d="M90 56 C96 60 104 60 110 56" fill="none" stroke="#120c08" stroke-width="2"/>
+  <path d="M94 57 L95.5 61 L97 58 L98.5 61.5 L100 58.5 L101.5 61.5 L103 58 L104.5 60.5 L106 57.5" fill="#efe6cf" stroke="#120c08" stroke-width="0.8"/>
+  <g fill="#4a3520" opacity="0.8">
+    <ellipse cx="58" cy="50" rx="2.5" ry="2"/><ellipse cx="64" cy="58" rx="2" ry="1.6"/><ellipse cx="54" cy="40" rx="2" ry="1.5"/>
+  </g>
+  <path d="M48 46 C50 58 60 66 72 66 C64 62 56 56 52 44 Z" fill="#7d5f24" opacity="0.7"/>
+  <path d="M78 36 C83 32 90 33 92 38 C88 41 82 41 78 36 Z" fill="#f2c14e" stroke="#120c08" stroke-width="1.5"/>
+  <circle cx="86" cy="37" r="2" fill="#120c08"/>
+  <path d="M76 32 L92 30" stroke="#2e2016" stroke-width="3" stroke-linecap="round"/>
+  <path d="M80 24 L86 46" stroke="#b86a5c" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80 24 L86 46" stroke="#e0a090" stroke-width="0.8" stroke-linecap="round"/>
+  <path d="M70 23 C76 21 84 22 90 27" fill="none" stroke="#dcc07a" stroke-width="2" stroke-linecap="round"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M121 20 L121 120" stroke="#1a120c" stroke-width="6"/>
+    <path d="M121 20 L121 120" stroke="#5c4a36" stroke-width="3"/>
+    <path d="M121 2 L126 20 L116 20 Z" fill="#25282c"/>
+  </g>
+  <path d="M121 6 L123.5 18 L118.5 18 Z" fill="#ff5a36"/><path d="M121 9 L121 17" stroke="#ffd9b0" stroke-width="1"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M70 70 L112 64 L118 72 L116 124 L96 136 L74 128 L68 76 Z" fill="#3b3f45"/>
+    <path d="M76 76 L110 71 L112 120 L96 129 L78 122 Z" fill="#454a52" stroke-width="1.5"/>
+  </g>
+  <path d="M70 82 L117 76 L117 88 L70 94 Z" fill="#c800c8"/>
+  <path d="M70 82 L117 76" stroke="#ff00ff" stroke-width="1.2"/>
+  <path d="M88 104 C88 96 102 96 102 104 C102 110 99 112 97 112 L93 112 C91 112 88 110 88 104 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="1.5"/>
+  <circle cx="92" cy="104" r="1.8" fill="#1a120c"/><circle cx="98" cy="104" r="1.8" fill="#1a120c"/>
+  <path d="M93 112 L93 115 M95 112 L95 115 M97 112 L97 115" stroke="#d8cdb4" stroke-width="1.2"/>
+  <path d="M104 92 L110 100 L106 106" stroke="#1a120c" stroke-width="1.2" fill="none"/>
+  <path d="M72 72 L110 67" stroke="#8b939e" stroke-width="1.5"/>
+    <circle cx="73" cy="78" r="1.4" fill="#8b939e"/>
+    <circle cx="114" cy="74" r="1.4" fill="#8b939e"/>
+    <circle cx="114" cy="118" r="1.4" fill="#8b939e"/>
+    <circle cx="76" cy="122" r="1.4" fill="#8b939e"/>
+    <circle cx="96" cy="132" r="1.4" fill="#8b939e"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="117" cy="80" r="5" fill="#9c7a30"/>
+  </g>
+</svg>

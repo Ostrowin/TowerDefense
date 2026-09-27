@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 150" width="128" height="150" data-anchor="64 140" data-world="0.34" data-scale="1">
+  <!-- Totem pulsu (magia): leczy własne jednostki — zielone runy. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M50 138 L50 40 L78 40 L78 138 Z" fill="#6a4a2e"/>
+    <path d="M44 138 C44 130 84 130 84 138 C84 144 44 144 44 138 Z" fill="#4a3a2a"/>
+  </g>
+  <path d="M50 70 L78 70 M50 104 L78 104" stroke="#1a120c" stroke-width="2.5"/>
+  <path d="M54 80 L60 90 L54 98 M74 80 L68 90 L74 98" stroke="#7dff9a" stroke-width="2.4" fill="none"/>
+  <path d="M56 112 L72 112 L72 128 L56 128 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M56 113.5 L72 113.5" stroke="#ff00ff" stroke-width="1"/>
+  <path d="M52 44 L56 132" stroke="#8a6a44" stroke-width="2"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 44 C40 28 52 16 64 16 C76 16 88 28 86 44 L92 48 L86 54 C80 60 48 60 42 54 L36 48 Z" fill="#8a6a44"/>
+    <path d="M44 20 L38 4 L52 14 Z M84 20 L90 4 L76 14 Z" fill="#6a4a2e"/>
+    <path d="M40 52 C36 44 36 36 40 30 C42 38 44 44 48 50 Z M88 52 C92 44 92 36 88 30 C86 38 84 44 80 50 Z" fill="#efe6cf"/>
+  </g>
+  <circle cx="56" cy="34" r="4" fill="#7dff9a" stroke="#1a120c" stroke-width="1.5"/><circle cx="72" cy="34" r="4" fill="#7dff9a" stroke="#1a120c" stroke-width="1.5"/>
+  <ellipse cx="64" cy="48" rx="8" ry="5" fill="#8a5a44" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M64 6 L64 -2 M60 2 L68 2" stroke="#7dff9a" stroke-width="2.5"/>
+  <circle cx="30" cy="70" r="3" fill="#7dff9a" opacity="0.7"/><circle cx="98" cy="84" r="2.5" fill="#7dff9a" opacity="0.7"/>
+</svg>

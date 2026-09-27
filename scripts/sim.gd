@@ -105,6 +105,7 @@ class Unit:
 	var slow_timer := 0.0
 	var slow_factor := 0.0  ## ułamek prędkości zabrany przez mróz
 	var flash := 0.0  ## tylko dla renderu: błysk po trafieniu
+	var face := 1.0  ## tylko dla renderu: zwrot postaci (1 = w prawo, -1 = w lewo)
 
 
 ## Dowódca (R4): jednostka sterowana rozkazami, bez ścieżki. Jest w `units` i `_grid`, więc wieże,

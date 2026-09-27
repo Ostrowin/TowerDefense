@@ -7,7 +7,7 @@
 - [x] **P2 — Android smoke test**: szablony eksportu (tylko Android), preset, `tools/android.ps1` (build / instalacja / log / benchmark na telefonie), realme 8i (Helio G96, Mali-G57): pełny ekran 20:9, dotyk i HUD ×1,3 sprawdzone graniem, „Wstecz” jak Esc, ★/●/→/— z fontu OK, **duża bitwa: mediana 17,6 ms, p95 22,9 ms** (Trudny x3, do ~240 jednostek; wcześniej 60 ms). APK krąży też poza projektem (sideload).
 - [x] **P3 — głębia**: ulepszenia i sprzedaż, armata, mróz, warsztat + katapulta, postawa, umiejętności, nietoperze i tarczownicy, sprytny wybór ścieżek.
 - [x] **P4 — treść**: 3 mapy (Trzy drogi, Przesmyk, Serpentyna) jako dane w `Levels`, wybór w menu, rekordy i gwiazdki.
-- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren. ✘ sprite'y CC0, ikona aplikacji (teraz domyślna Godota).
+- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren, **grafika (D30)**: sprite'y SVG z brudem — 4 rasy × 6 jednostek, 12 dowódców, budynki i budowle tymczasowe, forteca, teren z kafli, dekoracje, pociski w stylu ras. ✘ ikona aplikacji (teraz domyślna Godota), portrety dowódców i ras w menu/HUD, pomiar na telefonie.
 
 ## Sesja 7 (2026-09-25) — dowódcy: projekt i fundamenty
 
@@ -88,7 +88,7 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 - Lore świata wspólne z innymi grami — kto z kim walczy i dlaczego (pierwsze grywalne: krety i gibony).
 - Czy rasy dostają własne jednostki/mechaniki (asymetria), czy zostają tożsamością? Od tego zależy skala roboty.
 - Wrogowie w kodzie nadal nazywają się ork/goblin/ogr/wódz (`Cfg.UNITS`) — przemianować pod lore.
-- Styl grafiki (P5) wybieramy dopiero po lore.
+- Styl grafiki wybrany (D30) — przy nowych rasach trzymać podział dowódców sci-fi/fantasy.
 
 ## Backlog (świadomie odroczone)
 

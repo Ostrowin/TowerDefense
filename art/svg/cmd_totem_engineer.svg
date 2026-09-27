@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.27" data-scale="0.85">
+  <!-- Inżynier Totemów (fantasy): plecak-totem z oczami-runami, dłuto runiczne, pióra. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M26 110 L26 40 L46 40 L46 110 Z" fill="#6a4a2e"/>
+    <path d="M22 44 C22 30 50 30 50 44 L46 50 L26 50 Z" fill="#8a6a44"/>
+  </g>
+  <circle cx="32" cy="40" r="2.5" fill="#ff9a3c"/><circle cx="40" cy="40" r="2.5" fill="#ff9a3c"/>
+  <path d="M28 64 L44 64 M28 86 L44 86" stroke="#1a120c" stroke-width="2"/>
+  <path d="M30 72 L36 78 L42 72" stroke="#ff9a3c" stroke-width="1.8" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 106 L42 124 L42 134 L60 134 L60 122 L62 108 Z" fill="#4a2a18"/>
+    <path d="M68 108 L66 124 L66 134 L86 134 L84 122 L84 108 Z" fill="#7a4a2e"/>
+    <path d="M40 128 L40 138 L62 138 L61 128 Z M64 128 L64 138 L88 138 L87 128 Z" fill="#2a1e16"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M34 92 C32 72 48 60 66 60 C84 60 96 72 96 90 C96 108 84 118 66 118 C48 118 36 110 34 92 Z" fill="#7a4a2e"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 80 C58 72 80 72 90 82 C92 96 88 108 80 112 L56 112 C48 104 46 92 48 80 Z" fill="#4a3a2a"/>
+    <path d="M38 70 C44 58 64 54 76 62 C70 70 56 74 44 80 Z" fill="#3a2e26"/>
+  </g>
+  <path d="M42 66 L40 60 M48 62 L47 56 M56 60 L56 54 M64 60 L66 54" stroke="#3a2e26" stroke-width="3"/>
+  <path d="M56 86 L82 86 L80 104 L68 110 L58 104 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M57 87.5 L81 87.5" stroke="#ff00ff" stroke-width="1.2"/>
+  <path d="M50 106 L86 106" stroke="#2a1e16" stroke-width="4"/>
+  <circle cx="68" cy="106" r="3.5" fill="#4a4a4c" stroke="#1a120c" stroke-width="1.2"/>
+  <path d="M66 92 L70 100 L74 92 M70 100 L70 96" stroke="#ff9a3c" stroke-width="1.8" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M84 20 L90 2 L98 18 Z" fill="#4a2a18"/>
+    <path d="M44 50 C42 32 56 18 74 18 C88 18 98 28 100 40 L114 42 C121 44 123 54 119 60 L100 62 C92 68 80 70 68 68 C54 66 44 60 44 50 Z" fill="#7a4a2e"/>
+    <path d="M58 28 L50 4 L66 14 L64 20 L70 22 Z" fill="#7a4a2e"/>
+  </g>
+  <path d="M57 24 L53 10 L62 17 Z" fill="#8a4a44"/>
+  <ellipse cx="119" cy="51" rx="5" ry="8" fill="#c98a7a" stroke="#1a120c" stroke-width="2"/>
+  <ellipse cx="119" cy="48" rx="1.3" ry="2" fill="#1a120c"/><ellipse cx="119" cy="55" rx="1.3" ry="2" fill="#1a120c"/>
+  <path d="M46 54 C52 64 64 68 76 68 C64 64 54 58 50 48 Z" fill="#4a2a18" opacity="0.7"/>
+  <path d="M100 42 L112 44" stroke="#9c6a44" stroke-width="1.8"/>
+  <path d="M62 24 C70 20 80 20 88 22" fill="none" stroke="#9c6a44" stroke-width="2"/>
+  <path d="M42 30 L46 38 L38 40 L46 46 L38 52 L46 56 L40 64 L50 62 L54 42 L50 28 Z" fill="#2e1a10" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M70 46 L90 50 M72 54 L88 56" stroke="#e8e0c8" stroke-width="2.5" opacity="0.85"/>
+  <path d="M78 36 C82 32 88 32 91 36 C88 39 82 39 78 36 Z" fill="#d8402a" stroke="#120c08" stroke-width="1.5"/>
+  <circle cx="85.5" cy="36" r="1.5" fill="#120c08"/>
+  <path d="M76 31 L93 33" stroke="#2e1a10" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M92 26 L96 40" stroke="#b86a5c" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M104 62 C112 60 116 52 115 44 C119 52 118 62 108 67 Z" fill="#efe6cf" stroke="#1a120c" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M96 64 C100 62 102 58 102 54 C105 58 104 64 99 67 Z" fill="#d8ceb0" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M100 62 C104 64 110 64 114 62" stroke="#120c08" stroke-width="1.6" fill="none"/>
+  <path d="M56 20 L44 2 M62 16 L58 -2 M70 16 L74 0" stroke="#1a120c" stroke-width="4.5"/>
+  <path d="M56 20 L44 2 M62 16 L58 -2 M70 16 L74 0" stroke="#d8c060" stroke-width="2.4"/>
+  <path d="M50 24 C60 18 74 16 86 20" stroke="#d8cdb4" stroke-width="4" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M88 94 L112 58" stroke-width="6"/>
+    <path d="M104 52 L118 46 L122 58 L112 64 Z" fill="#4a4a4c"/>
+  </g>
+  <path d="M88 94 L112 58" stroke="#8a6a44" stroke-width="3"/>
+  <path d="M108 54 L116 52" stroke="#ff9a3c" stroke-width="1.8"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M76 66 C88 70 94 80 92 90 L82 92 C82 84 78 78 72 76 Z" fill="#7a4a2e"/>
+    <circle cx="87" cy="92" r="6" fill="#4a2a18"/>
+  </g>
+</svg>

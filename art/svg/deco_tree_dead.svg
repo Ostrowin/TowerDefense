@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 112" width="96" height="112" data-anchor="49 104" data-world="0.4" data-scale="0.8" data-grime="0.6">
+  <!-- Martwe, spalone drzewo. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 106 L44 64 L28 40 L20 42 L26 34 L36 44 L44 30 L40 14 L48 26 L50 44 L60 28 L68 30 L60 36 L54 56 L66 48 L78 50 L68 54 L56 66 L56 106 Z" fill="#3a2e22"/>
+  </g>
+  <path d="M46 70 L48 100 M52 60 L52 80" stroke="#1c1612" stroke-width="1.5"/>
+  <path d="M44 44 L42 30" stroke="#5a4838" stroke-width="1.5"/>
+  <path d="M36 104 C44 98 54 98 62 104" stroke="#1c1612" stroke-width="2" fill="none"/>
+</svg>

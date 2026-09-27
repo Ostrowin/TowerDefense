@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 28" width="72" height="28" data-anchor="8 14" data-world="0.36" data-scale="1">
+  <!-- Lufa wieży laserowej: obraca się wokół (8,14) — środka głowicy. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round">
+    <circle cx="10" cy="14" r="8" fill="#3b3f45"/>
+    <rect x="12" y="7" width="44" height="14" rx="2" fill="#2b2e33"/>
+    <rect x="24" y="4" width="4" height="20" fill="#3b3f45"/>
+    <rect x="32" y="4" width="4" height="20" fill="#3b3f45"/>
+    <rect x="54" y="5" width="8" height="18" rx="2" fill="#25282c"/>
+  </g>
+  <rect x="58" y="9" width="3" height="10" fill="#ff5a36"/>
+  <rect x="59" y="11" width="1.5" height="6" fill="#ffd9b0"/>
+  <path d="M14 11 L52 11" stroke="#6b727d" stroke-width="1.5"/>
+  <circle cx="10" cy="14" r="3" fill="#ff5a36"/>
+</svg>

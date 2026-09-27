@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 176" width="128" height="176" data-anchor="64 140" data-world="0.36" data-scale="1">
+  <!-- Armata: stalowy bunkier z moździerzem plazmowym (lufa osobno: b_cannon_gun). -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M12 132 L12 150 C12 162 38.0 170 64 170 C90.0 170 116 162 116 150 L116 132 Z" fill="#4f4a42"/>
+    <ellipse cx="64" cy="132" rx="52" ry="19.24" fill="#7d776a"/>
+  </g>
+  <g stroke="#2e2a24" stroke-width="1.5" fill="none">
+    <path d="M12 142 C32.8 152 95.2 152 116 142"/>
+    <path d="M29.68 150 L29.68 160 M52.56 154 L52.56 168 M75.44 154 L75.44 168 M98.32 150 L98.32 160"/>
+    <path d="M27.6 124 L45.8 118 M84.8 118 L103.0 124"/>
+  </g>
+  <path d="M96.24000000000001 150 L106.64 146 L111.84 152 L103.52000000000001 160 Z" fill="#2a2622" stroke="#1a120c" stroke-width="1.5"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 146 C8 138 28 138 30 146 C30 154 8 154 8 146 Z" fill="#8a7a5a"/>
+    <path d="M4 158 C4 152 20 152 22 158 C22 165 4 165 4 158 Z" fill="#8a7a5a"/>
+    <path d="M20 156 C20 148 42 148 44 156 C44 164 20 164 20 156 Z" fill="#8a7a5a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M26 128 L26 96 C26 80 44 70 64 70 C84 70 102 80 102 96 L102 128 C90 138 38 138 26 128 Z" fill="#3b3f45"/>
+    <path d="M64 70 C84 70 102 80 102 96 L102 128 C96 133 82 136 64 137 Z" fill="#25282c" stroke="none"/>
+    <ellipse cx="64" cy="94" rx="36" ry="14" fill="#4b5058"/>
+    <rect x="44" y="108" width="40" height="8" rx="2" fill="#1c1e22"/>
+  </g>
+  <path d="M26 104 C40 112 88 112 102 104 L102 112 C88 120 40 120 26 112 Z" fill="#c800c8"/>
+  <path d="M26 104 C40 112 88 112 102 104" stroke="#ff00ff" stroke-width="1.2" fill="none"/>
+  <path d="M34 90 C44 84 58 82 70 82" stroke="#8b939e" stroke-width="1.8" fill="none"/>
+  <rect x="48" y="110" width="8" height="4" fill="#ff9a2c"/>
+    <circle cx="32" cy="122" r="1.4" fill="#8b939e"/>
+    <circle cx="96" cy="122" r="1.4" fill="#8b939e"/>
+    <circle cx="48" cy="128" r="1.4" fill="#8b939e"/>
+    <circle cx="80" cy="128" r="1.4" fill="#8b939e"/>
+</svg>

@@ -10,18 +10,26 @@ extends RefCounted
 ## kształt), GDScript tylko skleja tablice.
 ##
 ##   pen.clear() → pen.circle(...) / pen.rect(...) / … → pen.draw_on(canvas_item)  (w jego _draw)
+##
+## Sprite'y: z ustawioną teksturą (`use_atlas`) każdy wierzchołek ma też UV. Kształty bez tekstury
+## biorą UV białego bloku atlasu, sprite'y (`quad_uv`) — swój prostokąt, więc kształty i sprite'y
+## z jednego atlasu dalej idą jednym wywołaniem.
 
 static var _circles := {}  ## liczba segmentów → trójkąty koła o promieniu 1
 static var _rings := {}  ## "segmenty:grubość" → trójkąty pierścienia o promieniu zewn. 1
 
 var points := PackedVector2Array()
 var colors := PackedColorArray()
+var uvs := PackedVector2Array()  ## tylko z teksturą: UV każdego wierzchołka
+var texture: Texture2D
+var _white_uv := Vector2.ZERO
 var _texts: Array[Array] = []
 
 
 func clear() -> void:
 	points.clear()
 	colors.clear()
+	uvs.clear()
 	_texts.clear()
 
 
@@ -32,12 +40,35 @@ func is_empty() -> bool:
 ## Dodaje wszystko jako jedno wywołanie rysowania (+ napisy). Wołać w _draw danego węzła.
 func draw_on(item: CanvasItem) -> void:
 	if not points.is_empty():
-		RenderingServer.canvas_item_add_triangle_array(item.get_canvas_item(), PackedInt32Array(), points, colors)
+		if texture != null:
+			RenderingServer.canvas_item_add_triangle_array(item.get_canvas_item(), PackedInt32Array(), points, colors,
+				uvs, PackedInt32Array(), PackedFloat32Array(), texture.get_rid())
+		else:
+			RenderingServer.canvas_item_add_triangle_array(item.get_canvas_item(), PackedInt32Array(), points, colors)
 	for t in _texts:
 		if t[6] > 0:
 			item.draw_string_outline(t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7])
 		else:
 			item.draw_string(t[0], t[1], t[2], t[3], t[4], t[5], t[7])
+
+
+## Rysuje z atlasu `tex`; `white` = prostokąt (w pikselach) jednolicie białego bloku.
+func use_atlas(tex: Texture2D, white: Rect2) -> void:
+	texture = tex
+	_white_uv = white.get_center() / tex.get_size() if tex != null else Vector2.ZERO
+
+
+## Czworokąt z tekstury: rogi a-b-c-d (zgodnie z uv_rect: lewy-górny, prawy-górny, prawy-dolny,
+## lewy-dolny), `uv_rect` w UV 0..1. Bez tekstury nie rysuje nic.
+func quad_uv(a: Vector2, b: Vector2, c: Vector2, d: Vector2, uv_rect: Rect2, color: Color) -> void:
+	if texture == null:
+		return
+	points.append_array([a, b, c, a, c, d])
+	var u0 := uv_rect.position
+	var u1 := uv_rect.end
+	uvs.append_array([u0, Vector2(u1.x, u0.y), u1, u0, u1, Vector2(u0.x, u1.y)])
+	for i in 6:
+		colors.append(color)
 
 
 func circle(center: Vector2, radius: float, color: Color) -> void:
@@ -50,6 +81,19 @@ func circle(center: Vector2, radius: float, color: Color) -> void:
 			tris.append_array([Vector2.ZERO, Vector2.from_angle(TAU * i / n), Vector2.from_angle(TAU * (i + 1) / n)])
 		_circles[n] = tris
 	_add(Transform2D(0.0, Vector2(radius, radius), 0.0, center) * (_circles[n] as PackedVector2Array), color)
+
+
+## Elipsa (koło przeskalowane w osiach) — cienie pod postaciami w rzucie 3/4.
+func ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
+	if radii.x <= 0.0 or radii.y <= 0.0:
+		return
+	var n := clampi(int(sqrt(maxf(radii.x, radii.y)) * 4.5), 8, 64)
+	if not _circles.has(n):
+		var tris := PackedVector2Array()
+		for i in n:
+			tris.append_array([Vector2.ZERO, Vector2.from_angle(TAU * i / n), Vector2.from_angle(TAU * (i + 1) / n)])
+		_circles[n] = tris
+	_add(Transform2D(0.0, radii, 0.0, center) * (_circles[n] as PackedVector2Array), color)
 
 
 ## Jak CanvasItem.draw_rect: obrys (filled = false) leży na krawędzi prostokąta, pół grubości w każdą stronę.
@@ -130,6 +174,9 @@ func _quad(a: Vector2, b: Vector2, c: Vector2, d: Vector2, color: Color) -> void
 	points.append_array([a, b, c, a, c, d])
 	for i in 6:
 		colors.append(color)
+	if texture != null:
+		for i in 6:
+			uvs.append(_white_uv)
 
 
 func _add(tris: PackedVector2Array, color: Color) -> void:
@@ -138,6 +185,11 @@ func _add(tris: PackedVector2Array, color: Color) -> void:
 	cols.resize(tris.size())
 	cols.fill(color)
 	colors.append_array(cols)
+	if texture != null:
+		var u := PackedVector2Array()
+		u.resize(tris.size())
+		u.fill(_white_uv)
+		uvs.append_array(u)
 
 
 ## Trójkąty pierścienia o promieniu zewnętrznym 1 i wewnętrznym `inner`.

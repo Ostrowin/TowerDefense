@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 132" data-world="0.3">
+  <!-- Machina kretów: parowy moździerz na gąsienicach, kocioł z kominem. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M16 112 C16 104 22 100 30 100 L100 100 C108 100 114 104 114 112 C114 120 108 126 100 126 L30 126 C22 126 16 120 16 112 Z" fill="#2b2a28"/>
+  </g>
+  <circle cx="30" cy="113" r="8" fill="#3b3f45" stroke="#1a120c" stroke-width="2"/><circle cx="52" cy="113" r="8" fill="#3b3f45" stroke="#1a120c" stroke-width="2"/>
+  <circle cx="76" cy="113" r="8" fill="#3b3f45" stroke="#1a120c" stroke-width="2"/><circle cx="100" cy="113" r="8" fill="#3b3f45" stroke="#1a120c" stroke-width="2"/>
+  <path d="M20 104 L110 104" stroke="#4a4844" stroke-width="2" stroke-dasharray="4 3"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M22 100 L28 76 L92 76 L106 100 Z" fill="#4a5058"/>
+    <rect x="30" y="62" width="30" height="16" rx="3" fill="#b8893a"/>
+  </g>
+  <path d="M30 80 L96 80" stroke="#8b939e" stroke-width="1.5"/>
+  <path d="M40 86 L90 86 L94 96 L36 96 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M40 87.5 L90 87.5" stroke="#ff00ff" stroke-width="1.2"/>
+  <rect x="34" y="52" width="6" height="12" fill="#3b3f45" stroke="#1a120c" stroke-width="1.5"/>
+  <circle cx="37" cy="46" r="4" fill="#8a8a8a" opacity="0.5"/><circle cx="41" cy="38" r="5" fill="#9a9a9a" opacity="0.4"/>
+    <circle cx="32" cy="92" r="1.4" fill="#8b939e"/>
+    <circle cx="100" cy="96" r="1.4" fill="#8b939e"/>
+    <circle cx="60" cy="80" r="1.4" fill="#8b939e"/>
+    <circle cx="84" cy="80" r="1.4" fill="#8b939e"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M62 78 L76 46 L96 54 L84 82 Z" fill="#3b3f45"/>
+    <ellipse cx="86" cy="50" rx="11" ry="6" transform="rotate(22 86 50)" fill="#25282c"/>
+  </g>
+  <ellipse cx="86" cy="50" rx="7" ry="3.6" transform="rotate(22 86 50)" fill="#120c08"/>
+  <path d="M70 64 L88 72 M74 56 L92 64" stroke="#b8893a" stroke-width="3"/>
+  <circle cx="102" cy="88" r="4" fill="#ffc233" stroke="#1a120c" stroke-width="1.5"/><circle cx="102" cy="88" r="2" fill="#fff2c0"/>
+</svg>

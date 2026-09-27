@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="62 136" data-world="0.3">
+  <!-- Dzik-osiłek: berserker w skórach, kamienny młot z runami, naszyjnik z kłów. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M92 104 L64 20" stroke="#1a120c" stroke-width="9"/>
+    <path d="M92 104 L64 20" stroke="#8a6a44" stroke-width="5"/>
+    <path d="M44 20 C44 8 66 2 80 8 C88 12 88 30 80 34 C66 40 44 34 44 20 Z" fill="#6a6660"/>
+  </g>
+  <path d="M50 16 C58 10 70 8 78 11" stroke="#9a9690" stroke-width="2" fill="none"/>
+  <path d="M56 22 L60 16 L64 22 L60 28 Z M68 20 L72 26" stroke="#ff9a3c" stroke-width="2" fill="none"/>
+  <path d="M50 30 L54 26 M78 30 L74 26" stroke="#1a120c" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M36 106 L28 124 L28 138 L54 138 L54 124 L58 108 Z" fill="#4a2a18"/>
+    <path d="M68 108 L66 124 L66 138 L94 138 L92 124 L90 108 Z" fill="#7a4a2e"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M20 88 C18 62 40 44 66 44 C92 44 110 62 108 88 C106 110 90 120 64 120 C38 120 22 110 20 88 Z" fill="#7a4a2e"/>
+    <path d="M18 64 C24 44 56 36 78 46 C68 58 44 64 28 76 Z" fill="#3a2e26"/>
+  </g>
+  <path d="M22 62 L18 52 M30 54 L28 44 M40 48 L40 38 M52 44 L54 34" stroke="#3a2e26" stroke-width="4"/>
+  <path d="M44 84 L84 84 L86 110 L66 118 L46 110 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M46 86 L83 86" stroke="#ff00ff" stroke-width="1.5"/>
+  <path d="M56 96 L66 106 L76 96" stroke="#ff9a3c" stroke-width="2" fill="none"/>
+  <path d="M34 80 C46 92 62 96 80 92" stroke="#1a120c" stroke-width="2" fill="none"/>
+  <path d="M40 84 L38 92 L44 90 Z M52 90 L51 98 L56 95 Z M66 92 L66 100 L70 96 Z" fill="#efe6cf" stroke="#1a120c" stroke-width="1.2"/>
+  <path d="M24 92 C30 110 46 120 64 120 C46 114 32 104 28 88 Z" fill="#4a2a18" opacity="0.7"/>
+  <g transform="translate(14 18) scale(0.8)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M84 20 L90 2 L98 18 Z" fill="#4a2a18"/>
+    <path d="M44 50 C42 32 56 18 74 18 C88 18 98 28 100 40 L114 42 C121 44 123 54 119 60 L100 62 C92 68 80 70 68 68 C54 66 44 60 44 50 Z" fill="#7a4a2e"/>
+    <path d="M58 28 L50 4 L66 14 L64 20 L70 22 Z" fill="#7a4a2e"/>
+  </g>
+  <path d="M57 24 L53 10 L62 17 Z" fill="#8a4a44"/>
+  <ellipse cx="119" cy="51" rx="5" ry="8" fill="#c98a7a" stroke="#1a120c" stroke-width="2"/>
+  <ellipse cx="119" cy="48" rx="1.3" ry="2" fill="#1a120c"/><ellipse cx="119" cy="55" rx="1.3" ry="2" fill="#1a120c"/>
+  <path d="M46 54 C52 64 64 68 76 68 C64 64 54 58 50 48 Z" fill="#4a2a18" opacity="0.7"/>
+  <path d="M100 42 L112 44" stroke="#9c6a44" stroke-width="1.8"/>
+  <path d="M62 24 C70 20 80 20 88 22" fill="none" stroke="#9c6a44" stroke-width="2"/>
+  <path d="M42 30 L46 38 L38 40 L46 46 L38 52 L46 56 L40 64 L50 62 L54 42 L50 28 Z" fill="#2e1a10" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M70 46 L90 50 M72 54 L88 56" stroke="#e8e0c8" stroke-width="2.5" opacity="0.85"/>
+  <path d="M78 36 C82 32 88 32 91 36 C88 39 82 39 78 36 Z" fill="#d8402a" stroke="#120c08" stroke-width="1.5"/>
+  <circle cx="85.5" cy="36" r="1.5" fill="#120c08"/>
+  <path d="M76 31 L93 33" stroke="#2e1a10" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M92 26 L96 40" stroke="#b86a5c" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M104 62 C112 60 116 52 115 44 C119 52 118 62 108 67 Z" fill="#efe6cf" stroke="#1a120c" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M96 64 C100 62 102 58 102 54 C105 58 104 64 99 67 Z" fill="#d8ceb0" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M100 62 C104 64 110 64 114 62" stroke="#120c08" stroke-width="1.6" fill="none"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M84 62 C98 68 104 84 100 100 L88 102 C90 90 86 80 78 76 Z" fill="#7a4a2e"/>
+    <circle cx="94" cy="102" r="8" fill="#4a2a18"/>
+  </g>
+  <path d="M86 72 L98 80 M85 80 L97 88" stroke="#e8e0c8" stroke-width="2.4" opacity="0.8"/>
+  <path d="M86 94 L102 96" stroke="#4a4a4c" stroke-width="4"/>
+</svg>

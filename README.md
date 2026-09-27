@@ -6,7 +6,7 @@ Ekonomiczny lane-pusher: **tower defense + strategia**. Rozbudowujesz ekonomię,
 
 ## Status
 
-**Grywalny prototyp**: 3 mapy, 3 poziomy trudności, 4 grywalne rasy z 12 dowódcami, rekordy i gwiazdki, 6 budynków bojowych i produkcyjnych, 7 rodzajów wrogów, samouczek, ustawienia, muzyka i efekty syntezowane w kodzie. Grafika z prymitywów. Balans wstępnie strojony botami.
+**Grywalny prototyp**: 3 mapy, 3 poziomy trudności, 4 grywalne rasy z 12 dowódcami, rekordy i gwiazdki, 6 budynków bojowych i produkcyjnych, 7 rodzajów wrogów, samouczek, ustawienia, muzyka i efekty syntezowane w kodzie. Grafika: sprite'y SVG z wypalonym brudem (4 rasy, 12 dowódców, budynki, teren) i animacja z kodu. Balans wstępnie strojony botami.
 
 ## Core loop
 

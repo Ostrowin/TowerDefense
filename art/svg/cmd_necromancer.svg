@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.27" data-scale="0.85">
+  <!-- Nekromanta (fantasy): szata, kościana korona, kostur z czaszką i zielonym ogniem dusz. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 72 C36 96 34 120 30 136 L96 136 C94 118 92 96 88 72 C78 62 50 62 42 72 Z" fill="#1e1a22"/>
+    <path d="M58 70 L60 136 L70 136 L74 70 Z" fill="#2e2a34"/>
+  </g>
+  <path d="M32 130 L96 130" stroke="#2f8a3a" stroke-width="3"/>
+  <path d="M40 120 L46 126 L52 118 L58 126" stroke="#7dff6a" stroke-width="1.5" fill="none" opacity="0.8"/>
+  <path d="M46 80 L86 80 L86 86 L46 86 Z" fill="#c800c8"/>
+  <path d="M50 90 C56 96 64 96 70 92" stroke="#d8cdb4" stroke-width="2.5" fill="none"/>
+  <circle cx="56" cy="95" r="2.5" fill="#d8cdb4" stroke="#1a120c" stroke-width="1"/><circle cx="64" cy="96" r="2.5" fill="#d8cdb4" stroke="#1a120c" stroke-width="1"/>
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40 60 C36 40 44 24 56 20 C52 34 52 50 60 66 Z" fill="#1e1a22"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M78 22 C78 8 94 6 96 18 C97 26 90 30 84 30 Z" fill="#7d5f24"/>
+    <path d="M46 44 C46 26 60 16 76 18 C92 20 100 32 98 44 C96 58 86 66 72 66 C56 66 46 58 46 44 Z" fill="#b8923a"/>
+    <path d="M84 38 C96 34 110 38 114 48 C116 58 108 64 98 64 C90 64 84 60 82 54 Z" fill="#b8923a"/>
+
+    <path d="M50 30 C44 16 52 4 62 8 L60 12 L65 13 C70 18 68 28 62 34 Z" fill="#b8923a"/>
+  </g>
+  <path d="M53 26 C50 18 54 12 59 12 C63 16 62 24 59 30 Z" fill="#3a2a1a"/>
+  <path d="M82 22 C82 14 90 12 92 18 C92 22 88 26 85 26 Z" fill="#3a2a1a"/>
+  <path d="M92 38 C102 36 111 40 113 48 C114 56 108 62 100 62 C94 62 90 58 90 52 Z" fill="#3a2c20"/>
+  <ellipse cx="111" cy="45" rx="4" ry="3" fill="#120c08"/>
+  <ellipse cx="112" cy="44" rx="1.5" ry="0.8" fill="#6b5a4a"/>
+  <path d="M90 56 C96 60 104 60 110 56" fill="none" stroke="#120c08" stroke-width="2"/>
+  <path d="M94 57 L95.5 61 L97 58 L98.5 61.5 L100 58.5 L101.5 61.5 L103 58 L104.5 60.5 L106 57.5" fill="#efe6cf" stroke="#120c08" stroke-width="0.8"/>
+  <g fill="#4a3520" opacity="0.8">
+    <ellipse cx="58" cy="50" rx="2.5" ry="2"/><ellipse cx="64" cy="58" rx="2" ry="1.6"/><ellipse cx="54" cy="40" rx="2" ry="1.5"/>
+  </g>
+  <path d="M48 46 C50 58 60 66 72 66 C64 62 56 56 52 44 Z" fill="#7d5f24" opacity="0.7"/>
+  <path d="M78 36 C83 32 90 33 92 38 C88 41 82 41 78 36 Z" fill="#f2c14e" stroke="#120c08" stroke-width="1.5"/>
+  <circle cx="86" cy="37" r="2" fill="#120c08"/>
+  <path d="M76 32 L92 30" stroke="#2e2016" stroke-width="3" stroke-linecap="round"/>
+  <path d="M70 23 C76 21 84 22 90 27" fill="none" stroke="#dcc07a" stroke-width="2" stroke-linecap="round"/>
+  <path d="M50 26 L52 14 L58 22 L62 8 L68 20 L74 10 L78 22" fill="#d8cdb4" stroke="#1a120c" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M48 28 C58 22 72 20 82 24" stroke="#a89c80" stroke-width="3" fill="none"/>
+  <path d="M78 36 C83 32 90 33 92 38 C88 41 82 41 78 36 Z" fill="#7dff6a"/>
+  <circle cx="86" cy="37" r="7" fill="#7dff6a" opacity="0.2"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M104 136 L108 30" stroke-width="7"/>
+    <path d="M96 30 C96 18 120 18 120 30 C120 38 114 42 108 42 C102 42 96 38 96 30 Z" fill="#d8cdb4"/>
+  </g>
+  <path d="M104 136 L108 30" stroke="#3a2e26" stroke-width="3.5"/>
+  <circle cx="103" cy="29" r="2.8" fill="#7dff6a"/><circle cx="113" cy="29" r="2.8" fill="#7dff6a"/>
+  <path d="M104 37 L104 40 M108 37 L108 41 M112 37 L112 40" stroke="#1a120c" stroke-width="1.2"/>
+  <circle cx="108" cy="28" r="15" fill="#7dff6a" opacity="0.15"/>
+  <path d="M100 14 C98 6 104 2 106 8 C108 2 116 4 112 14" stroke="#7dff6a" stroke-width="2" fill="none" opacity="0.8"/>
+  <path d="M104 50 L100 60 M110 56 L114 64" stroke="#7dff6a" stroke-width="1.5" opacity="0.6"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M80 70 C92 70 102 72 106 78 L102 86 C94 82 86 80 76 80 Z" fill="#1e1a22"/>
+    <circle cx="106" cy="82" r="5" fill="#9c7a30"/>
+  </g>
+</svg>

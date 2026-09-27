@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 36" width="46" height="36" data-anchor="23 32" data-world="0.35" data-scale="1" data-grime="0.5">
+  <!-- Głaz z mchem. -->
+  <g stroke="#1a120c" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M4 26 C2 14 12 6 22 8 C30 2 42 8 42 18 C44 28 36 32 22 32 C12 32 4 32 4 26 Z" fill="#6a665c"/>
+  </g>
+  <path d="M10 14 C16 10 24 10 30 12" stroke="#8a867a" stroke-width="2" fill="none"/>
+  <path d="M26 30 C34 28 40 24 42 18 C40 26 34 32 24 32 Z" fill="#46423a"/>
+  <path d="M8 22 C14 18 20 20 22 24" stroke="#4a5a2a" stroke-width="3" fill="none"/>
+</svg>

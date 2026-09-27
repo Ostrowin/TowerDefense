@@ -10,6 +10,7 @@ Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** 
 - `scripts/sim.gd` (`Sim`) — logika gry, **bez węzłów i rysowania**. Nowa mechanika trafia tu, z testem. Zna też rzekę i mosty (`river`, `bridges`) oraz trasę po mapie dla dowódcy (`path_to`, A* omijający wodę).
 - `scripts/main.gd` — widok: render przez `_draw`, HUD z Control budowany w kodzie, input, efekty. Nie wkładaj tu reguł gry.
 - `scripts/sfx.gd` (`Sfx`) — dźwięki syntezowane.
+- `scripts/art.gd` (`Art`) — sprite'y z atlasu (`Art.draw` przez `Painter`) i kafle terenu. Źródła: `art/svg/*.svg` (D30), część generuje `tools/svg_gen/*.py`.
 
 ## Uruchamianie i testy
 Godot z wingeta (nie ma go w PATH):
@@ -19,6 +20,8 @@ Godot z wingeta (nie ma go w PATH):
 - testy Sim + boty: `--headless --path . --script res://tests/bot_test.gd` (kod wyjścia 1 = błąd; ~8 min — z macierzą dowódców R11 na Normalnym; Łatwy i Trudny przez `--balance --commander`)
 - same mechaniki (~20 s — głównie testy limitów populacji): `... bot_test.gd -- --mechanics`
 - same mecze botów (strojenie): `--headless --path . --script res://tests/bot_test.gd -- --balance` (`--commander sapper` = bot gra dowódcą według R9; pełny bot_test puszcza macierz R11: każdy grywalny dowódca na Normalnym)
+- grafika po zmianie SVG: `--headless --path . --script res://tools/bake_art.gd`, potem **koniecznie** `--headless --import --path .` (inaczej gra czyta stary atlas i sprite'y są przesunięte/niewidoczne)
+- podgląd sprite'ów: `--headless --path . --script res://tools/art_sheet.gd -- <plik.png> [prefiks...] [--scale 2]`; zrzuty prawdziwej sceny (okno, nie headless): `--path . -- --bench res://tests/screenshot.gd --out <folder> [--race hyena --rival gibbon --map N]`
 - smoke widoku: `--headless --path . --fixed-fps 60 --script res://tests/ui_smoke_test.gd` (szukaj `SCRIPT ERROR`)
 - wydajność późnej gry: `--headless --path . -- --bench res://tests/perf_test.gd --map 2 --minutes 10` (bez `--fixed-fps` — mierzy prawdziwy czas klatki; pusta scena headless to ~7 ms, to narzut silnika)
 - benchmarki (`perf_test`, `render_probe`) to węzły uruchamiane przez grę parametrem `-- --bench <skrypt>` — eksportowany Godot ignoruje `--script`
@@ -37,7 +40,7 @@ Smoke test wstrzykuje zdarzenia przez `root.push_input(e, true)` — okno headle
 ## Konwencje
 - Statyczne typy w GDScript (`var x: float`, jawny typ gdy RHS to Variant).
 - Współrzędne: ekran wirtualny o wysokości 720, szerokość wg proporcji ekranu (stretch `canvas_items`/`expand` → `view_size`: 1280 przy 16:9, ~1600 na telefonie 20:9), świat 1600×900 pod `Camera2D`; ekran↔świat przez `_to_world`/`_to_screen`. Dotyk emulowany jako mysz + gesty dwoma palcami.
-- Grafika na razie prymitywy; assety CC0 później.
+- Grafika (D30): SVG z wypalonym brudem + ruch z kodu. Rzut 3/4, postać patrzy w prawo, stopy w `data-anchor`; kolor drużyny tylko przez magentę `#RR00RR`; kontur `#1a120c`, światło z lewej-góry. Każdy dowódca jest albo sci-fi, albo fantasy (podział w D30) — trzymaj się go przy nowych postaciach. Nowa jednostka/rasa = SVG (najlepiej przez `tools/svg_gen`, części rasy są tam wspólne) + bake + import; brakujący sprite spada do starego rysunku z kształtów.
 - Umiejętności to dane: `Cfg.ABILITIES` z typem efektu (`kind`: strike / summon_units / global), `Sim` obsługuje typy, każdy dla obu drużyn (`use_ability(id, at, team)`). Nowa umiejętność istniejącego typu = wpis w `Cfg`; nowy typ = kod w `Sim` + test dla team 0 i team 1.
 - Rysowanie świata w `main.gd` idzie przez `pen` (`Painter`: `pen.circle(...)` zamiast `draw_circle(...)`, te same argumenty) — cały świat to jedno wywołanie rysowania. Gołe `draw_circle`/`draw_arc`/`draw_colored_polygon` w pętli po jednostkach = setki wywołań i spadek FPS na telefonie (Mali). HUD (Control) i minimapa rysują normalnie.
 - Zakres pod dyscypliną — najpierw zabawa rdzenia, potem treść.

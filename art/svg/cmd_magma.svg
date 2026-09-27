@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.27" data-scale="0.85">
+  <!-- Magma (fantasy): szaman ognia w kapturze, obsydianowy kostur z płomieniem, runy lawy na szacie. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 72 C40 96 38 120 36 136 L96 136 C94 118 92 96 88 72 C80 64 52 64 44 72 Z" fill="#3a2220"/>
+    <path d="M60 70 L64 136 L72 136 L76 70 Z" fill="#5a2a1e"/>
+  </g>
+  <path d="M40 132 L96 132" stroke="#ff6a1a" stroke-width="3"/>
+  <path d="M44 124 L50 128 L56 122 L62 128 L70 122 L78 128 L86 122 L92 128" stroke="#ffb040" stroke-width="1.5" fill="none"/>
+  <path d="M62 82 L68 92 L74 82 M68 92 L68 100" stroke="#ff8a2a" stroke-width="2" fill="none"/>
+  <path d="M46 80 L88 80 L88 86 L46 86 Z" fill="#c800c8"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 136 L104 28" stroke-width="7"/>
+    <path d="M94 30 L104 8 L114 30 L104 38 Z" fill="#1c1418"/>
+  </g>
+  <path d="M100 136 L104 28" stroke="#4a3228" stroke-width="3.5"/>
+  <path d="M104 12 L108 28 L104 34 L100 28 Z" fill="#ff6a1a"/><path d="M104 18 L106 28 L104 30 Z" fill="#ffd060"/>
+  <circle cx="104" cy="24" r="12" fill="#ff6a1a" opacity="0.2"/>
+  <path d="M98 44 C94 50 96 56 100 58 M108 50 C112 56 110 62 106 64" stroke="#ff8a2a" stroke-width="1.5" fill="none" opacity="0.8"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M78 70 C90 72 98 76 100 80 L96 88 C90 84 82 82 74 80 Z" fill="#3a2220"/>
+  </g>  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="101" cy="82" r="5.5" fill="#e0a8a0"/>
+    <path d="M104.3 79.25 L112.5 78.15 M105.4 82 L113.5 83 M104.3 84.75 L112.5 86.4" stroke="#efe6cf" stroke-width="2.4"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 50 C44 32 58 22 74 22 C90 22 100 34 100 46 C100 58 90 68 74 68 C58 68 44 62 44 50 Z" fill="#6b5548"/>
+    <path d="M94 42 C104 40 116 44 119 50 C120 55 114 58 106 58 C99 58 94 55 93 50 Z" fill="#d98f8f"/>
+  </g>
+  <ellipse cx="117" cy="50" rx="2.6" ry="3" fill="#b86a6a"/>
+  <path d="M104 56 L106 61 L108 56" fill="#efe6cf" stroke="#1a120c" stroke-width="1"/>
+  <path d="M110 48 L124 44 M110 52 L125 53 M108 50 L122 48" stroke="#2a201a" stroke-width="0.9"/>
+  <path d="M46 54 C50 64 62 68 74 68 C64 64 54 58 50 50 Z" fill="#463830" opacity="0.7"/>
+  <path d="M60 30 C66 26 74 25 80 26" fill="none" stroke="#8a7060" stroke-width="1.8"/>
+  <circle cx="88" cy="44" r="1.8" fill="#120c08"/><circle cx="97" cy="43" r="1.4" fill="#120c08"/>
+  <path d="M84 40 L91 41" stroke="#2a201a" stroke-width="1.5"/>
+  <path d="M42 50 C38 26 56 10 76 12 C92 14 102 26 102 40 C94 34 88 32 80 32 C66 32 54 38 46 56 Z" fill="#3a2220" stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M50 30 C58 20 70 16 82 18" stroke="#5a3a2e" stroke-width="2" fill="none"/>
+  <circle cx="89" cy="44" r="2.4" fill="#ffb040"/><circle cx="97" cy="43" r="1.8" fill="#ffb040"/>
+  <circle cx="89" cy="44" r="5" fill="#ff8a2a" opacity="0.25"/>
+</svg>

@@ -34,6 +34,12 @@ const FROST_COLOR := Color(0.6, 0.85, 1.0)
 ## Kolor nawierzchni ścieżki. Podświetlenia ścieżek mieszają go z kolorem (bez przezroczystości —
 ## półprzezroczysta gruba linia nakłada się sama na siebie na ostrych zakrętach i robi kreski).
 const PATH_COLOR := Color(0.45, 0.38, 0.27)
+const PLANK_COLOR := Color(0.42, 0.32, 0.22)
+const RAIL_COLOR := Color(0.22, 0.17, 0.12)
+## Duże dekoracje terenu (w miejscach dawnych drzew) — losowane z pozycji, stałe dla mapy.
+const BIG_DECO: Array[String] = ["deco_tree", "deco_tree", "deco_tree_dead", "deco_tree", "deco_stump",
+	"deco_wreck", "deco_tree", "deco_tree_dead", "deco_tree", "deco_bones", "deco_tree", "deco_rock_big",
+	"deco_tree", "deco_crystal", "deco_tree", "deco_stump", "deco_tree"]
 const HEAL_COLOR := Color(0.45, 1.0, 0.55)
 const OVER_DELAY := 1.6
 ## Limity efektów — każda iskra i napis to osobne wywołania rysowania co klatkę.
@@ -55,6 +61,22 @@ const ABILITY_KEY_NAMES: Array[String] = ["Q", "E", "R", "T"]
 const HERO_PICK := 28.0
 const HERO_COLOR := Color(1.0, 0.85, 0.35)
 const CURSE_COLOR := Color(0.72, 0.45, 1.0)  ## klątwy i wskrzeszenie
+## Rodzaj jednostki → [sprite rasy (`<rasa>_<nazwa>` w atlasie), skala]. Fale wroga (Ork, Goblin, Ogr,
+## Wódz, tarczownicy, latające) to armia rasy rywala — te same sylwetki co armia gracza tej rasy.
+const UNIT_ART := {"soldier": ["soldier", 1.0], "grunt": ["soldier", 1.0], "runner": ["soldier", 0.8],
+	"archer": ["archer", 1.0], "catapult": ["siege", 1.0], "shield": ["shield", 1.0], "brute": ["brute", 1.0],
+	"warlord": ["brute", 1.45], "bat": ["flyer", 1.0]}
+## Kolory pocisków rasy: [poświata, rdzeń].
+const SHOT_COLORS := {"hyena": [Color(1.0, 0.35, 0.21), Color(1.0, 0.85, 0.69)],
+	"gibbon": [Color(0.37, 0.95, 1.0), Color(0.9, 1.0, 1.0)],
+	"mole": [Color(1.0, 0.76, 0.2), Color(1.0, 0.95, 0.75)],
+	"boar": [Color(1.0, 0.6, 0.24), Color(1.0, 0.88, 0.63)]}
+## Miejsce osadzenia obrotowej lufy (`b_<rodzaj>_gun`) względem stóp budynku.
+const GUN_MOUNT := {"tower": Vector2(0, -26.6), "cannon": Vector2(0, -16.6), "drill_turret": Vector2(0, -18.0)}
+## Stopy budynku względem środka pola budowy (rzut 3/4: podstawa trochę niżej).
+const BUILDING_FEET := Vector2(0, 12)
+## Kafel terenu: tyle pikseli świata na powtórzenie tekstury.
+const TILE := 256.0
 
 ## Samouczek: krok kończy się, gdy spełniony jest warunek `done` (sprawdzany co klatkę).
 const TUTORIAL: Array[Dictionary] = [
@@ -171,8 +193,17 @@ var grass_batch := Painter.new()  ## trawa, kwiatki i kamienie (pod ścieżkami)
 var tree_batch := Painter.new()  ## drzewa (nad ścieżkami)
 
 var terrain: Node2D  ## warstwa statycznego terenu, przerysowywana przy zmianie mapy
-var warn_lines: Array[Line2D] = []  ## podświetlenie ścieżki nadchodzącej fali (per ścieżka)
-var pick_lines: Array[Line2D] = []  ## podświetlenie wybranej ścieżki produkcji (per ścieżka)
+var lane_strips: Array[Array] = []  ## per ścieżka: [trójkąty, UV] pasa nawierzchni
+var river_strip: Array = []
+var warn_lines: Array[Node2D] = []  ## podświetlenie ścieżki nadchodzącej fali (per ścieżka)
+var pick_lines: Array[Node2D] = []  ## podświetlenie wybranej ścieżki produkcji (per ścieżka)
+## Sprite'y jednostek per drużyna: rodzaj → [nazwa, skala, wysokość] (z UNIT_ART i ras drużyn).
+var unit_art: Array[Dictionary] = [{}, {}]
+var _art_key := -1  ## rasy, dla których policzono unit_art (zmiana = przeliczenie)
+var _hero_art := {}  ## id dowódcy → [nazwa, skala, wysokość]
+## Budynki od góry do dołu (rzut 3/4: niższy zasłania wyższy) — sortowane po zmianie układu.
+var _buildings_sorted: Array[Sim.Building] = []
+var _buildings_key := Vector2i(-1, -1)
 var sfx: Sfx
 var font: Font
 
@@ -229,6 +260,10 @@ func _ready() -> void:
 	Settings.load_all()
 	Settings.apply_audio()
 	font = ThemeDB.fallback_font
+	Art.load_all()
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS  # sprite'y skalowane w dół
+	for p in [pen, grass_batch, tree_batch]:
+		(p as Painter).use_atlas(Art.atlas, Art.META.WHITE)
 	sfx = Sfx.new()
 	add_child(sfx)
 	camera = Camera2D.new()
@@ -236,6 +271,7 @@ func _ready() -> void:
 	camera.make_current()
 	terrain = Node2D.new()
 	terrain.z_index = -1  # pod wszystkim, co rysuje main
+	terrain.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED  # kafle terenu
 	terrain.draw.connect(_draw_terrain)
 	add_child(terrain)
 	sim = Sim.new(difficulty, -1, level_index)
@@ -1881,10 +1917,14 @@ func _make_terrain() -> void:
 	bridge_rails = PackedVector2Array()
 	grass.clear()
 	trees.clear()
+	lane_strips.clear()
 	for lane in sim.lanes:
 		lane_points.append(lane.curve.get_baked_points())
+		lane_strips.append(_strip(lane_points[-1], Cfg.PATH_HALF))
+	river_strip = []
 	if sim.river != null:
 		river_points = sim.river.get_baked_points()
+		river_strip = _strip(river_points, Cfg.RIVER_HALF)
 
 	# mosty (odcinki ścieżek nad rzeką liczy Sim): deski w poprzek, poręcze wzdłuż
 	for br in sim.bridges:
@@ -1930,7 +1970,12 @@ func _make_terrain() -> void:
 	grass_batch.clear()
 	for g in grass:
 		var p := Vector2(g.x, g.y)
-		match int(g.z):
+		var kind := int(g.z)
+		var deco: String = ["deco_tuft", "deco_tuft", "deco_tuft2", "deco_flowers", "deco_pebbles", "deco_rock"][kind]
+		if Art.has(deco):
+			Art.draw(grass_batch, deco, p, 0.8 + fmod(g.x * 0.37, 0.4), fmod(g.y, 2.0) < 1.0)
+			continue
+		match kind:
 			0, 1, 2:
 				grass_batch.line(p, p + Vector2(-2, -6), Color(0.22, 0.32, 0.19), 2.0)
 				grass_batch.line(p, p + Vector2(2, -7), Color(0.22, 0.32, 0.19), 2.0)
@@ -1941,8 +1986,15 @@ func _make_terrain() -> void:
 			5:
 				grass_batch.circle(p, 5.0, Color(0.3, 0.33, 0.3))
 	tree_batch.clear()
+	# drzewa i większe dekoracje od góry do dołu (rzut 3/4: niższe zasłaniają wyższe)
+	trees.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.y < b.y)
 	for t in trees:
 		var p := Vector2(t.x, t.y)
+		var deco: String = BIG_DECO[posmod(int(t.x * 7.3) + int(t.y * 13.7) + int(t.z * 31.0), BIG_DECO.size())]
+		if Art.has(deco):
+			tree_batch.ellipse(p + Vector2(3, 1), Vector2(t.z * 0.9, t.z * 0.35), Color(0, 0, 0, 0.3))
+			Art.draw(tree_batch, deco, p, t.z / 17.0, int(t.x) % 2 == 0)
+			continue
 		tree_batch.circle(p + Vector2(4, 6), t.z, Color(0, 0, 0, 0.22))
 		tree_batch.circle(p, t.z, Color(0.12, 0.26, 0.13))
 		tree_batch.circle(p + Vector2(-t.z * 0.3, -t.z * 0.3), t.z * 0.65, Color(0.17, 0.34, 0.17))
@@ -1955,21 +2007,59 @@ func _make_terrain() -> void:
 	warn_lines.clear()
 	pick_lines.clear()
 	for i in lane_points.size():
-		warn_lines.append(_lane_line(lane_points[i], PATH_COLOR.lerp(WARN_COLOR, 0.3)))
+		warn_lines.append(_lane_line(i, Color(1.3, 0.92, 0.8)))
 	for i in lane_points.size():
-		pick_lines.append(_lane_line(lane_points[i], PATH_COLOR.lerp(LANE_COLORS[i], 0.35)))
+		pick_lines.append(_lane_line(i, Color(1, 1, 1).lerp(LANE_COLORS[i], 0.5) * 1.35))
 
 
-func _lane_line(points: PackedVector2Array, color: Color) -> Line2D:
-	var line := Line2D.new()
-	line.points = points
-	line.width = Cfg.PATH_HALF * 2
-	line.default_color = color
-	line.joint_mode = Line2D.LINE_JOINT_ROUND
-	line.z_index = -1  # nad terenem (dodana później), pod wszystkim z main._draw
-	line.visible = false
-	add_child(line)
-	return line
+## Podświetlenie ścieżki: ten sam pas nawierzchni co w terenie, zabarwiony (nieprzezroczysty —
+## półprzezroczysta nakładka robiła kreski na zakrętach, gdzie pas zachodzi sam na siebie).
+func _lane_line(i: int, tint: Color) -> Node2D:
+	var node := Node2D.new()
+	node.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	node.z_index = -1  # nad terenem (dodany później), pod wszystkim z main._draw
+	node.visible = false
+	var strip: Array = lane_strips[i]
+	node.draw.connect(func() -> void: _draw_strip(node, strip, Art.dirt, tint))
+	add_child(node)
+	return node
+
+
+## Pas wzdłuż łamanej (trójkąty + UV w przestrzeni świata, więc kafel płynnie ciągnie się po mapie),
+## z okrągłymi końcami. Zwraca [punkty, uv].
+func _strip(pts: PackedVector2Array, half: float) -> Array:
+	var tri := PackedVector2Array()
+	var n := pts.size()
+	if n < 2:
+		return [tri, PackedVector2Array()]
+	var normals := PackedVector2Array()
+	for i in n:
+		var d := pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]
+		normals.append(d.orthogonal().normalized() * half)
+	for i in n - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		tri.append_array([a + normals[i], b + normals[i + 1], b - normals[i + 1],
+			a + normals[i], b - normals[i + 1], a - normals[i]])
+	for c in [pts[0], pts[n - 1]]:
+		for k in 16:
+			tri.append_array([c, c + Vector2.from_angle(TAU * k / 16.0) * half, c + Vector2.from_angle(TAU * (k + 1) / 16.0) * half])
+	var uv := PackedVector2Array()
+	uv.resize(tri.size())
+	for i in tri.size():
+		uv[i] = tri[i] / TILE
+	return [tri, uv]
+
+
+func _draw_strip(item: CanvasItem, strip: Array, tex: Texture2D, tint := Color.WHITE) -> void:
+	var pts: PackedVector2Array = strip[0]
+	if pts.is_empty():
+		return
+	var cols := PackedColorArray()
+	cols.resize(pts.size())
+	cols.fill(tint)
+	RenderingServer.canvas_item_add_triangle_array(item.get_canvas_item(), PackedInt32Array(), pts, cols,
+		strip[1], PackedInt32Array(), PackedFloat32Array(), tex.get_rid())
 
 
 func _update_lane_fx() -> void:
@@ -2008,6 +2098,8 @@ func _near_any(p: Vector2, points: Array[Vector2], dist: float) -> bool:
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
 	pen.clear()
+	if _art_key != race_index * 100 + rival_index:
+		_refresh_art()
 	var view := Rect2(_to_world(Vector2.ZERO), view_size / camera.zoom.x).grow(60.0)
 	low_detail = sim.units.size() > LOD_UNITS and not _is_zoomed_in()
 	_draw_overlays()
@@ -2016,7 +2108,7 @@ func _draw() -> void:
 		_draw_resource_node(n)
 	for team in 2:
 		_draw_base(team)
-	for b in sim.buildings:
+	for b in _sorted_buildings():
 		if b.kind != "basegun" and view.has_point(b.pos):
 			_draw_building(b)
 	for u in sim.units:
@@ -2055,25 +2147,31 @@ func _draw() -> void:
 func _draw_terrain() -> void:
 	var c := terrain
 	var size := sim.size
-	c.draw_rect(Rect2(-400, -400, size.x + 800, size.y + 800), Color(0.1, 0.14, 0.1))
-	c.draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.23, 0.15))
+	var outer := Rect2(-400, -400, size.x + 800, size.y + 800)
+	c.draw_texture_rect_region(Art.ground, outer, Rect2(outer.position, outer.size))
+	# poza mapą przyciemnienie
+	var dim := Color(0, 0, 0, 0.45)
+	c.draw_rect(Rect2(-400, -400, size.x + 800, 400), dim)
+	c.draw_rect(Rect2(-400, size.y, size.x + 800, 400), dim)
+	c.draw_rect(Rect2(-400, 0, 400, size.y), dim)
+	c.draw_rect(Rect2(size.x, 0, 400, size.y), dim)
 	grass_batch.draw_on(c)
 
-	# rzeka
+	# rzeka: błotnisty brzeg, woda, jaśniejszy nurt
 	if not river_points.is_empty():
-		c.draw_polyline(river_points, Color(0.2, 0.3, 0.25), Cfg.RIVER_HALF * 2 + 10, true)
-		c.draw_polyline(river_points, Color(0.2, 0.42, 0.62), Cfg.RIVER_HALF * 2, true)
-		c.draw_polyline(river_points, Color(0.32, 0.55, 0.75, 0.6), Cfg.RIVER_HALF * 0.8, true)
+		c.draw_polyline(river_points, Color(0.2, 0.17, 0.12, 0.8), Cfg.RIVER_HALF * 2 + 12, true)
+		_draw_strip(c, river_strip, Art.water)
+		c.draw_polyline(river_points, Color(0.5, 0.65, 0.65, 0.12), Cfg.RIVER_HALF * 0.7, true)
 
-	# ścieżki: najpierw wszystkie obrzeża, potem wypełnienia — przy bazach się zlewają
+	# ścieżki: najpierw wszystkie obrzeża, potem nawierzchnie — przy bazach się zlewają
 	for pts in lane_points:
-		c.draw_polyline(pts, Color(0.33, 0.28, 0.2), Cfg.PATH_HALF * 2 + 6, true)
-	for pts in lane_points:
-		c.draw_polyline(pts, PATH_COLOR, Cfg.PATH_HALF * 2, true)
+		c.draw_polyline(pts, Color(0.16, 0.13, 0.09, 0.55), Cfg.PATH_HALF * 2 + 8, true)
+	for strip in lane_strips:
+		_draw_strip(c, strip, Art.dirt)
 	if not bridge_planks.is_empty():  # mapa bez rzeki nie ma mostów (pusta tablica = błąd silnika)
-		c.draw_multiline(bridge_planks, Color(0.55, 0.4, 0.25), 5.0)
+		c.draw_multiline(bridge_planks, PLANK_COLOR, 5.0)
 	if not bridge_rails.is_empty():
-		c.draw_multiline(bridge_rails, Color(0.35, 0.24, 0.14), 3.0)
+		c.draw_multiline(bridge_rails, RAIL_COLOR, 3.0)
 
 	# nazwy ścieżek przy bazie gracza
 	for i in sim.lanes.size():
@@ -2103,9 +2201,9 @@ func _draw_overlays() -> void:
 
 	# podświetlenia ścieżek są nieprzezroczyste — mosty dorysowane jeszcze raz na wierzch
 	if not bridge_planks.is_empty():
-		pen.multiline(bridge_planks, Color(0.55, 0.4, 0.25), 5.0)
+		pen.multiline(bridge_planks, PLANK_COLOR, 5.0)
 	if not bridge_rails.is_empty():
-		pen.multiline(bridge_rails, Color(0.35, 0.24, 0.14), 3.0)
+		pen.multiline(bridge_rails, RAIL_COLOR, 3.0)
 
 	# strefa budowy: w trybie budowy podświetlone wolne pola (liczone tylko po zmianie budynków)
 	if _is_build_mode():
@@ -2152,11 +2250,13 @@ func _warn_lanes() -> Array[int]:
 func _draw_resource_node(n: Vector2) -> void:
 	var idx := sim.nodes.find(n)
 	var rich := sim.richness[idx] > 1.0
-	pen.circle(n + Vector2(0, 4), 20, Color(0, 0, 0, 0.2))
-	pen.circle(n + Vector2(-7, 3), 10, Color(0.75, 0.6, 0.15))
-	pen.circle(n + Vector2(7, 4), 9, Color(0.85, 0.68, 0.18))
-	pen.circle(n + Vector2(0, -5), 11, Color(0.98, 0.83, 0.25) if not rich else Color(1.0, 0.92, 0.45))
-	pen.circle(n + Vector2(-3, -8), 3, Color(1, 1, 0.8, 0.8))
+	if Art.has("deposit"):
+		pen.ellipse(n + Vector2(0, 8), Vector2(24, 9), Color(0, 0, 0, 0.3))
+		var glow := 0.08 + 0.05 * sin(time * 2.0 + idx)
+		pen.circle(n + Vector2(0, -2), 22.0 if rich else 18.0, Color(1.0, 0.85, 0.3, glow * (1.6 if rich else 1.0)))
+		Art.draw(pen, "deposit", n + Vector2(0, 9), 1.15 if rich else 1.0)
+	else:
+		_draw_deposit_shape(n, rich)
 	if rich:
 		for i in 3:
 			var a := time * 1.5 + TAU * i / 3.0
@@ -2169,11 +2269,26 @@ func _draw_resource_node(n: Vector2) -> void:
 				HORIZONTAL_ALIGNMENT_CENTER, 80, 13, Color(1, 1, 1, 0.6))
 
 
+func _draw_deposit_shape(n: Vector2, rich: bool) -> void:
+	pen.circle(n + Vector2(0, 4), 20, Color(0, 0, 0, 0.2))
+	pen.circle(n + Vector2(-7, 3), 10, Color(0.75, 0.6, 0.15))
+	pen.circle(n + Vector2(7, 4), 9, Color(0.85, 0.68, 0.18))
+	pen.circle(n + Vector2(0, -5), 11, Color(0.98, 0.83, 0.25) if not rich else Color(1.0, 0.92, 0.45))
+	pen.circle(n + Vector2(-3, -8), 3, Color(1, 1, 0.8, 0.8))
+
+
 func _draw_base(team: int) -> void:
 	var p := sim.base_pos(team)
 	var c := TEAM_COLORS[team]
 	var r := Cfg.BASE_R
 	var body := Rect2(p - Vector2(r, r * 0.8), Vector2(r * 2, r * 1.8))
+	if Art.has("b_base"):
+		var feet := p + Vector2(0, r * 1.05)
+		pen.ellipse(feet + Vector2(4, 0), Vector2(r * 1.4, r * 0.4), Color(0, 0, 0, 0.35))
+		var f := 1.0 + base_flash[team] * 12.0
+		Art.draw(pen, "b_base", feet, 1.0, team == 1, Color(f, f, f), c)
+		_draw_base_labels(team, feet + Vector2(0, -Art.height("b_base") - 6))
+		return
 	pen.rect(Rect2(body.position + Vector2(4, 6), body.size), Color(0, 0, 0, 0.25))
 	pen.rect(body, c.darkened(0.45))
 	for i in 4:
@@ -2184,13 +2299,21 @@ func _draw_base(team: int) -> void:
 	pen.line(pole, pole + Vector2(0, -30), Color(0.85, 0.85, 0.85), 2.0)
 	var flutter := sin(time * 4.0 + team) * 3.0
 	pen.polygon(PackedVector2Array([pole + Vector2(0, -30), pole + Vector2(22 * (1 - 2 * team), -24 + flutter), pole + Vector2(0, -18)]), c)
+	if base_flash[team] > 0:
+		pen.rect(body, Color(1, 1, 1, base_flash[team] * 4.0))
+	_draw_base_labels(team, pole + Vector2(0, -30))
+
+
+## Nazwa rasy nad fortecą (`top` = wierzch budowli), pasek HP i liczba pod nią.
+func _draw_base_labels(team: int, top: Vector2) -> void:
+	var p := sim.base_pos(team)
+	var c := TEAM_COLORS[team]
+	var r := Cfg.BASE_R
 	var race_i := race_index if team == 0 else rival_index
 	if race_i >= 0:  # przeciwnik nieznany w menu — losujemy go przy starcie
 		var race: String = Races.ALL[race_i]["name"]
-		pen.text_outline(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, 5, Color(0, 0, 0, 0.7))
-		pen.text(font, pole + Vector2(-70, -40), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, c.lightened(0.35))
-	if base_flash[team] > 0:
-		pen.rect(body, Color(1, 1, 1, base_flash[team] * 4.0))
+		pen.text_outline(font, top + Vector2(-70, -4), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, 5, Color(0, 0, 0, 0.7))
+		pen.text(font, top + Vector2(-70, -4), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, c.lightened(0.35))
 	var frac := sim.base_hp[team] / Cfg.BASE_HP[team]
 	_hp_bar(p + Vector2(0, r + 18), 100, frac, 8)
 	var hp_text := "nie do zburzenia" if team == 1 and sim.mode == "survival" else "%d" % int(sim.base_hp[team])
@@ -2199,8 +2322,8 @@ func _draw_base(team: int) -> void:
 
 func _draw_building(b: Sim.Building) -> void:
 	var c := TEAM_COLORS[b.team]
-	_draw_building_shape(b.kind, b.pos, c, b.aim, 1.0)
-	if b.flash > 0:
+	var sprite := _draw_building_shape(b.kind, b.pos, c, b.aim, 1.0, b.flash)
+	if b.flash > 0 and not sprite:
 		pen.circle(b.pos, 18, Color(1, 1, 1, b.flash * 4.0))
 	if Cfg.is_production(b.kind):
 		_progress(b.pos + Vector2(0, 24), b.timer / sim.production_period(b.kind, b.level))
@@ -2208,7 +2331,9 @@ func _draw_building(b: Sim.Building) -> void:
 		pen.circle(b.pos + Vector2(16, -16), 6.0, Color(0, 0, 0, 0.6))
 		pen.circle(b.pos + Vector2(16, -16), 4.5, LANE_COLORS[b.lane])
 	if b.hp < b.max_hp:
-		_hp_bar(b.pos + Vector2(0, -26), 36, b.hp / b.max_hp, 5)
+		var name := "b_" + b.kind
+		var top := BUILDING_FEET.y - Art.height(name) - 4.0 if Art.has(name) else -26.0
+		_hp_bar(b.pos + Vector2(0, top), 36, b.hp / b.max_hp, 5)
 	if b.temporary:
 		_progress(b.pos + Vector2(0, 24), b.life / b.life_max)
 		return
@@ -2216,7 +2341,24 @@ func _draw_building(b: Sim.Building) -> void:
 		pen.circle(b.pos + Vector2(-5 + i * 10, 32 if Cfg.is_production(b.kind) else 24), 3.0, GOLD_COLOR)
 
 
-func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha: float) -> void:
+## Budynek ze sprite'a `b_<rodzaj>` (+ obrotowa lufa `b_<rodzaj>_gun`), inaczej prosty kształt.
+## Zwraca true, gdy narysował sprite.
+func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha: float, flash := 0.0) -> bool:
+	var name := "b_" + kind
+	if Art.has(name):
+		var feet := p + BUILDING_FEET
+		var f := 1.0 + flash * 6.0
+		var tint := Color(f, f, f, alpha)
+		if alpha >= 1.0:
+			pen.ellipse(feet + Vector2(2, 1), Vector2(22, 8), Color(0, 0, 0, 0.3))
+		Art.draw(pen, name, feet, 1.0, false, tint, Color(c, alpha))
+		if Art.has(name + "_gun"):
+			var d := Vector2.from_angle(aim)
+			var flip := d.x < 0.0
+			var ang := clampf(atan2(d.y * 0.7, absf(d.x)), -0.6, 0.6)
+			Art.draw(pen, name + "_gun", feet + GUN_MOUNT.get(kind, Vector2(0, -26)), 1.0, flip, tint,
+				Color(c, alpha), -ang if flip else ang)
+		return true
 	var dark := Color(c.darkened(0.35), alpha)
 	var light := Color(c.lightened(0.2), alpha)
 	var shadow := Color(0, 0, 0, 0.25 * alpha)
@@ -2274,6 +2416,7 @@ func _draw_building_shape(kind: String, p: Vector2, c: Color, aim: float, alpha:
 			pen.polygon(PackedVector2Array([p + Vector2(0, -18), p + Vector2(14, 14), p + Vector2(-14, 14)]), Color(0.4, 0.33, 0.25, alpha))
 			pen.circle(p + Vector2(0, -4), 6, light)
 			pen.line(p + Vector2(0, -4), p + Vector2(0, -4) + Vector2.from_angle(aim) * 12, Color(1, 1, 1, alpha), 2.0)
+	return false
 
 
 ## `low_detail`: w dużej bitwie (widok całej mapy) bez cienia, obrysu, podskoku
@@ -2291,6 +2434,11 @@ func _draw_unit(u: Sim.Unit) -> void:
 	var r := u.radius
 	var dir := 1.0 if u.team == 0 else -1.0
 	var at := u.prev_pos.lerp(u.pos, render_alpha)  # interpolacja między krokami sima
+	var art: Array = unit_art[u.team].get(u.kind, [])
+	if not art.is_empty():
+		var top := _draw_unit_sprite(u, at, art)
+		_draw_unit_status(u, at, top)
+		return
 	var p := at if low_detail else at + Vector2(0, sin(time * 12.0 + u.id) * 1.2)
 	var c := TEAM_COLORS[u.team]
 	if u.flying:
@@ -2341,29 +2489,143 @@ func _draw_unit(u: Sim.Unit) -> void:
 			for i in 3:
 				var cx := p + Vector2(-8 + i * 8, -r - 2)
 				pen.polygon(PackedVector2Array([cx + Vector2(-4, 0), cx + Vector2(0, -8), cx + Vector2(4, 0)]), GOLD_COLOR)
+	if u.flash > 0:
+		pen.circle(p, r, Color(1, 1, 1, u.flash * 5.0))
+	_draw_unit_status(u, p, -r)
+
+
+## Stany nad jednostką: mróz, osłabienie, ogłuszenie, poziom, pasek HP. `top` = wierzch postaci
+## względem `p` (ujemny = wyżej).
+func _draw_unit_status(u: Sim.Unit, p: Vector2, top: float) -> void:
+	var r := u.radius
 	if u.slow_timer > 0:
+		pen.ellipse(p + Vector2(0, r * 0.9), Vector2(r * 1.3, r * 0.5), Color(FROST_COLOR, 0.45))
 		pen.arc(p, r + 3, 0, TAU, 12 if low_detail else 20, Color(FROST_COLOR, 0.9), 2.0)
 	if u.vuln > 1.0:
 		pen.arc(p, r + 2, 0, TAU, 12 if low_detail else 16, Color(CURSE_COLOR, 0.85), 2.0)
 	if u.stun > 0:  # ogłuszenie: krążące gwiazdki nad głową
 		for i in 2:
-			pen.circle(p + Vector2.from_angle(time * 6.0 + PI * i) * Vector2(r, r * 0.4) - Vector2(0, r + 4), 2.0, GOLD_COLOR)
-	if u.flash > 0:
-		pen.circle(p, r, Color(1, 1, 1, u.flash * 5.0))
+			pen.circle(p + Vector2.from_angle(time * 6.0 + PI * i) * Vector2(r, r * 0.4) + Vector2(0, top - 3), 2.0, GOLD_COLOR)
 	if low_detail:
 		if u.hp < u.max_hp * 0.6:
-			_hp_bar(p + Vector2(0, -r - 5), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
+			_hp_bar(p + Vector2(0, top - 4), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
 		return
 	for i in u.level - 1:
-		pen.circle(p + Vector2(-3 + i * 6, -r - 10), 2.0, GOLD_COLOR)
+		pen.circle(p + Vector2(-3 + i * 6, top - 9), 2.0, GOLD_COLOR)
 	if u.hp < u.max_hp:
-		_hp_bar(p + Vector2(0, -r - 5), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
+		_hp_bar(p + Vector2(0, top - 4), maxf(r * 2.4, 18.0), u.hp / u.max_hp, 4)
+
+
+## Postać ze sprite'a + ruch z kodu: chód (podskok, kołysanie, sprężystość), wypad przy ciosie wręcz,
+## odrzut przy strzale, unoszenie latających, błysk trafienia. Zwraca wierzch postaci względem `at`.
+func _draw_unit_sprite(u: Sim.Unit, at: Vector2, art: Array) -> float:
+	var r := u.radius
+	var dx := u.pos.x - u.prev_pos.x
+	if absf(dx) > 0.05:
+		u.face = signf(dx)
+	var moving := u.pos.distance_squared_to(u.prev_pos) > 0.0004 and u.stun <= 0.0
+	var feet := at + Vector2(0, r * 0.9)
+	var lift := 0.0
+	var rot := 0.0
+	var squash := Vector2.ONE
+	var ph := time * 11.0 + u.id * 1.7
+	if u.flying:
+		lift = r * 2.2 + sin(time * 5.0 + u.id) * 2.0
+		rot = sin(time * 3.0 + u.id) * 0.06
+		pen.ellipse(feet + Vector2(5, 2), Vector2(r * 0.9, r * 0.35), Color(0, 0, 0, 0.2))
+	else:
+		if not low_detail:
+			pen.ellipse(feet, Vector2(r * 1.15, r * 0.42), Color(0, 0, 0, 0.32))
+		if moving:
+			var st := absf(sin(ph))
+			lift = st * r * 0.22
+			rot = sin(ph) * 0.07
+			squash = Vector2(1.0 - st * 0.04, 1.0 + st * 0.05)
+		else:  # oddech w miejscu
+			squash = Vector2(1.0, 1.0 + sin(time * 3.0 + u.id) * 0.015)
+	# cios / strzał: świeżo po ataku cd_left jest bliski pełnego czasu odnowienia
+	var full := u.cooldown / maxf(u.attack_speed, 0.01)
+	if full > 0.0 and u.cd_left > full * 0.7:
+		var k := (u.cd_left / full - 0.7) / 0.3
+		if u.melee:
+			rot += u.face * 0.28 * k
+			feet.x += u.face * r * 0.35 * k
+		else:
+			feet.x -= u.face * r * 0.15 * k
+	var tint := Color.WHITE
+	if u.flash > 0.0:
+		var f := 1.0 + u.flash * 8.0
+		tint = Color(f, f, f)
+	Art.draw(pen, art[0], feet - Vector2(0, lift), art[1], u.face < 0.0, tint, TEAM_COLORS[u.team], rot, squash)
+	return r * 0.9 - lift - float(art[2]) * squash.y
+
+
+func _sorted_buildings() -> Array[Sim.Building]:
+	var key := Vector2i(sim.layout_version, sim.buildings.size())
+	if key != _buildings_key or (not _buildings_sorted.is_empty() and not sim.buildings.has(_buildings_sorted[0])):
+		_buildings_key = key
+		_buildings_sorted = sim.buildings.duplicate()
+		_buildings_sorted.sort_custom(func(a: Sim.Building, b: Sim.Building) -> bool: return a.pos.y < b.pos.y)
+	return _buildings_sorted
+
+
+## Rasa drużyny (id z Races). W menu rywal nie jest jeszcze wylosowany — pierwsza inna grywalna.
+func _team_race(team: int) -> String:
+	var i := race_index if team == 0 else rival_index
+	if i < 0:
+		for j in Races.ALL.size():
+			if j != race_index and Races.ALL[j]["playable"]:
+				i = j
+				break
+	return Races.ALL[maxi(i, 0)]["id"]
+
+
+func _refresh_art() -> void:
+	_art_key = race_index * 100 + rival_index
+	_hero_art.clear()
+	for team in 2:
+		var race := _team_race(team)
+		var m := {}
+		for kind in UNIT_ART:
+			var a: Array = UNIT_ART[kind]
+			var name := "%s_%s" % [race, a[0]]
+			if Art.has(name):
+				m[kind] = [name, a[1], Art.height(name, a[1])]
+		unit_art[team] = m
+
+
+## Sprite dowódcy: `cmd_<id>`, a bez niego piechur jego rasy w powiększeniu. Pusty = stary rysunek.
+func _hero_sprite(h: Sim.Hero) -> Array:
+	if _hero_art.has(h.commander):
+		return _hero_art[h.commander]
+	var out := []
+	var name := "cmd_" + h.commander
+	if Art.has(name):
+		out = [name, 1.0, Art.height(name)]
+	else:
+		var soldier: Array = unit_art[h.team].get("soldier", [])
+		if not soldier.is_empty():
+			out = [soldier[0], 1.35, Art.height(soldier[0], 1.35)]
+	_hero_art[h.commander] = out
+	return out
 
 
 ## Dowódca: większy, ze złotą obwódką i inicjałem — zawsze w pełnej szczegółowości (jest jeden).
 func _draw_hero(h: Sim.Hero) -> void:
 	var r := h.radius
 	var at := h.prev_pos.lerp(h.pos, render_alpha)
+	var art := _hero_sprite(h)
+	if not art.is_empty():
+		var ring := HERO_COLOR if h.team == 0 else TEAM_COLORS[1].lightened(0.4)
+		pen.ellipse(at + Vector2(0, r * 0.9), Vector2(r * 1.5, r * 0.6), Color(ring, 0.35))
+		pen.ellipse(at + Vector2(0, r * 0.9), Vector2(r * 1.2, r * 0.45), Color(0, 0, 0, 0.3))
+		if h.invulnerable > 0.0:
+			pen.circle(at, r + 7, Color(1, 1, 1, 0.15 + 0.15 * sin(time * 20.0)))
+		var top := _draw_unit_sprite(h, at, art)
+		if h.slow_timer > 0:
+			pen.arc(at, r + 4, 0, TAU, 20, Color(FROST_COLOR, 0.9), 2.0)
+		_hp_bar(at + Vector2(0, top - 5), 34, h.hp / h.max_hp, 5)
+		return
 	var bob := 0.0 if h.state == "idle" else sin(time * 14.0) * 1.5
 	var p := at + Vector2(0, bob)
 	var c := TEAM_COLORS[h.team]
@@ -2402,22 +2664,60 @@ func _draw_zones() -> void:
 			pen.arc(pos, r, 0, TAU, 40, Color(hot, 0.7), 2.0)
 
 
+## Pociski w stylu rasy strzelca (D30): hieny — lasery, gibony — fale soniczne, krety — rozżarzone
+## nity i pociski moździerza, dziki — oszczepy i głazy z runami. Armata to plazma, mróz — lodowy odłamek.
 func _draw_shot(s: Sim.Shot) -> void:
 	var at := s.prev_pos.lerp(s.pos, render_alpha)
+	var race := _team_race(s.team)
+	var col: Array = SHOT_COLORS.get(race, SHOT_COLORS["hyena"])
+	var glow: Color = col[0]
+	var core: Color = col[1]
 	match s.kind:
 		"arrow":
 			var d := (s.target_pos - at).normalized()
-			pen.line(at - d * 9.0, at, Color(0.95, 0.9, 0.75), 2.0)
+			match race:
+				"boar":  # oszczep z żarzącym się grotem
+					pen.line(at - d * 12.0, at, Color(0.45, 0.32, 0.2), 2.5)
+					pen.circle(at, 2.2, glow)
+				"mole":  # rozgrzany nit ze smugą
+					pen.line(at - d * 10.0, at, Color(glow, 0.45), 3.0)
+					pen.line(at - d * 4.0, at, Color(0.8, 0.8, 0.82), 2.0)
+				"gibbon":  # fala soniczna: dwa łuki w poprzek lotu
+					var a := d.angle()
+					pen.arc(at, 5.0, a - 1.0, a + 1.0, 6, Color(glow, 0.9), 2.0)
+					pen.arc(at - d * 5.0, 4.0, a - 1.0, a + 1.0, 6, Color(glow, 0.5), 1.5)
+				_:  # laser
+					pen.line(at - d * 14.0, at, Color(glow, 0.45), 4.0)
+					pen.line(at - d * 12.0, at, core, 1.5)
 		"frost":
-			pen.circle(at, 6.0, Color(FROST_COLOR, 0.35))
-			pen.circle(at, 3.0, Color(0.9, 0.97, 1.0))
+			var d := (s.target_pos - at).normalized()
+			pen.circle(at, 7.0, Color(FROST_COLOR, 0.3))
+			pen.polygon(PackedVector2Array([at + d * 6.0, at + d.orthogonal() * 3.0, at - d * 6.0, at - d.orthogonal() * 3.0]), Color(0.85, 0.96, 1.0))
 		_:
 			var total := s.start.distance_to(s.target_pos)
 			var f := 1.0 - at.distance_to(s.target_pos) / maxf(total, 1.0)
 			var h := sin(PI * clampf(f, 0.0, 1.0)) * minf(70.0, total * 0.35)
-			var size := 4.0 if s.kind == "cannonball" else 5.0
-			pen.circle(at, size * 0.8, Color(0, 0, 0, 0.3))
-			pen.circle(at - Vector2(0, h), size, Color(0.15, 0.15, 0.15) if s.kind == "cannonball" else Color(0.55, 0.5, 0.45))
+			var top := at - Vector2(0, h)
+			pen.ellipse(at, Vector2(4.0, 1.8), Color(0, 0, 0, 0.3))
+			if s.kind == "cannonball":  # pocisk plazmowy
+				pen.circle(top, 7.0, Color(1.0, 0.55, 0.15, 0.3))
+				pen.circle(top, 4.0, Color(1.0, 0.6, 0.2))
+				pen.circle(top, 2.0, Color(1.0, 0.95, 0.7))
+				return
+			match race:
+				"hyena":  # kamień dusz
+					pen.circle(top, 7.0, Color(glow, 0.25))
+					pen.circle(top, 4.5, Color(0.16, 0.22, 0.16))
+					pen.circle(top, 2.2, glow)
+				"gibbon":  # skupiona fala dźwięku
+					pen.circle(top, 7.0, Color(glow, 0.25))
+					pen.arc(top, 5.0, 0, TAU, 12, glow, 2.0)
+				"mole":  # pocisk moździerza
+					pen.circle(top, 4.5, Color(0.2, 0.2, 0.22))
+					pen.circle(top + Vector2(-1.5, -1.5), 1.5, Color(0.6, 0.6, 0.62))
+				_:  # głaz z runą
+					pen.circle(top, 5.5, Color(0.42, 0.4, 0.37))
+					pen.circle(top, 2.0, glow)
 
 
 func _draw_selection() -> void:

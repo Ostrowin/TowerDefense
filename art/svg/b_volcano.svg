@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 150" width="128" height="150" data-anchor="64 138" data-world="0.36" data-scale="1">
+  <!-- Wulkan Magmy (magia ognia): stożek z lawą, runy drużyny u podstawy. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 136 C20 120 36 70 50 50 L78 50 C92 70 108 120 120 136 C96 146 32 146 8 136 Z" fill="#3a2e28"/>
+    <ellipse cx="64" cy="50" rx="14" ry="5" fill="#ff6a1a"/>
+  </g>
+  <path d="M60 50 C58 70 50 90 46 120 L52 120 C56 96 62 74 64 52 Z" fill="#ff6a1a" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M70 52 C74 72 84 92 94 112 L88 114 C80 94 72 76 68 54 Z" fill="#ff8a2a" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M61 56 C59 72 54 90 50 112" stroke="#ffd060" stroke-width="1.5" fill="none"/>
+  <path d="M24 120 C34 100 40 80 48 62" stroke="#5a4a40" stroke-width="2" fill="none"/>
+  <path d="M40 130 L46 122 L52 128 L58 118 L66 128 L74 120 L80 128 L88 122 L92 132" fill="none" stroke="#c800c8" stroke-width="3"/>
+  <circle cx="58" cy="40" r="4" fill="#ff8a2a" opacity="0.7"/><circle cx="70" cy="30" r="3" fill="#ffd060" opacity="0.7"/>
+  <circle cx="62" cy="22" r="6" fill="#5a4a44" opacity="0.4"/><circle cx="70" cy="12" r="7" fill="#6a5a54" opacity="0.3"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 86" width="96" height="86" data-anchor="48 76" data-world="0.4" data-scale="0.8" data-grime="0.4">
+  <!-- Kryształ many (magia) wyrastający z ziemi. -->
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40 72 L36 30 L46 14 L54 34 L52 72 Z" fill="#9a6ae0"/>
+    <path d="M52 72 L58 40 L68 30 L72 48 L64 72 Z" fill="#7a4ac0"/>
+    <path d="M28 74 L22 50 L30 44 L38 58 L38 74 Z" fill="#8a5ad0"/>
+  </g>
+  <path d="M46 14 L40 72 L36 30 Z" fill="#d8c0ff" opacity="0.7"/>
+  <path d="M68 30 L64 72 L58 40 Z" fill="#b89aff" opacity="0.6"/>
+  <path d="M44 24 L42 50" stroke="#ffffff" stroke-width="1.5" opacity="0.8"/>
+  <path d="M16 76 C28 70 64 70 80 76 C64 82 28 82 16 76 Z" fill="#46423a"/>
+</svg>

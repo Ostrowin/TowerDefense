@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 150" width="128" height="150" data-anchor="64 138" data-world="0.34" data-scale="1">
+  <!-- Wiertło-wieżyczka Sapera: trójnóg z obrotowym wiertłem. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M64 96 L30 136 M64 96 L98 136 M64 96 L64 140" stroke-width="6"/>
+  </g>
+  <path d="M64 96 L30 136 M64 96 L98 136 M64 96 L64 140" stroke="#b8872a" stroke-width="3"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="44" y="70" width="40" height="30" rx="6" fill="#d9a032"/>
+    <rect x="52" y="60" width="14" height="12" fill="#3b3f45"/>
+  </g>
+  <path d="M44 84 L84 84 L84 90 L44 90 Z" fill="#c800c8"/>
+  <path d="M44 85 L84 85" stroke="#ff00ff" stroke-width="1"/>
+  <circle cx="54" cy="76" r="3" fill="#ffc233" stroke="#1a120c" stroke-width="1"/>
+</svg>

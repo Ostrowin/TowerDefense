@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 132" data-world="0.3">
+  <!-- Machina dzików: katapulta na płozach z czaszką dzika, głaz z runą. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 118 C8 110 14 108 20 108 L110 108 C118 108 124 112 122 120 L116 126 L14 126 Z" fill="#6a4a2e"/>
+    <path d="M26 108 L40 64 L50 64 L60 108 Z" fill="#6a4a2e"/>
+    <path d="M70 108 L84 64 L94 64 L104 108 Z" fill="#6a4a2e"/>
+    <path d="M36 70 L98 70" stroke-width="5"/>
+  </g>
+  <path d="M36 70 L98 70" stroke="#8a6a44" stroke-width="2.5"/>
+  <path d="M12 114 L120 114" stroke="#8a6a44" stroke-width="1.5"/>
+  <path d="M20 112 L30 122 M50 112 L60 122 M80 112 L90 122" stroke="#4a3220" stroke-width="2"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M66 74 L22 36" stroke="#1a120c" stroke-width="8"/>
+    <path d="M66 74 L22 36" stroke="#8a6a44" stroke-width="4.5"/>
+    <path d="M8 36 C8 24 30 22 32 34 C32 42 24 46 18 46 C12 46 8 42 8 36 Z" fill="#4a3a2a"/>
+  </g>
+  <circle cx="20" cy="30" r="10" fill="#6a6660" stroke="#1a120c" stroke-width="2"/>
+  <path d="M15 28 L19 24 L23 28 L19 34 Z" stroke="#ff9a3c" stroke-width="2" fill="none"/>
+  <circle cx="19" cy="29" r="1.5" fill="#ffe0a0"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 108 L100 76" stroke-width="3"/>
+  </g>
+  <path d="M88 40 L100 40 L100 76 L88 70 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M89 42 L99 42" stroke="#ff00ff" stroke-width="1.2"/>
+  <g stroke="#1a120c" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 60 C100 48 120 48 122 58 L126 64 L120 70 C116 74 104 74 100 68 Z" fill="#efe6cf"/>
+    <path d="M118 66 C124 62 126 54 124 48 C128 56 128 64 122 70 Z" fill="#efe6cf"/>
+  </g>
+  <circle cx="110" cy="58" r="2.8" fill="#1a120c"/><circle cx="110" cy="58" r="1.1" fill="#ff9a3c"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 74" width="92" height="74" data-anchor="46 62" data-world="0.5" data-scale="1" data-grime="0.6">
+  <!-- Złoże: złote kryształy energii w skale. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M6 60 C4 46 16 38 26 40 C30 30 46 28 54 36 C66 30 84 36 86 48 C94 54 90 66 80 68 L14 68 C8 68 6 64 6 60 Z" fill="#6a665c"/>
+  </g>
+  <path d="M12 50 C18 44 26 42 32 44 M56 38 C64 36 74 38 80 44" stroke="#8a867a" stroke-width="2" fill="none"/>
+  <path d="M60 66 C72 64 82 60 86 50 C90 60 86 68 78 70 Z" fill="#46423a"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+
+    <path d="M30 56 L26 26 L36 12 L44 30 L42 56 Z" fill="#ffd24a"/>
+    <path d="M42 56 L48 24 L58 18 L60 38 L54 58 Z" fill="#f0b830"/>
+    <path d="M56 58 L62 38 L70 34 L72 48 L66 60 Z" fill="#ffd24a"/>
+    <path d="M18 60 L16 44 L22 40 L28 50 L26 60 Z" fill="#f0b830"/>
+  </g>
+  <path d="M36 12 L30 56 L26 26 Z" fill="#fff4b8" opacity="0.8"/>
+  <path d="M58 18 L54 58 L48 24 Z" fill="#b8871a" opacity="0.6"/>
+  <path d="M34 22 L32 46 M60 40 L64 52" stroke="#ffffff" stroke-width="1.5" opacity="0.8"/>
+</svg>

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.21">
+  <!-- Gibon-piechur: rzut 3/4, patrzy w prawo. Długie ręce, rękawice soniczne, cybernetyczne oko. Pas drużyny niebieski. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <!-- postrzępiona chusta za plecami -->
+    <path d="M56 66 C44 70 32 76 20 74 L26 80 L18 84 L30 86 L24 92 C38 90 50 82 60 74 Z" fill="#6e2a22"/>
+    <!-- rezonator na plecach -->
+    <path d="M44 56 L42 40" fill="none"/>
+    <rect x="38" y="60" width="18" height="26" rx="4" fill="#2b2e33"/>
+    <circle cx="47" cy="72" r="5" fill="#1c1f22"/>
+    <!-- dalsza ręka -->
+    <path d="M58 70 C42 80 32 100 30 124 L40 126 C42 104 50 88 64 80 Z" fill="#8f7a5c"/>
+    <circle cx="35" cy="129" r="7" fill="#2a221c"/>
+    <!-- nogi -->
+    <path d="M60 106 L56 122 L54 134 L66 134 L66 122 L68 108 Z" fill="#8f7a5c"/>
+    <path d="M70 106 L70 122 L70 134 L84 134 L82 122 L80 106 Z" fill="#c9b08a"/>
+    <path d="M52 130 L52 136 L68 136 L67 130 Z M68 130 L68 136 L86 136 L84 130 Z" fill="#2a221c"/>
+    <!-- tułów -->
+    <path d="M50 92 C48 78 56 66 68 64 C80 64 88 74 88 90 C88 104 80 114 68 114 C58 114 50 106 50 92 Z" fill="#c9b08a"/>
+    <!-- kamizelka -->
+    <path d="M54 76 C62 68 78 68 85 76 C88 88 86 100 80 108 L58 108 C54 100 52 88 54 76 Z" fill="#2f4a4f"/>
+  </g>
+  <circle cx="47" cy="72" r="2.5" fill="#5ff3ff" opacity="0.8"/>
+  <path d="M42 60 L38 46" stroke="#1a120c" stroke-width="2.5"/>
+  <circle cx="38" cy="45" r="2.5" fill="#5ff3ff" stroke="#1a120c" stroke-width="1"/>
+  <!-- pas drużyny, lamówka, rdzeń -->
+  <path d="M65 70 L72 70 L72 108 L65 108 Z" fill="#d000d0"/>
+  <path d="M65 70 L65 108" stroke="#ff00ff" stroke-width="1"/>
+  <path d="M54 77 C62 69 78 69 85 77" fill="none" stroke="#b8893a" stroke-width="2"/>
+  <path d="M58 107 L80 107" stroke="#b8893a" stroke-width="2"/>
+  <circle cx="78" cy="88" r="5" fill="#1c1f22" stroke="#b8893a" stroke-width="1.5"/>
+  <circle cx="78" cy="88" r="2.8" fill="#5ff3ff"/>
+  <path d="M58 94 L62 100 M60 84 L64 88" stroke="#1d2e31" stroke-width="1.5"/>
+  <!-- bliższa ręka -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round">
+    <path d="M74 68 C92 70 104 84 106 102 L95 104 C93 92 86 84 72 80 Z" fill="#c9b08a"/>
+    <g transform="rotate(-6 104 116)">
+      <rect x="94" y="98" width="20" height="30" rx="5" fill="#3b4a4e"/>
+      <rect x="96" y="125" width="16" height="9" rx="2" fill="#2a221c"/>
+    </g>
+  </g>
+  <g transform="rotate(-6 104 116)" stroke-linecap="round">
+    <path d="M97 106 L111 106 M97 112 L111 112 M97 118 L111 118" stroke="#5ff3ff" stroke-width="2"/>
+    <path d="M98 100 L110 100" stroke="#6f8a90" stroke-width="1.5"/>
+    <path d="M108 102 L106 110" stroke="#1d2e31" stroke-width="1"/>
+  </g>
+  <!-- głowa -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round">
+    <path d="M44 44 C42 28 54 18 68 18 C84 18 94 28 94 44 C94 58 84 68 68 68 C54 68 44 58 44 44 Z" fill="#d9c29c"/>
+  </g>
+  <!-- futro: grzywka i cień -->
+  <path d="M46 36 L42 32 L48 30 L46 24 L54 26 L54 20 L60 23 L64 17 L67 22" fill="#d9c29c" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M46 48 C48 60 58 68 70 68 C60 64 52 56 50 44 Z" fill="#8f7a5c" opacity="0.7"/>
+  <!-- ucho z ubytkiem -->
+  <path d="M50 42 C46 40 44 46 46 50 C48 52 51 51 52 48 L50 46 Z" fill="#8f7a5c" stroke="#1a120c" stroke-width="1.5"/>
+  <!-- biały pierścień twarzy, czarna twarz, pysk -->
+  <ellipse cx="78" cy="45" rx="15" ry="16.5" fill="#f0e6d2"/>
+  <ellipse cx="80" cy="47" rx="11.5" ry="13" fill="#2a221e"/>
+  <ellipse cx="85" cy="54" rx="7.5" ry="5.5" fill="#3d332d"/>
+  <path d="M69 38 C74 35 82 35 90 37" stroke="#f0e6d2" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- oko bliższe: implant -->
+  <path d="M69 39 L79 39 L79 47 L71 48 Z" fill="#5a6468" stroke="#101214" stroke-width="1.2"/>
+  <circle cx="74.5" cy="43.2" r="2.6" fill="#5ff3ff"/>
+  <circle cx="74.5" cy="43.2" r="1" fill="#e8feff"/>
+  <path d="M68 41 L64 40 M69 46 L64 47" stroke="#6f8a90" stroke-width="1"/>
+  <!-- oko dalsze -->
+  <ellipse cx="86" cy="43.5" rx="2.6" ry="2.2" fill="#e0a43a"/>
+  <circle cx="86.6" cy="43.5" r="1.3" fill="#0c0806"/>
+  <path d="M83 40.5 L90 40" stroke="#1a120c" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- blizna przez policzek -->
+  <path d="M72 51 L78 58" stroke="#8a5a50" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- nozdrza i usta -->
+  <path d="M88 50.5 L89.5 51.5 M85.5 51 L86.5 51.8" stroke="#120c08" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M80 57.5 C84 59 88 58.5 91 56" fill="none" stroke="#0c0806" stroke-width="1.5"/>
+  <!-- blask -->
+  <path d="M58 24 C62 22 68 21 72 22" fill="none" stroke="#f0e2c4" stroke-width="2" stroke-linecap="round"/>
+</svg>

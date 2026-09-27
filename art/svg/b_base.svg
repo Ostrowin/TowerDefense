@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 190" width="200" height="190" data-anchor="100 172" data-world="0.55" data-scale="0.9">
+  <!-- Forteca: kamienny donżon z blankami, dwie baszty, brama z kratą, antena i kryształ na dachu, sztandary drużyny. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M10 170 L10 118 L190 118 L190 170 C160 186 40 186 10 170 Z" fill="#6a645a"/>
+    <path d="M100 118 L190 118 L190 170 C176 177 140 183 100 184 Z" fill="#524d45" stroke="none"/>
+    <path d="M36 128 L36 44 L164 44 L164 128 Z" fill="#6f695e"/>
+    <path d="M100 44 L164 44 L164 128 L100 128 Z" fill="#57524a" stroke="none"/>
+    <path d="M80 184 L80 146 C80 132 120 132 120 146 L120 184 Z" fill="#1c1612"/>
+  </g>
+  <path d="M8 118 L192 118" stroke="#3b3f45" stroke-width="5"/>
+  <path d="M84 148 L116 148 M84 158 L116 158 M84 168 L116 168 M84 178 L116 178" stroke="#3b3f45" stroke-width="3"/>
+  <path d="M100 136 L100 184" stroke="#3b3f45" stroke-width="3"/>
+  <g stroke="#3a352e" stroke-width="2" fill="none">
+    <path d="M36 70 L164 70 M36 96 L164 96 M60 44 L60 70 M100 70 L100 96 M140 44 L140 70 M80 96 L80 128 M124 96 L124 128"/>
+    <path d="M10 140 L80 140 M120 140 L190 140 M10 160 L80 160 M120 160 L190 160 M40 118 L40 140 M160 118 L160 140 M60 140 L60 160 M140 140 L140 160"/>
+  </g>
+  <path d="M130 60 L140 76 L134 90" stroke="#1a120c" stroke-width="2" fill="none"/>
+  <path d="M28 150 L36 142 L42 152 L34 162 Z" fill="#2a2622" stroke="#1a120c" stroke-width="1.5"/>
+  <rect x="56" y="80" width="12" height="16" fill="#ffb84a" stroke="#1a120c" stroke-width="2" opacity="0.9"/>
+  <rect x="132" y="80" width="12" height="16" fill="#1c1612" stroke="#1a120c" stroke-width="2"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="36" y="32" width="14" height="14" fill="#7d776a"/>
+    <rect x="58" y="32" width="14" height="14" fill="#7d776a"/>
+    <rect x="80" y="32" width="14" height="14" fill="#7d776a"/>
+    <rect x="102" y="32" width="14" height="14" fill="#7d776a"/>
+    <rect x="124" y="32" width="14" height="14" fill="#7d776a"/>
+    <rect x="146" y="32" width="14" height="14" fill="#7d776a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M2 176 L2 88 L38 88 L38 176 C28 182 12 182 2 176 Z" fill="#6f695e"/>
+    <path d="M162 176 L162 88 L198 88 L198 176 C188 182 172 182 162 176 Z" fill="#57524a"/>
+    <path d="M0 90 L20 64 L40 90 Z" fill="#4a3a30"/>
+    <path d="M160 90 L180 64 L200 90 Z" fill="#4a3a30"/>
+  </g>
+  <rect x="14" y="104" width="10" height="14" fill="#1c1612" stroke="#1a120c" stroke-width="1.5"/>
+  <rect x="176" y="104" width="10" height="14" fill="#1c1612" stroke="#1a120c" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M120 32 L124 6" stroke-width="3"/>
+    <path d="M110 12 C112 2 136 2 138 12 C132 18 116 18 110 12 Z" fill="#3b3f45"/>
+  </g>
+  <circle cx="124" cy="8" r="2.5" fill="#ff5a36"/>
+  <path d="M70 32 L70 10" stroke="#1a120c" stroke-width="3"/><path d="M70 12 L60 4 L80 4 Z" fill="#b48cff" stroke="#1a120c" stroke-width="2"/>
+  <path d="M70 5 L70 10" stroke="#e8d8ff" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 48 L68 48 L68 82 L64 78 L58.0 86 L52 78 L48 82 Z" fill="#c800c8"/>
+  </g>
+  <path d="M50 51 L66 51" stroke="#ff00ff" stroke-width="1.5"/>
+  <path d="M54.0 58 L62.0 58 L58.0 66 Z" fill="#1a120c" opacity="0.55"/>
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M132 48 L152 48 L152 82 L148 78 L142.0 86 L136 78 L132 82 Z" fill="#c800c8"/>
+  </g>
+  <path d="M134 51 L150 51" stroke="#ff00ff" stroke-width="1.5"/>
+  <path d="M138.0 58 L146.0 58 L142.0 66 Z" fill="#1a120c" opacity="0.55"/>
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M90 100 L110 100 L110 126 L106 122 L100.0 130 L94 122 L90 126 Z" fill="#c800c8"/>
+  </g>
+  <path d="M92 103 L108 103" stroke="#ff00ff" stroke-width="1.5"/>
+  <path d="M96.0 110 L104.0 110 L100.0 118 Z" fill="#1a120c" opacity="0.55"/>
+</svg>

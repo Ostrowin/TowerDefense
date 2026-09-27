@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 176" width="128" height="176" data-anchor="64 140" data-world="0.36" data-scale="1">
+  <!-- Warsztat: szopa z bramą, dźwig, koło zębate, kuźnia z dymem. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 132 L8 150 C8 162 36.0 170 64 170 C92.0 170 120 162 120 150 L120 132 Z" fill="#4f4a42"/>
+    <ellipse cx="64" cy="132" rx="56" ry="20.72" fill="#7d776a"/>
+  </g>
+  <g stroke="#2e2a24" stroke-width="1.5" fill="none">
+    <path d="M8 142 C30.4 152 97.6 152 120 142"/>
+    <path d="M27.04 150 L27.04 160 M51.68 154 L51.68 168 M76.32 154 L76.32 168 M100.96000000000001 150 L100.96000000000001 160"/>
+    <path d="M24.800000000000004 124 L44.400000000000006 118 M86.4 118 L106.0 124"/>
+  </g>
+  <path d="M98.72 150 L109.91999999999999 146 L115.52000000000001 152 L106.56 160 Z" fill="#2a2622" stroke="#1a120c" stroke-width="1.5"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 146 C8 138 28 138 30 146 C30 154 8 154 8 146 Z" fill="#8a7a5a"/>
+    <path d="M4 158 C4 152 20 152 22 158 C22 165 4 165 4 158 Z" fill="#8a7a5a"/>
+    <path d="M20 156 C20 148 42 148 44 156 C44 164 20 164 20 156 Z" fill="#8a7a5a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M20 132 L20 86 L96 86 L96 132 C84 140 32 140 20 132 Z" fill="#5a5048"/>
+    <path d="M14 90 L58 62 L102 90 Z" fill="#4a3a30"/>
+    <rect x="30" y="102" width="40" height="30" fill="#1c1612"/>
+    <rect x="98" y="60" width="12" height="72" fill="#5a4e44"/>
+  </g>
+  <path d="M32 106 L68 106 M32 114 L68 114 M32 122 L68 122" stroke="#3b3f45" stroke-width="2"/>
+  <path d="M20 98 C40 104 76 104 96 98 L96 104 C76 110 40 110 20 104 Z" fill="#c800c8"/>
+  <path d="M20 98 C40 104 76 104 96 98" stroke="#ff00ff" stroke-width="1.2" fill="none"/>
+  <rect x="82" y="104" width="10" height="10" fill="#ff8a2a" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M30 70 C42 64 52 62 58 62" stroke="#7a6454" stroke-width="2" fill="none"/>
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="28" cy="62" r="12" fill="#3b3f45"/>
+    <circle cx="28" cy="62" r="4" fill="#25282c"/>
+  </g>
+  <path d="M28 46 L28 50 M28 74 L28 78 M12 62 L16 62 M40 62 L44 62 M17 51 L20 54 M36 70 L39 73 M39 51 L36 54 M20 70 L17 73" stroke="#1a120c" stroke-width="4"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M104 60 L104 20" stroke-width="5"/>
+    <path d="M104 22 L40 30 L40 36 L104 30 Z" fill="#b88a2a"/>
+    <path d="M52 34 L52 58" stroke-width="1.5"/>
+  </g>
+  <path d="M104 60 L104 20" stroke="#3b3f45" stroke-width="2.5"/>
+  <path d="M48 58 L56 58 L56 66 L48 66 Z" fill="#3b3f45" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M60 26 L68 34 M76 24 L84 32 M92 22 L100 30" stroke="#7a5a1a" stroke-width="1.5"/>
+  <circle cx="104" cy="50" r="5" fill="#8a8a8a" opacity="0.45"/><circle cx="108" cy="41" r="6.5" fill="#9a9a9a" opacity="0.35"/>
+  <circle cx="105" cy="30" r="7.5" fill="#aaaaaa" opacity="0.25"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 90" width="100" height="90" data-anchor="50 80" data-world="0.42" data-scale="0.8" data-grime="1">
+  <!-- Wrak mecha/kapsuły w ziemi — ślad dawnych bitew. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 74 C8 50 26 34 48 34 C70 34 88 48 90 70 L84 78 L14 80 Z" fill="#4b5058"/>
+    <path d="M40 40 L50 40 L56 60 L36 62 Z" fill="#2b2e33"/>
+    <path d="M60 18 L66 16 L74 44 L68 46 Z" fill="#3b3f45"/>
+  </g>
+  <path d="M14 58 C22 44 36 38 50 38" stroke="#8b939e" stroke-width="2" fill="none"/>
+  <circle cx="46" cy="50" r="5" fill="#1c1e22" stroke="#1a120c" stroke-width="1.5"/><circle cx="46" cy="50" r="2.2" fill="#ff5a36" opacity="0.8"/>
+  <path d="M20 66 L30 60 L28 70 Z M70 60 L80 64 L74 70 Z" fill="#6a3a22" opacity="0.8"/>
+  <path d="M58 58 L66 62 L62 70" stroke="#1a120c" stroke-width="1.5" fill="none"/>
+  <path d="M4 80 C20 74 76 74 94 80 C80 86 20 86 4 80 Z" fill="#4a3d2c"/>
+  <path d="M64 16 L70 12 M60 18 L58 12" stroke="#1a120c" stroke-width="1.5"/>
+</svg>

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64.0 136" data-world="0.22">
+  <!-- Kret-tarczownik: pancerne drzwi z szybu z wizjerem, kilof. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M52 108 L48 126 L46 134 L62 134 L62 122 L64 110 Z" fill="#463830"/>
+    <path d="M70 110 L70 124 L70 134 L86 134 L84 122 L82 110 Z" fill="#6b5548"/>
+    <path d="M44 128 L44 138 L64 138 L63 128 Z M68 128 L68 138 L90 138 L88 128 Z" fill="#4a3a2a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 94 C40 76 52 64 68 64 C84 64 94 76 94 94 C94 110 84 118 68 118 C52 118 42 110 42 94 Z" fill="#6b5548"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M50 84 L88 84 C92 96 90 110 82 116 L56 116 C48 110 46 96 50 84 Z" fill="#4a5058"/>
+  </g>
+  <path d="M54 84 L58 70 M84 84 L80 70" stroke="#1a120c" stroke-width="5"/>
+  <path d="M54 84 L58 70 M84 84 L80 70" stroke="#4a5058" stroke-width="2.8"/>
+  <path d="M60 90 L78 90 L78 102 L60 102 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M60 91.5 L78 91.5" stroke="#ff00ff" stroke-width="1.2"/>
+  <circle cx="56" cy="86" r="1.5" fill="#b8893a"/><circle cx="82" cy="86" r="1.5" fill="#b8893a"/>
+  <path d="M52 108 L86 108" stroke="#4a3a2a" stroke-width="4"/>
+  <rect x="64" y="105" width="8" height="6" fill="#b8893a" stroke="#1a120c" stroke-width="1"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 50 C44 32 58 22 74 22 C90 22 100 34 100 46 C100 58 90 68 74 68 C58 68 44 62 44 50 Z" fill="#6b5548"/>
+    <path d="M94 42 C104 40 116 44 119 50 C120 55 114 58 106 58 C99 58 94 55 93 50 Z" fill="#d98f8f"/>
+  </g>
+  <ellipse cx="117" cy="50" rx="2.6" ry="3" fill="#b86a6a"/>
+  <path d="M104 56 L106 61 L108 56" fill="#efe6cf" stroke="#1a120c" stroke-width="1"/>
+  <path d="M110 48 L124 44 M110 52 L125 53 M108 50 L122 48" stroke="#2a201a" stroke-width="0.9"/>
+  <path d="M46 54 C50 64 62 68 74 68 C64 64 54 58 50 50 Z" fill="#463830" opacity="0.7"/>
+  <path d="M60 30 C66 26 74 25 80 26" fill="none" stroke="#8a7060" stroke-width="1.8"/>
+  <path d="M46 44 C60 40 80 38 96 40" stroke="#4a3a2a" stroke-width="5" fill="none"/>
+  <circle cx="97" cy="41" r="5" fill="#b8893a" stroke="#1a120c" stroke-width="1.8"/><circle cx="97" cy="41" r="3" fill="#ffb020"/>
+  <circle cx="86" cy="43" r="7" fill="#b8893a" stroke="#1a120c" stroke-width="2"/><circle cx="86" cy="43" r="4.6" fill="#ffb020"/>
+  <path d="M84 40 L87 42 L85 46" stroke="#7a4a10" stroke-width="0.9" fill="none"/>
+  <circle cx="84.5" cy="41.5" r="1.4" fill="#fff2c0"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M46 38 C48 22 62 14 76 15 C90 16 100 26 101 36 C84 31 62 31 46 38 Z" fill="#d9a032"/>
+    <path d="M42 40 C60 32 86 30 106 36 L104 40 C86 35 62 36 44 44 Z" fill="#a8741e"/>
+    <path d="M92 20 C98 20 102 24 102 30 C102 34 98 36 94 36 C90 36 88 32 88 28 C88 24 90 20 92 20 Z" fill="#3b3f45"/>
+  </g>
+  <circle cx="96" cy="28" r="4" fill="#ffc233"/><circle cx="96" cy="28" r="2" fill="#fff2c0"/>
+  <path d="M70 15.5 L79 15.5 L81 32.5 L70 33 Z" fill="#c800c8"/>
+  <path d="M70 16 L70.5 32.5" stroke="#ff00ff" stroke-width="1.2"/>
+  <path d="M54 24 C62 18 68 16.5 70 16.5" fill="none" stroke="#f0c860" stroke-width="2"/>
+  <path d="M66 20 L70 28 L66 30" stroke="#a8741e" stroke-width="1.5" fill="none"/>
+  <circle cx="58" cy="30" r="1.2" fill="#a8741e"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 118 L110 30" stroke="#1a120c" stroke-width="6"/>
+    <path d="M100 118 L110 30" stroke="#8a6a44" stroke-width="3"/>
+    <path d="M92 32 C100 22 118 22 126 32 L122 34 C114 28 104 28 96 35 Z" fill="#6b7280"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M66 64 L108 60 L112 128 L70 134 Z" fill="#5a5048"/>
+    <rect x="76" y="72" width="26" height="6" rx="2" fill="#1c1a18"/>
+  </g>
+  <path d="M67 90 L110 86 L110 98 L68 102 Z" fill="#c800c8"/>
+  <path d="M67 90 L110 86" stroke="#ff00ff" stroke-width="1.2"/>
+  <path d="M70 116 L110 112" stroke="#d9a032" stroke-width="5"/>
+  <path d="M74 115 L78 119 M84 114 L88 118 M94 113 L98 117 M104 112 L108 116" stroke="#1a120c" stroke-width="2"/>
+  <path d="M68 66 L106 62" stroke="#7a7068" stroke-width="1.5"/>
+  <path d="M96 104 L100 110 L96 112" stroke="#1a120c" stroke-width="1.2" fill="none"/>
+    <circle cx="70" cy="68" r="1.5" fill="#8b939e"/>
+    <circle cx="104" cy="65" r="1.5" fill="#8b939e"/>
+    <circle cx="108" cy="124" r="1.5" fill="#8b939e"/>
+    <circle cx="74" cy="128" r="1.5" fill="#8b939e"/>
+    <circle cx="88" cy="66" r="1.5" fill="#8b939e"/>
+    <circle cx="90" cy="130" r="1.5" fill="#8b939e"/>
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="108" cy="70" r="5.5" fill="#e0a8a0"/>
+    <path d="M104.7 67.25 L96.5 66.15 M103.6 70 L95.5 71 M104.7 72.75 L96.5 74.4" stroke="#efe6cf" stroke-width="2.4"/>
+  </g>
+</svg>

@@ -14,7 +14,13 @@ scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, 
                          dowódcy rasy (`commanders`) i jej umiejętność (`racial`)
 scripts/sim.gd           Sim      — logika gry: stan, rozkazy gracza, step(dt), zdarzenia. Zero węzłów i rysowania.
 scripts/main.gd          widok: kamera, render (_draw + warstwa terenu), HUD, minimapa, menu, nakładki, samouczek
-scripts/painter.gd       Painter  — kształty (koła, łuki, linie, wielokąty) sklejane w jedno wywołanie rysowania
+scripts/painter.gd       Painter  — kształty (koła, łuki, linie, wielokąty, elipsy) i sprite'y z atlasu sklejane
+                         w jedno wywołanie rysowania (z teksturą: UV każdego wierzchołka)
+scripts/art.gd           Art      — atlas sprite'ów i kafle terenu: ładowanie (mipmapy), `Art.draw` (stopy, lustro,
+                         obrót, rozciągnięcie, rozjaśnienie, nakładka drużyny)
+art/svg/*.svg            źródła grafiki (D30) — `.gdignore`, gra ich nie widzi; część generuje tools/svg_gen
+art/atlas.png            wypalony atlas + art/atlas_meta.gd (prostokąty, stopy, skala) — generowane, nie edytuj
+art/ground|dirt|water.png  bezszwowe kafle terenu (też z wypalania)
 scripts/sfx.gd           Sfx      — efekty i muzyka syntezowane w kodzie (bez plików audio), szyny SFX/Music
 scripts/progress.gd      Progress — rekordy i gwiazdki per mapa × trudność, stan samouczka (user://progress.cfg)
 scripts/settings.gd      Settings — głośności, skala interfejsu (user://settings.cfg)
@@ -26,7 +32,11 @@ tests/perf_test.gd       benchmark późnej gry: prawdziwa scena + bot, czas rze
                          (w APK — `tools/android.ps1 -Bench` odpala go na telefonie)
 tests/render_probe.gd    koszt warstw renderu (teren / świat / HUD / rozdzielczość) — wywołania rysowania, FPS
                          (benchmarki to węzły uruchamiane przez grę: `-- --bench <skrypt>`)
+tests/screenshot.gd      zrzuty prawdziwej sceny (cała mapa, zbliżenia) do oceny grafiki — okno, nie headless
 tools/android.ps1        eksport APK + adb install + start / log / benchmark na telefonie
+tools/bake_art.gd        wypalanie: art/svg → atlas z brudem i nakładką drużyny + kafle terenu
+tools/art_sheet.gd       arkusz podglądu sprite'ów z atlasu (obie drużyny)
+tools/svg_gen/*.py       generator SVG ras, budynków, dekoracji i dowódców (wspólne części = spójne rasy)
 ```
 
 ## Zasada podziału
@@ -226,6 +236,31 @@ Menu: po rasie karty jej dowódców (niegrywalni — „Wkrótce”).
 
 Samouczek: lista kroków w `TUTORIAL`, każdy kończy się warunkiem sprawdzanym co klatkę
 (postawiony wydobywacz, produkcja, wieża, zaznaczenie, ruch kamery, rozkaz dla dowódcy, użyta umiejętność).
+
+## Grafika (D30)
+
+```
+art/svg/*.svg ──tools/bake_art.gd──▶ art/atlas.png + art/atlas_meta.gd ──--import──▶ gra (Art.load_all)
+   (python tools/svg_gen/*.py)        art/ground|dirt|water.png
+```
+
+- **Wypalanie** (`Image.load_svg_from_string` w Godocie): SVG → obraz w skali `data-scale`, brud (plamy szumu,
+  błoto od dołu, rysy na metalu, odpryski), przycięcie, pakowanie półkowe do atlasu 2048 px (odstępy 6 px,
+  `fix_alpha_edges` pod mipmapy), biały blok 16×16 na kształty bez tekstury.
+- **Kolor drużyny**: wypełnienia `#RR00RR` (magenta, RR = jasność). Wypalanie renderuje SVG trzy razy (magenta →
+  czarny / biały / szary odcień) i z różnic robi szarą nakładkę: pokrycie × odcień. Gra rysuje nakładkę drugim
+  czworokątem w kolorze drużyny — ten sam atlas, to samo wywołanie.
+- **Atrybuty SVG**: `data-anchor` (stopy — tam trafia pozycja), `data-world` (px świata na jednostkę SVG),
+  `data-scale` (rozdzielczość wypalenia), `data-grime` (siła brudu).
+- **Nazwy**: jednostki `<rasa>_<soldier|archer|shield|brute|siege|flyer>` (`UNIT_ART` mapuje na nie też fale
+  wroga), dowódcy `cmd_<id>`, budynki `b_<rodzaj>` + obrotowa lufa `b_<rodzaj>_gun` (`GUN_MOUNT`), teren `deco_*`,
+  złoże `deposit`. Brak sprite'a = stary rysunek z kształtów (nowa treść może dochodzić stopniowo).
+- **Ruch z kodu** (`_draw_unit_sprite`): zwrot z kierunku ruchu (`Unit.face`), podskok/kołysanie/sprężystość
+  chodu, oddech w miejscu, wypad przy ciosie wręcz i odrzut przy strzale (z `cd_left`), unoszenie latających,
+  błysk trafienia (kolor > 1). Budynki sortowane po y przy zmianie układu.
+- **Teren**: kafel trawy powtarzany po całej mapie, ścieżki i rzeka jako pasy trójkątów z UV w przestrzeni
+  świata (`_strip`), podświetlenia ścieżek to ten sam pas zabarwiony; dekoracje ze sprite'ów w dwóch
+  `Painter` liczonych przy zmianie mapy.
 
 ## Kierunek dalszego rozbicia (gdy przyjdzie czas)
 

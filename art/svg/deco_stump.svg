@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 84" width="96" height="84" data-anchor="46 74" data-world="0.4" data-scale="0.8" data-grime="0.7">
+  <!-- Pień z wbitym toporem. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M26 70 L28 44 C34 38 58 38 64 44 L68 70 C58 78 34 78 26 70 Z" fill="#4a3526"/>
+    <ellipse cx="46" cy="44" rx="18" ry="6" fill="#9a7a58"/>
+  </g>
+  <ellipse cx="46" cy="44" rx="10" ry="3" fill="none" stroke="#6a5038" stroke-width="1.2"/>
+  <path d="M52 40 L64 20" stroke="#1a120c" stroke-width="4"/><path d="M52 40 L64 20" stroke="#8a6a44" stroke-width="2"/>
+  <path d="M58 26 L70 20 L68 30 Z" fill="#6b7280" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M30 70 L22 76 M62 70 L72 76" stroke="#2e2018" stroke-width="3"/>
+</svg>

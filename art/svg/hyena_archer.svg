@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.21">
+  <!-- Hiena-piechur: rzut 3/4, patrzy w prawo. Kontur #1a120c, sierść ochra, pancerz grafit, pas drużyny czerwony. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <!-- ogon -->
+    <path d="M46 92 C34 90 24 96 16 108 C26 108 34 104 44 102 Z" fill="#9c7a30"/>
+    <path d="M22 100 C14 104 10 112 12 118 C18 116 26 110 30 104 Z" fill="#3a2a1a"/>
+    <!-- dalsza noga -->
+    <path d="M52 102 L44 120 L46 128 L58 128 L56 120 L62 106 Z" fill="#7d5f24"/>
+    <path d="M44 124 L44 136 L62 136 L60 124 Z" fill="#25282c"/>
+    <!-- dalsza ręka -->
+    <path d="M58 78 C52 86 54 94 62 96 L68 92 C62 90 62 84 64 80 Z" fill="#7d5f24"/>
+    <!-- tułów -->
+    <path d="M38 98 C36 82 46 68 64 64 C80 60 92 68 94 82 C96 98 86 112 70 114 C54 116 40 110 38 98 Z" fill="#b8923a"/>
+    <!-- bliższa noga -->
+    <path d="M62 104 L58 122 L60 128 L76 128 L72 120 L78 106 Z" fill="#b8923a"/>
+    <path d="M58 122 L58 136 L80 136 L78 124 Z" fill="#3b3f45"/>
+    <!-- napierśnik -->
+    <path d="M56 70 C70 62 88 66 92 80 C94 94 86 106 74 108 C64 110 56 104 55 96 Z" fill="#3b3f45"/>
+    <!-- pas z ładownicami -->
+    <path d="M44 100 C56 108 74 110 90 100 L90 106 C74 116 56 114 44 106 Z" fill="#4a3a2a"/>
+    <rect x="50" y="102" width="9" height="9" rx="1" fill="#5c4a36"/>
+    <rect x="62" y="105" width="9" height="9" rx="1" fill="#5c4a36"/>
+  </g>
+  <!-- cętki i cienie na sierści (bez konturu) -->
+  <g fill="#4a3520" opacity="0.85">
+    <ellipse cx="44" cy="90" rx="3" ry="2"/>
+    <ellipse cx="48" cy="80" rx="2.5" ry="2"/>
+    <ellipse cx="42" cy="100" rx="2" ry="1.5"/>
+    <ellipse cx="66" cy="112" rx="2.5" ry="1.8"/>
+    <ellipse cx="30" cy="100" rx="2" ry="1.5"/>
+  </g>
+  <path d="M40 100 C44 110 56 114 66 114 C54 112 44 106 42 96 Z" fill="#7d5f24" opacity="0.7"/>
+  <!-- pas drużyny i płyty pancerza -->
+  <path d="M60 74 L90 88 L89 95 L58 81 Z" fill="#d000d0"/>
+  <path d="M60 74 L90 88" stroke="#ff00ff" stroke-width="1"/>
+  <path d="M62 92 C70 98 80 98 88 94" fill="none" stroke="#25282c" stroke-width="2"/>
+  <path d="M60 72 C68 66 80 66 88 72" fill="none" stroke="#7b838e" stroke-width="1.5"/>
+  <!-- grzywa -->
+  <path d="M44 28 L40 34 L46 36 L40 42 L46 44 L40 52 L47 53 L42 62 L50 62 L46 70 L56 66 L56 34 Z"
+        fill="#2e2016" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <!-- naramiennik -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round">
+    <path d="M70 66 C74 58 90 58 96 66 C98 74 94 80 86 80 C78 80 70 76 70 66 Z" fill="#4b5058"/>
+  </g>
+  <path d="M74 64 C80 60 88 60 92 64" fill="none" stroke="#8b939e" stroke-width="1.5"/>
+  <path d="M84 62 L86 70 L82 72" fill="none" stroke="#1a120c" stroke-width="1"/>
+  <!-- karabin laserowy -->
+  <g transform="rotate(-10 90 90)" stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M48 86 L60 84 L60 96 L50 98 Z" fill="#4a3a2a"/>
+    <rect x="58" y="82" width="50" height="12" rx="2" fill="#2b2e33"/>
+    <rect x="106" y="85" width="18" height="6" fill="#3b3f45"/>
+    <rect x="120" y="84" width="6" height="8" rx="1" fill="#25282c"/>
+    <rect x="68" y="77" width="18" height="6" rx="1" fill="#ff5a36"/>
+    <rect x="90" y="94" width="6" height="8" fill="#2b2e33"/>
+  </g>
+  <g transform="rotate(-10 90 90)">
+    <rect x="70" y="78.5" width="14" height="2" fill="#ffd9b0"/>
+    <path d="M62 88 L104 88" stroke="#4b5058" stroke-width="1.5"/>
+    <circle cx="112" cy="88" r="1.5" fill="#ff5a36"/>
+  </g>
+  <!-- bliższa ręka z bandażem -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round">
+    <path d="M84 74 C92 80 96 88 94 94 L86 96 C86 90 82 84 78 80 Z" fill="#b8923a"/>
+    <circle cx="90" cy="96" r="5.5" fill="#9c7a30"/>
+  </g>
+  <path d="M84 80 L92 84 M83 84 L91 88" stroke="#d8cdb4" stroke-width="2.5"/>
+  <!-- głowa -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round">
+    <!-- dalsze ucho -->
+    <path d="M78 22 C78 8 94 6 96 18 C97 26 90 30 84 30 Z" fill="#7d5f24"/>
+    <!-- czaszka -->
+    <path d="M46 44 C46 26 60 16 76 18 C92 20 100 32 98 44 C96 58 86 66 72 66 C56 66 46 58 46 44 Z" fill="#b8923a"/>
+    <!-- pysk -->
+    <path d="M84 38 C96 34 110 38 114 48 C116 58 108 64 98 64 C90 64 84 60 82 54 Z" fill="#b8923a"/>
+    <!-- bliższe ucho z wyszczerbieniem -->
+    <path d="M50 30 C44 16 52 4 62 8 L60 12 L65 13 C70 18 68 28 62 34 Z" fill="#b8923a"/>
+  </g>
+  <path d="M53 26 C50 18 54 12 59 12 C63 16 62 24 59 30 Z" fill="#3a2a1a"/>
+  <path d="M82 22 C82 14 90 12 92 18 C92 22 88 26 85 26 Z" fill="#3a2a1a"/>
+  <!-- ciemna maska pyska -->
+  <path d="M92 38 C102 36 111 40 113 48 C114 56 108 62 100 62 C94 62 90 58 90 52 Z" fill="#3a2c20"/>
+  <ellipse cx="111" cy="45" rx="4" ry="3" fill="#120c08"/>
+  <ellipse cx="112" cy="44" rx="1.5" ry="0.8" fill="#6b5a4a"/>
+  <!-- uśmiech z zębami -->
+  <path d="M90 56 C96 60 104 60 110 56" fill="none" stroke="#120c08" stroke-width="2"/>
+  <path d="M94 57 L95.5 61 L97 58 L98.5 61.5 L100 58.5 L101.5 61.5 L103 58 L104.5 60.5 L106 57.5" fill="#efe6cf" stroke="#120c08" stroke-width="0.8"/>
+  <!-- cętki na głowie -->
+  <g fill="#4a3520" opacity="0.8">
+    <ellipse cx="58" cy="50" rx="2.5" ry="2"/>
+    <ellipse cx="64" cy="58" rx="2" ry="1.6"/>
+    <ellipse cx="54" cy="40" rx="2" ry="1.5"/>
+  </g>
+  <path d="M48 46 C50 58 60 66 72 66 C64 62 56 56 52 44 Z" fill="#7d5f24" opacity="0.7"/>
+  <!-- oko z blizną -->
+  <path d="M78 36 C83 32 90 33 92 38 C88 41 82 41 78 36 Z" fill="#f2c14e" stroke="#120c08" stroke-width="1.5"/>
+  <circle cx="86" cy="37" r="2" fill="#120c08"/>
+  <path d="M76 32 L92 30" stroke="#2e2016" stroke-width="3" stroke-linecap="round"/>
+  <path d="M80 24 L86 46" stroke="#b86a5c" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80 24 L86 46" stroke="#e0a090" stroke-width="0.8" stroke-linecap="round"/>
+  <!-- blask na czaszce -->
+  <path d="M70 23 C76 21 84 22 90 27" fill="none" stroke="#dcc07a" stroke-width="2" stroke-linecap="round"/>
+</svg>

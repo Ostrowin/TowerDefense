@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 84" width="110" height="84" data-anchor="54 74" data-world="0.4" data-scale="0.8" data-grime="0.8">
+  <!-- Szkielet wielkiej bestii. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M24 66 C20 50 26 36 36 30" fill="none" stroke-width="8"/>
+    <path d="M38 68 C34 48 42 30 54 26" fill="none" stroke-width="8"/>
+    <path d="M52 70 C50 50 58 34 70 30" fill="none" stroke-width="8"/>
+    <path d="M14 70 L80 58" stroke-width="7"/>
+  </g>
+  <path d="M24 66 C20 50 26 36 36 30 M38 68 C34 48 42 30 54 26 M52 70 C50 50 58 34 70 30 M14 70 L80 58" stroke="#d8cdb4" stroke-width="4" fill="none" stroke-linecap="round"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+
+    <path d="M72 70 C70 58 82 50 94 56 L100 62 L96 72 C90 78 76 78 72 70 Z" fill="#d8cdb4"/>
+    <path d="M94 60 C100 56 104 48 102 40 C108 50 106 60 100 66 Z" fill="#d8cdb4"/>
+  </g>
+  <circle cx="82" cy="64" r="3" fill="#1a120c"/>
+  <path d="M4 74 C24 68 84 68 104 74 C84 80 24 80 4 74 Z" fill="#4a3d2c" opacity="0.8"/>
+</svg>
