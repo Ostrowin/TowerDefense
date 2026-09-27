@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 108" data-world="0.24">
+  <!-- Latający jeż: mały wiatrakowiec w oliwkowym pancerzu, pilot za szybą. -->
+  <path d="M20 20 L108 28" stroke="#1a120c" stroke-width="5"/><path d="M20 20 L108 28" stroke="#6b7280" stroke-width="2.5"/>
+  <path d="M64 24 L64 42" stroke="#1a120c" stroke-width="4"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M30 70 C30 52 46 42 64 42 C86 42 104 54 106 70 C104 86 86 94 64 94 C46 94 30 86 30 70 Z" fill="#6f7d45"/>
+    <path d="M24 70 L4 64 L4 76 Z" fill="#4a5530"/>
+  </g>
+  <path d="M34 78 L102 78" stroke="#c800c8" stroke-width="5"/>
+  <path d="M80 50 C92 52 100 60 102 68 L82 68 Z" fill="#8ad8ff" opacity="0.6" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M48 96 L44 104 M80 96 L84 104 M40 104 L90 104" stroke="#1a120c" stroke-width="2.5"/>
+  <g transform="translate(36 18) scale(0.5)">
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48.3 49.8 L34.0 45.5 L48.5 41.6 L36.7 32.2 L51.6 33.9 L44.2 20.9 L57.4 28.0 L55.3 13.2 L64.9 24.6 L68.4 10.0 L73.2 24.2 L81.8 12.0 L81.0 26.9 L93.5 18.8 L70.0 46.0 Z" fill="#4a3a2a"/>
+  </g>  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 50 C48 36 60 28 74 28 C86 28 96 36 98 46 C98 60 88 68 74 68 C60 68 48 62 48 50 Z" fill="#7a6048"/>
+    <path d="M78 40 C92 40 108 46 118 54 C114 60 104 64 92 64 C82 64 76 58 76 50 Z" fill="#d8b890"/>
+  </g>
+  <circle cx="118" cy="54" r="3" fill="#1e1410"/>
+  <circle cx="90" cy="46" r="2.8" fill="#1e1410"/><circle cx="90.8" cy="45.2" r="0.9" fill="#ffffff"/>
+  <path d="M100 58 C104 60 108 60 112 58" stroke="#1e1410" stroke-width="1.2" fill="none"/>
+  <path d="M80 60 C86 64 92 64 96 62" stroke="#b0906a" stroke-width="1.5" fill="none"/>
+  </g>
+</svg>

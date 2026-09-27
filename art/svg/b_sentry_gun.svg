@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 62 28" width="62" height="28" data-anchor="12 14" data-world="0.34" data-scale="1">
+  <!-- Obrotowa lufa działka Bastiona. -->
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="4" y="6" width="22" height="16" rx="4" fill="#4a5530"/>
+    <rect x="26" y="9" width="30" height="10" rx="2" fill="#3b3f45"/>
+  </g>
+  <path d="M30 11 L52 11" stroke="#8b939e" stroke-width="1.5"/>
+  <circle cx="57" cy="14" r="2.5" fill="#b8ff4a"/>
+</svg>

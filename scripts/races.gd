@@ -12,12 +12,12 @@ extends RefCounted
 ##   playable  — czy można nią grać
 
 const ALL: Array[Dictionary] = [
-	{"id": "bear", "name": "Niedźwiedzie", "color": Color("#8b5a2b"), "blurb": "Wielkie. Wściekłe. Wszystko przyjmą na klatę.", "playable": false},
-	{"id": "wolf", "name": "Wilki", "color": Color("#9aa5b1"), "blurb": "Szybkie ciosy, instynkt stada.", "playable": false},
+	{"id": "bear", "name": "Niedźwiedzie", "color": Color("#8b5a2b"), "blurb": "Wielkie. Wściekłe. Wszystko przyjmą na klatę.", "playable": true},
+	{"id": "wolf", "name": "Wilki", "color": Color("#9aa5b1"), "blurb": "Szybkie ciosy, instynkt stada.", "playable": true},
 	{"id": "fox", "name": "Lisy", "color": Color("#ff7a29"), "blurb": "Biją rzadko, ale mocno.", "playable": false},
 	{"id": "hare", "name": "Zające", "color": Color("#f5f5f5"), "blurb": "Za szybkie, żeby zginąć. Zazwyczaj.", "playable": true},
 	{"id": "mole", "name": "Krety", "color": Color("#5d4037"), "blurb": "Inżynierowie podziemi.", "playable": true},
-	{"id": "hedgehog", "name": "Jeże", "color": Color("#8a9a5b"), "blurb": "Dotknij, a pożałujesz.", "playable": false},
+	{"id": "hedgehog", "name": "Jeże", "color": Color("#8a9a5b"), "blurb": "Dotknij, a pożałujesz.", "playable": true},
 	{"id": "bat", "name": "Nietoperze", "color": Color("#8e44ad"), "blurb": "Nocni łowcy, przyszłe wampiry.", "playable": false},
 	# gibony zastąpiły goryle (2026-09-25)
 	{"id": "gibbon", "name": "Gibony", "color": Color("#d9c29c"), "blurb": "Długie ręce. Głośny śpiew.", "playable": true},

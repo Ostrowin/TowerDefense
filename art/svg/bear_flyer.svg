@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 112" data-world="0.24">
+  <!-- Latający niedźwiedź: balon ze skór z koszem, zrzuca bomby. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M22 44 C18 16 42 2 64 2 C86 2 110 16 106 44 C104 58 86 68 64 68 C42 68 24 58 22 44 Z" fill="#8a7a64"/>
+  </g>
+  <path d="M64 2 L64 68 M40 6 C34 24 36 48 46 66 M88 6 C94 24 92 48 82 66" stroke="#5a4a38" stroke-width="2" fill="none"/>
+  <path d="M24 34 C44 40 84 40 104 34 L104 44 C84 50 44 50 24 44 Z" fill="#c800c8"/>
+  <path d="M24 34 C44 40 84 40 104 34" stroke="#ff00ff" stroke-width="1.2" fill="none"/>
+  <path d="M40 64 L48 84 M88 64 L80 84 M64 68 L64 84" stroke="#1a120c" stroke-width="1.8"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M52 84 C50 74 56 68 64 68 C72 68 78 74 76 84 Z" fill="#7a4f2c"/>
+  </g>
+  <g transform="translate(30 40) scale(0.45)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="56" cy="30" r="8" fill="#553519"/>
+    <circle cx="82" cy="26" r="8" fill="#7a4f2c"/>
+    <path d="M46 50 C46 34 60 26 76 26 C92 26 102 36 102 50 C102 62 90 70 74 70 C58 70 46 62 46 50 Z" fill="#7a4f2c"/>
+    <path d="M90 46 C100 44 110 48 112 54 C113 62 104 66 96 65 C90 64 86 58 88 52 Z" fill="#c09a70"/>
+  </g>
+  <circle cx="82" cy="26" r="3.5" fill="#c08a70"/>
+  <path d="M106 50 C110 49 113 51 112 54 C110 56 106 55 105 52 Z" fill="#1e1410"/>
+  <path d="M100 59 C104 62 108 62 111 59" fill="none" stroke="#1e1410" stroke-width="1.4"/>
+  <circle cx="88" cy="44" r="2.6" fill="#1e1410"/><circle cx="88.8" cy="43.2" r="0.9" fill="#ffffff"/>
+  <path d="M82 38 C86 36 92 37 94 40" stroke="#553519" stroke-width="2.4" fill="none"/>
+  <path d="M48 54 C52 64 62 70 74 70 C64 66 56 60 52 50 Z" fill="#553519" opacity="0.7"/>
+  <path d="M60 32 C66 29 76 28 84 30" fill="none" stroke="#9a6a40" stroke-width="2"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 42 C48 28 62 22 76 22 C90 22 100 30 101 40 C84 35 64 35 48 42 Z" fill="#4a4e55"/>
+    <path d="M70 22 L72 8 L78 22 Z" fill="#767d86"/>
+  </g>
+  <path d="M60 26 L60 38 M72 24 L72 36" stroke="#2c2f34" stroke-width="1.5"/>
+  <path d="M84 26 L96 36" stroke="#b070ff" stroke-width="2"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 84 L86 84 L82 104 L46 104 Z" fill="#8a6a44"/>
+  </g>
+  <path d="M44 90 L84 90 M45 96 L83 96" stroke="#5a4028" stroke-width="1.5"/>
+  <circle cx="60" cy="110" r="5" fill="#2c2f34" stroke="#1a120c" stroke-width="1.5"/><path d="M60 105 L62 101" stroke="#b070ff" stroke-width="1.5"/>
+</svg>

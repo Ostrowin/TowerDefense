@@ -191,3 +191,23 @@ jedyny nowy typ to leczenie, bo bez niego wydry („trzymają drużynę przy ży
 statystyki wroga. Pasywne aury Mistrza Aur zostały zwykłymi umiejętnościami z odnowieniem. Liczby — punkt startowy,
 bot `balanced` wygrywa z każdym z 6 nowych dowódców na wszystkich mapach i trudnościach.
 **Status:** aktywna.
+
+### D32 — Niedźwiedzie, wilki i jeże grywalne; kolce jako wzmocnienie (2026-09-27)
+**Decyzja:** 9 grywalnych ras. Dowódcy ze specjalizacji WebSlashera: niedźwiedzie — Grawitant (GRAVITY MAGE, sci-fi:
+pola `zone` i Zapaść `strike`), Szał (RAMPAGE, fantasy: Zamach łapą, Żądza krwi — wysysanie + obrażenia, Taranowanie
+`leap`), Kolos (HIBERNATION, sci-fi: Sen zimowy — `heal` wokół siebie, Tąpnięcie, Kolos — pancerz + obrażenia);
+wilki — Grom (THUNDER FANG, sci-fi: Łańcuch burzy `line`, Nova gromu, Błyskawiczny zryw), Alfa (ALPHA PACK, fantasy:
+Cios watahy, Furia watahy `buff` obrażeń, Zew wilków `summon_units`), Wilkołak (HOWL, fantasy: Wypad, Dzikie wycie
+`weaken`, Przemiana — szybkość ataku + obrażenia); jeże — Sonik (SONIC, sci-fi: Toczenie `repel`, Wirujące kolce,
+Rozpęd), Kłębek (CURL, fantasy: Nova kolców, Żelazny kłębek — pancerz + kolce, Prowokacja `taunt`), Bastion (BASTION,
+sci-fi: Działko `summon_building`, Mur kolców `zone`, Podkręcenie). Umiejętności ras: Gęste futro (pancerz armii),
+Zew watahy (szybkość ataku armii), Najeżenie (kolce armii). Kolce (`thorns`) to nowa statystyka wzmocnienia, nie
+nowy typ efektu: ułamek obrażeń z ciosu wręcz wraca do atakującego (strzały nie). Armie: niedźwiedzie — ciężka
+piechota (kute żelazo, futra, fioletowe runy), wilki — zimowi łowcy (stal, błyskawice), jeże — sci-fi pancerni
+(oliwkowe płyty, stalowe kolce, zielone diody).
+**Dlaczego:** wybór użytkownika — trzy rasy z pełnymi specjalizacjami w WebSlasherze. Mechaniki, których ta gra nie
+ma (combo Q→W→E Gromu, premia za sojuszników obok, przedłużanie formy zabójstwami, prędkość/HP jako obrażenia),
+uproszczone do istniejących typów; kolce zostały, bo bez nich jeże nie miałyby swojej tożsamości („dotknij, a pożałujesz”).
+**Kompromis:** Wilkołak i Kolos nie zmieniają sylwetki w formie — tylko wzmocnienie. Krety zostają rasą domyślną
+(`Races.DEFAULT`), choć niedźwiedzie, wilki i zające stoją wcześniej w `Races.ALL`.
+**Status:** aktywna.

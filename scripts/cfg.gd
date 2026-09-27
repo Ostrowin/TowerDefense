@@ -108,6 +108,8 @@ const TEMP_BUILDINGS := {
 		"range": 90.0, "repel": 50.0, "pulse": 3.0},
 	"hydra": {"name": "Hydra", "temporary": true, "hp": 260.0,
 		"range": 150.0, "dmg": 11.0, "cd": 0.5, "projectile": "arrow"},
+	"sentry": {"name": "Działko", "temporary": true, "hp": 320.0,
+		"range": 160.0, "dmg": 13.0, "cd": 0.55, "projectile": "arrow"},
 }
 ## Kolejność przycisków budowy (i skrótów 1–6).
 const BUILD_ORDER: Array[String] = ["tower", "cannon", "frost", "barracks", "range", "workshop"]
@@ -140,7 +142,10 @@ const ANTI_AIR: Array[String] = ["arrow", "frost"]
 #   zone          — strefa trwała: mina (dmg, trigger = "enter") albo obrażenia co sekundę (dps); radius, duration
 #   summon_building — tymczasowa budowla z BUILDINGS (building, duration)
 #   buff          — wzmocnienie własnych jednostek w promieniu (stat, mult, duration; radius 0 = cała armia,
-#                   "lane": true = jednostki na wskazanej ścieżce, "self": true = sam dowódca)
+#                   "lane": true = jednostki na wskazanej ścieżce, "self": true = sam dowódca).
+#                   stat: dmg, speed, attack_speed (mnożniki), armor, lifesteal, thorns (wartości dodawane;
+#                   thorns — ułamek obrażeń z ciosu wręcz, który wraca do atakującego). Dodatkowe
+#                   wzmocnienia naraz: dmg_mult, knockback, thorns.
 #   line          — przebicie wzdłuż linii od dowódcy (length, width, dmg, dmg_type)
 #   execute       — dobija najsilniejszego wroga w promieniu (dmg; poniżej threshold HP — śmierć; boss tylko dmg)
 #   demolish      — ładunek na budynek wroga (building_dmg; nie bije bazy)
@@ -298,6 +303,72 @@ const ABILITIES := {
 	"tail_slap": {"name": "Klaps ogonem", "short": "Klaps", "kind": "repel", "cooldown": 12.0, "target": true,
 		"cast_range": 140.0, "length": 120.0, "width": 70.0, "distance": 90.0, "dmg": 35.0},
 
+	# --- niedźwiedzie: Grawitant (WebSlasher: GRAVITY MAGE — pola stawiane w punkcie)
+	"quake_field": {"name": "Pole wstrząsów", "short": "Wstrząsy", "kind": "zone", "cooldown": 28.0, "target": true,
+		"cast_range": 240.0, "radius": 70.0, "dps": 16.0, "slow": 0.25, "dmg_type": "blast", "trigger": "tick", "duration": 8.0},
+	"collapse": {"name": "Zapaść", "short": "Zapaść", "kind": "strike", "cooldown": 22.0, "target": true,
+		"cast_range": 240.0, "radius": 80.0, "dmg": 60.0, "dmg_type": "blast", "volleys": 1, "interval": 0.0, "stun": 1.2},
+	"gravity_field": {"name": "Pole grawitacji", "short": "Grawitacja", "kind": "zone", "cooldown": 30.0, "target": true,
+		"cast_range": 240.0, "radius": 90.0, "dps": 4.0, "slow": 0.55, "dmg_type": "blast", "trigger": "tick", "duration": 10.0},
+	# --- niedźwiedzie: Szał (RAMPAGE — berserker: zamach, żądza krwi, taranowanie)
+	"maul_swipe": {"name": "Zamach łapą", "short": "Łapa", "kind": "strike", "cooldown": 12.0, "target": false,
+		"cast_range": 0.0, "radius": 75.0, "dmg": 60.0, "dmg_type": "blast", "volleys": 1, "interval": 0.0},
+	"bloodlust": {"name": "Żądza krwi", "short": "Krew", "kind": "buff", "cooldown": 35.0, "target": false,
+		"cast_range": 0.0, "self": true, "stat": "lifesteal", "mult": 0.6, "dmg_mult": 1.3, "duration": 10.0},
+	"ravage": {"name": "Taranowanie", "short": "Taran", "kind": "leap", "cooldown": 18.0, "target": true,
+		"cast_range": 220.0, "radius": 70.0, "dmg": 50.0, "repel": 50.0},
+	# --- niedźwiedzie: Kolos (HIBERNATION — sen leczy, ziemia drży, kolos niszczy)
+	"hibernate": {"name": "Sen zimowy", "short": "Sen", "kind": "heal", "cooldown": 30.0, "target": false,
+		"cast_range": 0.0, "radius": 40.0, "heal": 0.5},
+	"bear_slam": {"name": "Tąpnięcie", "short": "Tąpnięcie", "kind": "strike", "cooldown": 18.0, "target": false,
+		"cast_range": 0.0, "radius": 85.0, "dmg": 40.0, "dmg_type": "blast", "volleys": 1, "interval": 0.0, "stun": 1.0},
+	"colossus": {"name": "Kolos", "short": "Kolos", "kind": "buff", "cooldown": 40.0, "target": false,
+		"cast_range": 0.0, "self": true, "stat": "armor", "mult": 0.5, "dmg_mult": 1.5, "duration": 14.0},
+
+	# --- wilki: Grom (THUNDER FANG — łańcuch burzy, nova, zryw)
+	"storm_chain": {"name": "Łańcuch burzy", "short": "Łańcuch", "kind": "line", "cooldown": 16.0, "target": true,
+		"cast_range": 300.0, "length": 300.0, "width": 30.0, "dmg": 60.0, "dmg_type": "arrow"},
+	"thunder_nova": {"name": "Nova gromu", "short": "Nova", "kind": "strike", "cooldown": 22.0, "target": true,
+		"cast_range": 260.0, "radius": 70.0, "dmg": 30.0, "dmg_type": "blast", "volleys": 3, "interval": 0.3},
+	"lightning_rush": {"name": "Błyskawiczny zryw", "short": "Zryw", "kind": "leap", "cooldown": 14.0, "target": true,
+		"cast_range": 260.0, "radius": 60.0, "dmg": 45.0},
+	# --- wilki: Alfa (ALPHA PACK — wataha)
+	"pack_swipe": {"name": "Cios watahy", "short": "Cios", "kind": "strike", "cooldown": 12.0, "target": false,
+		"cast_range": 0.0, "radius": 70.0, "dmg": 45.0, "dmg_type": "blast", "volleys": 1, "interval": 0.0},
+	"pack_fury": {"name": "Furia watahy", "short": "Furia", "kind": "buff", "cooldown": 35.0, "target": true,
+		"cast_range": 200.0, "radius": 140.0, "stat": "dmg", "mult": 1.35, "duration": 10.0},
+	"call_wolves": {"name": "Zew wilków", "short": "Wilki", "kind": "summon_units", "cooldown": 40.0, "target": true,
+		"cast_range": 240.0, "count": 3, "unit": "soldier", "max_lane_dist": 90.0, "lifetime": 20.0},
+	# --- wilki: Wilkołak (HOWL — wypad, wycie, przemiana)
+	"lunge": {"name": "Wypad", "short": "Wypad", "kind": "leap", "cooldown": 12.0, "target": true,
+		"cast_range": 200.0, "radius": 50.0, "dmg": 60.0},
+	"savage_howl": {"name": "Dzikie wycie", "short": "Wycie", "kind": "weaken", "cooldown": 26.0, "target": false,
+		"cast_range": 0.0, "radius": 110.0, "mult": 1.25, "duration": 6.0, "dmg": 20.0},
+	"werewolf": {"name": "Przemiana", "short": "Przemiana", "kind": "buff", "cooldown": 40.0, "target": false,
+		"cast_range": 0.0, "self": true, "stat": "attack_speed", "mult": 1.6, "dmg_mult": 1.4, "duration": 12.0},
+
+	# --- jeże: Sonik (SONIC — prędkość to obrażenia)
+	"spin_dash": {"name": "Toczenie", "short": "Toczenie", "kind": "repel", "cooldown": 14.0, "target": true,
+		"cast_range": 220.0, "length": 220.0, "width": 50.0, "distance": 60.0, "dmg": 45.0},
+	"spin_attack": {"name": "Wirujące kolce", "short": "Wir", "kind": "strike", "cooldown": 14.0, "target": false,
+		"cast_range": 0.0, "radius": 80.0, "dmg": 40.0, "dmg_type": "blast", "volleys": 1, "interval": 0.0},
+	"momentum": {"name": "Rozpęd", "short": "Rozpęd", "kind": "buff", "cooldown": 35.0, "target": true,
+		"cast_range": 200.0, "radius": 130.0, "stat": "speed", "mult": 1.4, "dmg_mult": 1.15, "duration": 10.0},
+	# --- jeże: Kłębek (CURL — tank z kolcami)
+	"spike_nova": {"name": "Nova kolców", "short": "Kolce", "kind": "strike", "cooldown": 14.0, "target": false,
+		"cast_range": 0.0, "radius": 80.0, "dmg": 45.0, "dmg_type": "arrow", "volleys": 1, "interval": 0.0},
+	"iron_curl": {"name": "Żelazny kłębek", "short": "Kłębek", "kind": "buff", "cooldown": 30.0, "target": false,
+		"cast_range": 0.0, "self": true, "stat": "armor", "mult": 0.5, "thorns": 1.0, "duration": 10.0},
+	"provoke": {"name": "Prowokacja", "short": "Prowok.", "kind": "taunt", "cooldown": 30.0, "target": false,
+		"cast_range": 0.0, "radius": 130.0, "duration": 5.0},
+	# --- jeże: Bastion (BASTION — działko, mur kolców, podkręcenie)
+	"deploy_sentry": {"name": "Działko", "short": "Działko", "kind": "summon_building", "cooldown": 35.0,
+		"target": true, "cast_range": 180.0, "building": "sentry", "duration": 22.0},
+	"spike_wall": {"name": "Mur kolców", "short": "Mur", "kind": "zone", "cooldown": 30.0, "target": true,
+		"cast_range": 220.0, "radius": 60.0, "dps": 10.0, "slow": 0.5, "dmg_type": "blast", "trigger": "tick", "duration": 12.0},
+	"overclock": {"name": "Podkręcenie", "short": "Turbo", "kind": "buff", "cooldown": 35.0, "target": true,
+		"cast_range": 200.0, "radius": 150.0, "stat": "attack_speed", "mult": 1.4, "duration": 10.0},
+
 	# --- umiejętności ras (bez zasięgu)
 	"dig_in": {"name": "Podkop", "short": "Podkop", "kind": "burrow", "cooldown": 60.0, "target": true,
 		"cast_range": 0.0, "duration": 6.0, "speed_mult": 1.3, "quake_dmg": 40.0, "quake_radius": 70.0},
@@ -311,6 +382,12 @@ const ABILITIES := {
 		"cast_range": 0.0, "radius": 0.0, "stat": "speed", "mult": 1.7, "duration": 6.0},
 	"high_tide": {"name": "Przypływ", "short": "Przypływ", "kind": "heal", "cooldown": 60.0, "target": false,
 		"cast_range": 0.0, "radius": 0.0, "heal": 0.3},
+	"thick_fur": {"name": "Gęste futro", "short": "Futro", "kind": "buff", "cooldown": 55.0, "target": false,
+		"cast_range": 0.0, "radius": 0.0, "stat": "armor", "mult": 0.35, "duration": 8.0},
+	"pack_call": {"name": "Zew watahy", "short": "Wataha", "kind": "buff", "cooldown": 55.0, "target": false,
+		"cast_range": 0.0, "radius": 0.0, "stat": "attack_speed", "mult": 1.35, "duration": 8.0},
+	"quills": {"name": "Najeżenie", "short": "Kolce", "kind": "buff", "cooldown": 55.0, "target": false,
+		"cast_range": 0.0, "radius": 0.0, "stat": "thorns", "mult": 0.5, "duration": 10.0},
 }
 ## Zestaw bez dowódcy (i dowódcy-zastępcy „Weteran") — dzisiejsza gra.
 const ABILITY_ORDER: Array[String] = ["arrows", "levy", "repair"]
@@ -400,14 +477,45 @@ const COMMANDERS := {
 	"playful": {"race": "otter", "name": "Figlarz", "role": "krótkie odnowienia, odbija wrogów jak piłki",
 		"hp": 420.0, "dmg": 18.0, "range": 24.0, "cd": 0.8, "speed": 84.0, "r": 12.0, "armor": 0.2,
 		"projectile": "", "anti_air": false, "abilities": ["skip_shot", "tumble", "tail_slap"]},
+
+	"gravity": {"race": "bear", "name": "Grawitant", "role": "pola grawitacji zatrzymują hordę",
+		"hp": 480.0, "dmg": 16.0, "range": 130.0, "cd": 1.2, "speed": 60.0, "r": 14.0, "armor": 0.2,
+		"projectile": "rock", "anti_air": false, "splash": 35.0, "abilities": ["quake_field", "collapse", "gravity_field"]},
+	"rampage": {"race": "bear", "name": "Szał", "role": "berserker, żyje z zadanych ran",
+		"hp": 600.0, "dmg": 30.0, "range": 26.0, "cd": 1.1, "speed": 66.0, "r": 15.0, "armor": 0.2,
+		"projectile": "", "anti_air": false, "abilities": ["maul_swipe", "bloodlust", "ravage"]},
+	"colossus": {"race": "bear", "name": "Kolos", "role": "nieustępliwy tank, śpi i wraca silniejszy",
+		"hp": 720.0, "dmg": 22.0, "range": 26.0, "cd": 1.1, "speed": 58.0, "r": 16.0, "armor": 0.5,
+		"projectile": "", "anti_air": false, "abilities": ["hibernate", "bear_slam", "colossus"]},
+
+	"thunder_fang": {"race": "wolf", "name": "Grom", "role": "błyskawice przez całe szeregi",
+		"hp": 400.0, "dmg": 22.0, "range": 24.0, "cd": 0.7, "speed": 84.0, "r": 12.0, "armor": 0.1,
+		"projectile": "", "anti_air": false, "abilities": ["storm_chain", "thunder_nova", "lightning_rush"]},
+	"alpha": {"race": "wolf", "name": "Alfa", "role": "prowadzi watahę, wzmacnia swoich",
+		"hp": 480.0, "dmg": 20.0, "range": 24.0, "cd": 0.8, "speed": 80.0, "r": 13.0, "armor": 0.2,
+		"projectile": "", "anti_air": false, "abilities": ["pack_swipe", "pack_fury", "call_wolves"]},
+	"werewolf": {"race": "wolf", "name": "Wilkołak", "role": "samotny berserker, szał z zabójstw",
+		"hp": 440.0, "dmg": 26.0, "range": 24.0, "cd": 0.7, "speed": 86.0, "r": 13.0, "armor": 0.1,
+		"projectile": "", "anti_air": false, "abilities": ["lunge", "savage_howl", "werewolf"]},
+
+	"sonic": {"race": "hedgehog", "name": "Sonik", "role": "rozpędzona kula kolców",
+		"hp": 360.0, "dmg": 20.0, "range": 22.0, "cd": 0.6, "speed": 100.0, "r": 11.0, "armor": 0.1,
+		"projectile": "", "anti_air": false, "abilities": ["spin_dash", "spin_attack", "momentum"]},
+	"curl": {"race": "hedgehog", "name": "Kłębek", "role": "tank — dotknij, a pożałujesz",
+		"hp": 640.0, "dmg": 18.0, "range": 24.0, "cd": 1.0, "speed": 62.0, "r": 13.0, "armor": 0.4,
+		"projectile": "", "anti_air": false, "abilities": ["spike_nova", "iron_curl", "provoke"]},
+	"bastion": {"race": "hedgehog", "name": "Bastion", "role": "działko i mur kolców — pułapka na hordę",
+		"hp": 380.0, "dmg": 14.0, "range": 140.0, "cd": 1.0, "speed": 64.0, "r": 12.0, "armor": 0.2,
+		"projectile": "arrow", "anti_air": true, "abilities": ["deploy_sentry", "spike_wall", "overclock"]},
 }
 ## Kolejność w menu (w obrębie rasy).
 const COMMANDER_ORDER: Array[String] = ["sapper", "sniper", "magma", "iron_grip", "wrecker", "warbeat",
 	"necromancer", "scavenger", "cackle", "totem_engineer", "stampede", "tusks",
-	"slipstream", "summoner", "aura_master", "tidecaller", "mirror_tide", "playful", "veteran"]
+	"slipstream", "summoner", "aura_master", "tidecaller", "mirror_tide", "playful",
+	"gravity", "rampage", "colossus", "thunder_fang", "alpha", "werewolf", "sonic", "curl", "bastion", "veteran"]
 ## Umiejętność rasy: id rasy → id z ABILITIES. Działa zawsze, także po śmierci dowódcy.
 const RACIAL := {"mole": "dig_in", "gibbon": "song", "hyena": "carrion", "boar": "stampede",
-	"hare": "hop", "otter": "high_tide"}
+	"hare": "hop", "otter": "high_tide", "bear": "thick_fur", "wolf": "pack_call", "hedgehog": "quills"}
 
 ## Odrodzenie dowódcy: COMMANDER_RESPAWN s + COMMANDER_RESPAWN_PER_WAVE na falę, najwyżej COMMANDER_RESPAWN_MAX.
 const COMMANDER_RESPAWN := 20.0

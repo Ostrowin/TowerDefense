@@ -3,11 +3,14 @@
 #   gibony: Żelazny Chwyt (sci-fi), Niszczyciel (sci-fi), Bojowy Rytm (fantasy)
 #   hieny:  Nekromanta (fantasy), Padlinożerca (fantasy), Rechot (sci-fi)
 #   dziki:  Inżynier Totemów (fantasy), Stratowanie (sci-fi), Kły (fantasy)
+#   zające, wydry — commanders_hare_otter.py; niedźwiedzie, wilki, jeże — commanders_bwh.py (uruchamiane też stąd)
 from common import *
 import hyena as H
 import gibbon as GB
 import mole as M
 import boar as B
+import commanders_hare_otter
+import commanders_bwh
 
 W = 0.27  # dowódca ~30% większy od piechura
 
@@ -280,4 +283,6 @@ def tusks():
 if __name__ == "__main__":
     sapper(); sniper(); magma(); iron_grip(); wrecker(); warbeat(); necromancer(); scavenger(); cackle()
     totem_engineer(); stampede(); tusks()
+    commanders_hare_otter.all_()
+    commanders_bwh.all_()
     print("commanders ok")

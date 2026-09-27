@@ -581,7 +581,7 @@ static func _upgrade_cfg(cfg: Dictionary, kind: String) -> void:
 					cfg["count"] += 1
 				"buff", "weaken", "bounty_buff":
 					# mnożniki: rośnie nadwyżka ponad 1; wartości dodawane (pancerz, wysysanie) — całe
-					if cfg.get("stat", "") in ["armor", "lifesteal"]:
+					if cfg.get("stat", "") in ["armor", "lifesteal", "thorns"]:
 						cfg["mult"] *= k
 					else:
 						cfg["mult"] = 1.0 + (cfg["mult"] - 1.0) * k
@@ -1007,6 +1007,8 @@ func _cast_buff(team: int, at: Vector2, cfg: Dictionary) -> void:
 			_apply_buff(u, "dmg", cfg["dmg_mult"], cfg["duration"])
 		if cfg.has("knockback"):
 			_apply_buff(u, "knockback", cfg["knockback"], cfg["duration"])
+		if cfg.has("thorns"):
+			_apply_buff(u, "thorns", cfg["thorns"], cfg["duration"])
 	events.append({"type": "buff", "pos": at, "team": team, "count": targets.size()})
 
 
@@ -1617,13 +1619,19 @@ func _update_burrowed(u: Unit, speed: float, dt: float) -> void:
 	events.append({"type": "quake", "pos": u.pos, "radius": cfg["quake_radius"], "team": u.team})
 
 
-## Cios wręcz z mnożnikiem obrażeń i wysysaniem życia (wzmocnienia).
+## Cios wręcz z mnożnikiem obrażeń i wysysaniem życia (wzmocnienia). Kolce celu (`thorns`)
+## oddają atakującemu część zadanych obrażeń.
 func _melee_hit(u: Unit, foe: Unit) -> void:
 	var dmg := u.dmg * u.dmg_mult
 	if u.is_hero:
 		_hero_blow = u.team
 	_damage_unit(foe, dmg, "melee")
 	_hero_blow = -1
+	if foe.buffs.has("thorns") and u.hp > 0:
+		if foe.is_hero:
+			_hero_blow = foe.team
+		_damage_unit(u, dmg * foe.buffs["thorns"][0], "melee")
+		_hero_blow = -1
 	if u.lifesteal > 0.0:
 		u.hp = minf(u.max_hp, u.hp + dmg * u.lifesteal)
 	if u.buffs.has("knockback"):  # Szarża: pierwszy cios odrzuca, potem wzmocnienie znika

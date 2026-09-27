@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64.0 136" data-world="0.25">
+  <!-- Niedźwiedź-tarczownik: ściana z kutego żelaza z runą, pełny hełm. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 108 L38 126 L36 136 L60 136 L60 122 L62 110 Z" fill="#553519"/>
+    <path d="M70 110 L68 126 L66 136 L94 136 L90 122 L88 110 Z" fill="#7a4f2c"/>
+  </g>
+  <path d="M36 136 L60 136 M66 136 L94 136" stroke="#1a120c" stroke-width="3"/>
+  <path d="M40 133 L41 136 M46 133 L46 136 M72 133 L73 136 M80 133 L80 136" stroke="#e8dcc0" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M34 92 C32 70 48 58 68 58 C88 58 100 70 100 92 C100 110 88 120 68 120 C48 120 34 110 34 92 Z" fill="#7a4f2c"/>
+  </g>
+  <path d="M36 96 C40 110 52 120 68 120 C54 114 44 104 42 88 Z" fill="#553519" opacity="0.6"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 74 C56 66 82 66 94 74 C98 90 94 108 82 114 L58 114 C46 108 40 90 44 74 Z" fill="#4a4e55"/>
+  </g>
+  <path d="M44 84 L95 84 L94 94 L44 94 Z" fill="#c800c8"/>
+  <path d="M44 84 L95 84" stroke="#ff00ff" stroke-width="1.2"/>
+  <path d="M60 102 L68 108 L76 102" stroke="#b070ff" stroke-width="2" fill="none"/>
+  <path d="M48 72 C60 66 80 66 90 72" stroke="#767d86" stroke-width="1.5" fill="none"/>
+    <circle cx="50" cy="100" r="1.2" fill="#8b939e"/>
+    <circle cx="88" cy="100" r="1.2" fill="#8b939e"/>
+    <circle cx="56" cy="110" r="1.2" fill="#8b939e"/>
+    <circle cx="82" cy="110" r="1.2" fill="#8b939e"/>
+  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M36 66 C44 54 70 52 84 58 L80 66 C66 62 48 64 40 74 Z" fill="#8a7a64"/>
+  </g>
+  <path d="M42 64 L40 70 M50 60 L49 66 M60 58 L60 64 M70 58 L71 64" stroke="#5a4a38" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="56" cy="30" r="8" fill="#553519"/>
+    <circle cx="82" cy="26" r="8" fill="#7a4f2c"/>
+    <path d="M46 50 C46 34 60 26 76 26 C92 26 102 36 102 50 C102 62 90 70 74 70 C58 70 46 62 46 50 Z" fill="#7a4f2c"/>
+    <path d="M90 46 C100 44 110 48 112 54 C113 62 104 66 96 65 C90 64 86 58 88 52 Z" fill="#c09a70"/>
+  </g>
+  <circle cx="82" cy="26" r="3.5" fill="#c08a70"/>
+  <path d="M106 50 C110 49 113 51 112 54 C110 56 106 55 105 52 Z" fill="#1e1410"/>
+  <path d="M100 59 C104 62 108 62 111 59" fill="none" stroke="#1e1410" stroke-width="1.4"/>
+  <circle cx="88" cy="44" r="2.6" fill="#1e1410"/><circle cx="88.8" cy="43.2" r="0.9" fill="#ffffff"/>
+  <path d="M82 38 C86 36 92 37 94 40" stroke="#553519" stroke-width="2.4" fill="none"/>
+  <path d="M48 54 C52 64 62 70 74 70 C64 66 56 60 52 50 Z" fill="#553519" opacity="0.7"/>
+  <path d="M60 32 C66 29 76 28 84 30" fill="none" stroke="#9a6a40" stroke-width="2"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 44 C48 26 62 18 76 18 C92 18 102 28 103 44 L96 46 C90 36 62 36 54 46 Z" fill="#4a4e55"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M70 58 L118 56 L120 130 L72 134 Z" fill="#4a4e55"/>
+    <path d="M76 64 L112 62 L114 124 L78 128 Z" fill="#2c2f34" stroke-width="1.5"/>
+  </g>
+  <path d="M70 84 L119 82 L119 94 L70 96 Z" fill="#c800c8"/>
+  <path d="M70 84 L119 82" stroke="#ff00ff" stroke-width="1.2"/>
+  <circle cx="95" cy="110" r="9" fill="none" stroke="#b070ff" stroke-width="2.5"/>
+  <path d="M95 102 L95 118 M87 110 L103 110" stroke="#b070ff" stroke-width="1.5"/>
+    <circle cx="74" cy="62" r="1.6" fill="#8b939e"/>
+    <circle cx="116" cy="60" r="1.6" fill="#8b939e"/>
+    <circle cx="116" cy="128" r="1.6" fill="#8b939e"/>
+    <circle cx="76" cy="130" r="1.6" fill="#8b939e"/>
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="118" cy="90" r="7" fill="#553519"/>
+  </g>
+</svg>

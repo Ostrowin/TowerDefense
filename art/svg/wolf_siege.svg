@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.3">
+  <!-- Machina wilków: działo gromowe z miedzianą cewką na wózku, strzela kulą błyskawicy. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M10 104 L116 104 L112 114 L14 114 Z" fill="#6a4a2e"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="30" y="58" width="44" height="46" rx="6" fill="#5a6470"/>
+    <path d="M70 70 L116 46 L120 56 L74 82 Z" fill="#343a42"/>
+  </g>
+  <path d="M34 64 L70 64 M34 72 L70 72 M34 80 L70 80 M34 88 L70 88 M34 96 L70 96" stroke="#b8872a" stroke-width="2.5"/>
+  <path d="M30 76 L74 76" stroke="#c800c8" stroke-width="5"/>
+  <path d="M120 48 L124 40 L126 50 L130 44" stroke="#6ab4ff" stroke-width="2.5" fill="none"/>
+  <circle cx="120" cy="50" r="6" fill="#6ab4ff" opacity="0.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="34" cy="120" r="14" fill="#5a4630"/>
+    <circle cx="34" cy="120" r="4.8999999999999995" fill="#5a6470"/>
+  </g>
+  <path d="M24 120 L44 120 M34 110 L34 130" stroke="#1a120c" stroke-width="2.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="94" cy="120" r="14" fill="#5a4630"/>
+    <circle cx="94" cy="120" r="4.8999999999999995" fill="#5a6470"/>
+  </g>
+  <path d="M84 120 L104 120 M94 110 L94 130" stroke="#1a120c" stroke-width="2.5"/>
+</svg>

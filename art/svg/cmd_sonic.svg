@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.27" data-scale="0.85">
+  <!-- Sonik (sci-fi): kombinezon biegacza, buty z odrzutem, zielony wizjer, smugi prędkości. -->
+  <path d="M4 80 L30 80 M8 92 L34 92 M2 104 L28 104" stroke="#b8ff4a" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40.7 115.0 L25.5 122.5 L34.8 108.3 L18.1 111.1 L31.2 100.3 L14.4 98.0 L30.0 91.5 L14.6 84.4 L31.5 82.7 L18.8 71.5 L35.4 74.8 L26.6 60.3 L41.5 68.4 L37.3 52.0 L49.2 64.0 L50.0 47.1 L57.9 62.1 L63.6 46.1 L66.7 62.8 L76.9 49.2 L75.0 66.0 L88.6 56.0 L60.0 92.0 Z" fill="#4a3a2a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M58 76 C48 72 40 70 32 72 L32 80 C40 80 48 82 54 88 Z" fill="#b0906a"/>
+  </g>  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="30" cy="76" r="5.5" fill="#b0906a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M52 108 L48 124 L46 136 L62 136 L62 122 L64 110 Z" fill="#b0906a"/>
+    <path d="M70 110 L70 124 L68 136 L88 136 L84 122 L82 110 Z" fill="#d8b890"/>
+  </g>
+  <path d="M44 130 L44 138 L64 138 L63 130 Z M66 130 L66 138 L90 138 L88 130 Z" fill="#4a5530" stroke="#1a120c" stroke-width="2"/>
+  <path d="M40 128 L40 138 L66 138 L64 128 Z M64 130 L64 140 L94 140 L92 130 Z" fill="#d8322a" stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M42 134 L64 134 M66 136 L92 136" stroke="#ffffff" stroke-width="2.5"/>
+  <circle cx="44" cy="140" r="2.5" fill="#b8ff4a"/><circle cx="70" cy="142" r="2.5" fill="#b8ff4a"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 94 C40 76 52 64 68 64 C84 64 94 76 94 94 C94 110 84 118 68 118 C52 118 42 110 42 94 Z" fill="#7a6048"/>
+  </g>
+  <path d="M70 70 C82 72 90 82 90 94 C90 106 82 114 72 116 C78 104 78 84 70 70 Z" fill="#d8b890"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M54 76 C64 70 80 70 90 76 C94 92 90 106 80 112 L60 112 C50 106 48 92 54 76 Z" fill="#26303a"/>
+  </g>
+  <path d="M56 84 L90 84 L90 92 L56 92 Z" fill="#c800c8"/>
+  <path d="M60 100 L84 100" stroke="#b8ff4a" stroke-width="2"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M80 70 C92 72 100 78 104 86 L96 92 C92 86 86 82 76 80 Z" fill="#7a6048"/>
+  </g>  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="102" cy="90" r="5.5" fill="#b0906a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48.3 49.8 L34.0 45.5 L48.5 41.6 L36.7 32.2 L51.6 33.9 L44.2 20.9 L57.4 28.0 L55.3 13.2 L64.9 24.6 L68.4 10.0 L73.2 24.2 L81.8 12.0 L81.0 26.9 L93.5 18.8 L70.0 46.0 Z" fill="#4a3a2a"/>
+  </g>  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 50 C48 36 60 28 74 28 C86 28 96 36 98 46 C98 60 88 68 74 68 C60 68 48 62 48 50 Z" fill="#7a6048"/>
+    <path d="M78 40 C92 40 108 46 118 54 C114 60 104 64 92 64 C82 64 76 58 76 50 Z" fill="#d8b890"/>
+  </g>
+  <circle cx="118" cy="54" r="3" fill="#1e1410"/>
+  <circle cx="90" cy="46" r="2.8" fill="#1e1410"/><circle cx="90.8" cy="45.2" r="0.9" fill="#ffffff"/>
+  <path d="M100 58 C104 60 108 60 112 58" stroke="#1e1410" stroke-width="1.2" fill="none"/>
+  <path d="M80 60 C86 64 92 64 96 62" stroke="#b0906a" stroke-width="1.5" fill="none"/>
+  <path d="M80 40 C90 38 100 40 104 46 C100 50 92 52 86 51 C82 50 78 46 80 40 Z" fill="#b8ff4a" stroke="#1a120c" stroke-width="2" opacity="0.9"/>
+</svg>

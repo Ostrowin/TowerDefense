@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.27" data-scale="0.85">
+  <!-- Kłębek (fantasy): rycerz-jeż, kolce okute stalą, okrągła tarcza z kolcami, mosiężne obręcze. -->
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40.7 115.0 L24.1 123.8 L34.8 108.3 L16.3 111.9 L31.2 100.3 L12.4 98.3 L30.0 91.5 L12.7 84.1 L31.5 82.7 L17.0 70.6 L35.4 74.8 L25.2 59.0 L41.5 68.4 L36.4 50.2 L49.2 64.0 L49.6 45.1 L57.9 62.1 L63.8 44.1 L66.7 62.8 L77.6 47.3 L75.0 66.0 L89.9 54.4 L60.0 92.0 Z" fill="#6b7280"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M52 108 L48 124 L46 136 L62 136 L62 122 L64 110 Z" fill="#b0906a"/>
+    <path d="M70 110 L70 124 L68 136 L88 136 L84 122 L82 110 Z" fill="#d8b890"/>
+  </g>
+  <path d="M44 130 L44 138 L64 138 L63 130 Z M66 130 L66 138 L90 138 L88 130 Z" fill="#4a5530" stroke="#1a120c" stroke-width="2"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 94 C40 76 52 64 68 64 C84 64 94 76 94 94 C94 110 84 118 68 118 C52 118 42 110 42 94 Z" fill="#7a6048"/>
+  </g>
+  <path d="M70 70 C82 72 90 82 90 94 C90 106 82 114 72 116 C78 104 78 84 70 70 Z" fill="#d8b890"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M50 74 C60 66 82 66 92 74 C96 90 92 106 82 112 L60 112 C48 106 46 90 50 74 Z" fill="#3b3f45"/>
+  </g>
+  <path d="M50 84 L94 84 M50 98 L94 98" stroke="#b8893a" stroke-width="3"/>
+  <path d="M64 72 L74 72 L74 112 L64 112 Z" fill="#c800c8"/>
+    <circle cx="54" cy="78" r="1.2" fill="#8b939e"/>
+    <circle cx="88" cy="78" r="1.2" fill="#8b939e"/>
+    <circle cx="56" cy="106" r="1.2" fill="#8b939e"/>
+    <circle cx="86" cy="106" r="1.2" fill="#8b939e"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 50 C48 36 60 28 74 28 C86 28 96 36 98 46 C98 60 88 68 74 68 C60 68 48 62 48 50 Z" fill="#7a6048"/>
+    <path d="M78 40 C92 40 108 46 118 54 C114 60 104 64 92 64 C82 64 76 58 76 50 Z" fill="#d8b890"/>
+  </g>
+  <circle cx="118" cy="54" r="3" fill="#1e1410"/>
+  <circle cx="90" cy="46" r="2.8" fill="#1e1410"/><circle cx="90.8" cy="45.2" r="0.9" fill="#ffffff"/>
+  <path d="M100 58 C104 60 108 60 112 58" stroke="#1e1410" stroke-width="1.2" fill="none"/>
+  <path d="M80 60 C86 64 92 64 96 62" stroke="#b0906a" stroke-width="1.5" fill="none"/>
+  <path d="M50 44 C52 30 64 24 76 26 C88 28 96 34 98 42 C84 38 64 38 50 44 Z" fill="#3b3f45" stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M74 26 L76 14 L80 26" fill="#6b7280" stroke="#1a120c" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="104" cy="92" r="20" fill="#3b3f45"/>
+    <circle cx="104" cy="92" r="8" fill="#b8893a"/>
+  </g>
+  <path d="M104 68 L104 60 M124 92 L132 92 M104 116 L104 124 M88 76 L82 70 M120 76 L126 70 M88 108 L82 114 M120 108 L126 114" stroke="#1a120c" stroke-width="4"/>
+  <path d="M104 68 L104 60 M124 92 L132 92 M104 116 L104 124 M88 76 L82 70 M120 76 L126 70 M88 108 L82 114 M120 108 L126 114" stroke="#6b7280" stroke-width="2"/>
+  <path d="M90 84 C96 76 110 76 116 82" stroke="#8b939e" stroke-width="1.5" fill="none"/>
+</svg>

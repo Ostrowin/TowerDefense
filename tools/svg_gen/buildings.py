@@ -286,6 +286,26 @@ def hydra():
         note="Hydra Przywoływacza (magia): omszały kopiec z trzema łbami węża-ducha, runy drużyny u podstawy.")
 
 
+def sentry():
+    # działko jeża-Bastiona: oliwkowy trójnóg z obrotową lufą kolcową
+    legs = g('''    <path d="M64 100 L32 136 M64 100 L96 136 M64 100 L64 140" stroke-width="6"/>''') + '''
+  <path d="M64 100 L32 136 M64 100 L96 136 M64 100 L64 140" stroke="#4a5530" stroke-width="3"/>'''
+    body = g('''    <path d="M40 104 C40 84 50 74 64 74 C78 74 88 84 88 104 Z" fill="#6f7d45"/>''') + f'''
+  <path d="M40 96 L88 96 L88 104 L40 104 Z" fill="{TEAM_M}"/>
+  <path d="M40 97 L88 97" stroke="{TEAM}" stroke-width="1"/>
+  <rect x="58" y="82" width="12" height="6" rx="1" fill="#b8ff4a" stroke="{INK}" stroke-width="1"/>
+  <path d="M46 80 L40 70 M56 76 L54 64 M72 76 L74 64 M82 80 L88 70" stroke="{INK}" stroke-width="4"/>
+  <path d="M46 80 L40 70 M56 76 L54 64 M72 76 L74 64 M82 80 L88 70" stroke="#8b939e" stroke-width="2"/>'''
+    svg("b_sentry", legs + "\n" + body, h=150, anchor=(64, 138), world=0.34, scale=1,
+        note="Działko Bastiona (sci-fi): oliwkowy trójnóg z grzebieniem stalowych kolców.")
+    gun = g('''    <rect x="4" y="6" width="22" height="16" rx="4" fill="#4a5530"/>
+    <rect x="26" y="9" width="30" height="10" rx="2" fill="#3b3f45"/>''', sw=2.5) + '''
+  <path d="M30 11 L52 11" stroke="#8b939e" stroke-width="1.5"/>
+  <circle cx="57" cy="14" r="2.5" fill="#b8ff4a"/>'''
+    svg("b_sentry_gun", gun, w=62, h=28, anchor=(12, 14), world=0.34, scale=1, note="Obrotowa lufa działka Bastiona.")
+
+
 if __name__ == "__main__":
     cannon(); frost(); barracks(); range_(); workshop(); extractor(); base(); drill_turret(); volcano(); totems(); hydra()
+    sentry()
     print("buildings ok")

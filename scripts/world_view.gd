@@ -26,9 +26,13 @@ const SHOT_COLORS := {"hyena": [Color(1.0, 0.35, 0.21), Color(1.0, 0.85, 0.69)],
 	"mole": [Color(1.0, 0.76, 0.2), Color(1.0, 0.95, 0.75)],
 	"boar": [Color(1.0, 0.6, 0.24), Color(1.0, 0.88, 0.63)],
 	"hare": [Color(0.55, 0.85, 1.0), Color(0.95, 1.0, 1.0)],
-	"otter": [Color(0.25, 0.8, 0.75), Color(0.85, 1.0, 0.97)]}
+	"otter": [Color(0.25, 0.8, 0.75), Color(0.85, 1.0, 0.97)],
+	"bear": [Color(0.72, 0.45, 1.0), Color(0.95, 0.88, 1.0)],
+	"wolf": [Color(0.55, 0.75, 1.0), Color(0.92, 0.96, 1.0)],
+	"hedgehog": [Color(0.75, 0.95, 0.35), Color(0.97, 1.0, 0.85)]}
 ## Miejsce osadzenia obrotowej lufy (`b_<rodzaj>_gun`) względem stóp budynku.
-const GUN_MOUNT := {"tower": Vector2(0, -26.6), "cannon": Vector2(0, -16.6), "drill_turret": Vector2(0, -18.0)}
+const GUN_MOUNT := {"tower": Vector2(0, -26.6), "cannon": Vector2(0, -16.6), "drill_turret": Vector2(0, -18.0),
+	"sentry": Vector2(0, -16.0)}
 ## Stopy budynku względem środka pola budowy (rzut 3/4: podstawa trochę niżej).
 const BUILDING_FEET := Vector2(0, 12)
 ## Kafel terenu: tyle pikseli świata na powtórzenie tekstury.
@@ -665,6 +669,8 @@ func draw_unit_status(u: Sim.Unit, p: Vector2, top: float) -> void:
 		pen.arc(p, r + 3, 0, TAU, 12 if low_detail else 20, Color(Main.FROST_COLOR, 0.9), 2.0)
 	if u.vuln > 1.0:
 		pen.arc(p, r + 2, 0, TAU, 12 if low_detail else 16, Color(Main.CURSE_COLOR, 0.85), 2.0)
+	if u.buffs.has("thorns"):  # kolce (jeże): jasny pierścień
+		pen.arc(p, r + 4, 0, TAU, 12, Color(0.9, 0.85, 0.55, 0.8), 2.5)
 	if u.stun > 0:  # ogłuszenie: krążące gwiazdki nad głową
 		for i in 2:
 			pen.circle(p + Vector2.from_angle(m.time * 6.0 + PI * i) * Vector2(r, r * 0.4) + Vector2(0, top - 3), 2.0, Main.GOLD_COLOR)

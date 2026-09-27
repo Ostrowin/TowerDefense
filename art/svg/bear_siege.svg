@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.3">
+  <!-- Machina niedźwiedzi: trebusz z żelazną przeciwwagą, miota głazem z runą grawitacji. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M12 102 L116 102 L112 114 L16 114 Z" fill="#6a4a2e"/>
+    <path d="M40 102 L56 64 L70 64 L84 102 Z" fill="#6a4a2e"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="22" y="70" width="26" height="24" rx="3" fill="#4a4e55"/>
+  </g>
+  <path d="M26 82 L44 82" stroke="#c800c8" stroke-width="5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M62 70 L112 26" stroke-width="8"/>
+    <path d="M104 14 C104 4 124 4 124 16 C124 24 118 28 112 28 C106 28 104 22 104 14 Z" fill="#2c2f34"/>
+  </g>
+  <path d="M62 70 L112 26" stroke="#8a6a44" stroke-width="4.5"/>
+  <circle cx="114" cy="15" r="7" fill="#3a2c40" stroke="#1a120c" stroke-width="2"/><circle cx="114" cy="15" r="3.5" fill="#b070ff"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="34" cy="120" r="15" fill="#5a4630"/>
+    <circle cx="34" cy="120" r="5.25" fill="#4a4e55"/>
+  </g>
+  <path d="M23 120 L45 120 M34 109 L34 131" stroke="#1a120c" stroke-width="2.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="94" cy="120" r="15" fill="#5a4630"/>
+    <circle cx="94" cy="120" r="5.25" fill="#4a4e55"/>
+  </g>
+  <path d="M83 120 L105 120 M94 109 L94 131" stroke="#1a120c" stroke-width="2.5"/>
+</svg>

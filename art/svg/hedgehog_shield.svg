@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64.0 136" data-world="0.22">
+  <!-- Jeż-tarczownik: oliwkowa tarcza z kolcami na krawędzi i diodą. -->
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40.7 115.0 L25.5 122.5 L34.8 108.3 L18.1 111.1 L31.2 100.3 L14.4 98.0 L30.0 91.5 L14.6 84.4 L31.5 82.7 L18.8 71.5 L35.4 74.8 L26.6 60.3 L41.5 68.4 L37.3 52.0 L49.2 64.0 L50.0 47.1 L57.9 62.1 L63.6 46.1 L66.7 62.8 L76.9 49.2 L75.0 66.0 L88.6 56.0 L60.0 92.0 Z" fill="#4a3a2a"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M52 108 L48 124 L46 136 L62 136 L62 122 L64 110 Z" fill="#b0906a"/>
+    <path d="M70 110 L70 124 L68 136 L88 136 L84 122 L82 110 Z" fill="#d8b890"/>
+  </g>
+  <path d="M44 130 L44 138 L64 138 L63 130 Z M66 130 L66 138 L90 138 L88 130 Z" fill="#4a5530" stroke="#1a120c" stroke-width="2"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 94 C40 76 52 64 68 64 C84 64 94 76 94 94 C94 110 84 118 68 118 C52 118 42 110 42 94 Z" fill="#7a6048"/>
+  </g>
+  <path d="M70 70 C82 72 90 82 90 94 C90 106 82 114 72 116 C78 104 78 84 70 70 Z" fill="#d8b890"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M54 78 C62 72 80 72 88 78 C92 90 90 106 80 112 L62 112 C52 106 50 90 54 78 Z" fill="#6f7d45"/>
+  </g>
+  <path d="M54 86 L90 86 L90 94 L53 94 Z" fill="#c800c8"/>
+  <path d="M54 86 L90 86" stroke="#ff00ff" stroke-width="1.2"/>
+  <rect x="66" y="100" width="10" height="5" rx="1" fill="#b8ff4a" stroke="#1a120c" stroke-width="1"/>
+  <path d="M56 76 C64 72 78 72 86 76" stroke="#98a860" stroke-width="1.5" fill="none"/>
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48.3 49.8 L34.0 45.5 L48.5 41.6 L36.7 32.2 L51.6 33.9 L44.2 20.9 L57.4 28.0 L55.3 13.2 L64.9 24.6 L68.4 10.0 L73.2 24.2 L81.8 12.0 L81.0 26.9 L93.5 18.8 L70.0 46.0 Z" fill="#4a3a2a"/>
+  </g>  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 50 C48 36 60 28 74 28 C86 28 96 36 98 46 C98 60 88 68 74 68 C60 68 48 62 48 50 Z" fill="#7a6048"/>
+    <path d="M78 40 C92 40 108 46 118 54 C114 60 104 64 92 64 C82 64 76 58 76 50 Z" fill="#d8b890"/>
+  </g>
+  <circle cx="118" cy="54" r="3" fill="#1e1410"/>
+  <circle cx="90" cy="46" r="2.8" fill="#1e1410"/><circle cx="90.8" cy="45.2" r="0.9" fill="#ffffff"/>
+  <path d="M100 58 C104 60 108 60 112 58" stroke="#1e1410" stroke-width="1.2" fill="none"/>
+  <path d="M80 60 C86 64 92 64 96 62" stroke="#b0906a" stroke-width="1.5" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M72 62 L114 62 L118 118 L96 134 L74 120 Z" fill="#6f7d45"/>
+    <path d="M78 68 L108 68 L112 114 L96 126 L80 116 Z" fill="#4a5530" stroke-width="1.5"/>
+  </g>
+  <path d="M72 80 L116 80 L117 92 L73 92 Z" fill="#c800c8"/>
+  <path d="M72 80 L116 80" stroke="#ff00ff" stroke-width="1.2"/>
+  <path d="M118 70 L126 68 L119 76 M119 96 L128 96 L119 102 M116 116 L124 120 L114 122" fill="#6b7280" stroke="#1a120c" stroke-width="1.5"/>
+  <rect x="90" y="100" width="12" height="6" rx="1" fill="#b8ff4a" stroke="#1a120c" stroke-width="1"/>
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="116" cy="86" r="5.5" fill="#b0906a"/>
+  </g>
+</svg>

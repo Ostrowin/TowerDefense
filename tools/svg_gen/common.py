@@ -2,8 +2,8 @@
 # więc postacie jednej rasy są spójne. Uruchomienie nadpisuje pliki w art/svg — ręczne poprawki SVG
 # przenoś tutaj, inaczej zginą przy następnym generowaniu.
 #
-#   python tools/svg_gen/<plik>.py   (hyena, gibbon, mole, boar, hare, otter, buildings, decor, commanders,
-#                                     commanders_hare_otter)
+#   python tools/svg_gen/<plik>.py   (hyena, gibbon, mole, boar, hare, otter, bear, wolf, hedgehog, buildings,
+#                                     decor, commanders, commanders_hare_otter, commanders_bwh)
 #   potem: tools/bake_art.gd (atlas) i --import
 #
 # Napisane ręcznie (generator ich nie tworzy): hyena_archer, gibbon_soldier, b_tower, b_tower_gun.

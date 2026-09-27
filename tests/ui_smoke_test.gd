@@ -45,11 +45,11 @@ func _process(_delta: float) -> bool:
 			_check(main.state == main.State.MENU, "start w menu")
 			_check(main.hud.menu_layer.visible, "menu widoczne")
 			var playable: Array = main.hud.race_buttons.filter(func(b: Button) -> bool: return not b.disabled)
-			_check(main.hud.race_buttons.size() == 12 and playable.size() == 6, "12 ras w menu, grywalnych sześć")
+			_check(main.hud.race_buttons.size() == 12 and playable.size() == 9, "12 ras w menu, grywalnych dziewięć")
 			var cards: Dictionary = main.hud.commander_buttons
 			_check(cards.size() == 3 and not cards.has("veteran"), "krety: 3 karty dowódców, bez Weterana")
 			_check(not cards["sapper"].disabled and main.commander_id == "sapper", "krety: Saper grywalny i domyślny")
-			main.hud.race_buttons[0].emit_signal("pressed")  # niedźwiedzie — „Wkrótce"
+			main.hud.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "fox")].emit_signal("pressed")  # lisy — „Wkrótce"
 			_check(Races.ALL[main.race_index]["id"] == "mole", "zablokowanej rasy nie da się wybrać")
 			main.hud.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon")].emit_signal("pressed")
 			main.hud.map_buttons[2].emit_signal("pressed")

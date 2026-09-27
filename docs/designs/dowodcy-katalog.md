@@ -1,11 +1,11 @@
-# Katalog dowódców — krety, gibony, hieny, dziki, zające, wydry
+# Katalog dowódców — krety, gibony, hieny, dziki, zające, wydry, niedźwiedzie, wilki, jeże
 
 Uzupełnienie projektu [dowodcy-ras.md](dowodcy-ras.md) (2026-09-25). **Propozycje do przejrzenia**, nie decyzje:
 każdy dowódca to specjalizacja klasy z WebSlashera przełożona na lane-pushera — 3 umiejętności z typów efektów
 (tabela R1 w projekcie) + opis postaci na mapie. Liczby celowo pominięte (strojenie od T9, botami).
 Spójne ma być lore, nie umiejętności — tam, gdzie WebSlasher nie pasuje do tej gry, tłumaczenie jest luźne.
 
-Grywalne rasy: krety, gibony, hieny, dziki, zające i wydry (D31); przeciwnik losowany przy starcie partii, więc każdy dowódca
+Grywalne rasy: krety, gibony, hieny, dziki, zające i wydry (D31), niedźwiedzie, wilki i jeże (D32); przeciwnik losowany przy starcie partii, więc każdy dowódca
 bywa też bossem rywala (R8).
 
 ## Nowe typy efektów potrzebne w katalogu
@@ -100,3 +100,33 @@ schodzą pod ziemię, omijają wieże, wynurzają się ze wstrząsem (przejmuje 
 | **Pani Przypływu** (TIDECALLER) | fala i wir trzymają wroga z dala | **Fala** (`repel` wzdłuż linii) · **Wir** (`zone`: obrażenia co sekundę + spowolnienie) · **Straż przypływu** (`buff` pancerza) | dystansowa; fantasy — korona z koralowca, kostur z kulą wody |
 | **Lustrzany Nurt** (MIRROR TIDE) | zabójca z klonami | **Lustrzana włócznia** (`line`) · **Tysiąc luster** (`summon_units`: 3 klony na 12 s) · **Przemoczenie** (`weaken` — SOAKED z WebSlashera) | wręcz, dużo obrażeń; sci-fi — kombinezon nurka, hologram |
 | **Figlarz** (PLAYFUL) | krótkie odnowienia, odbija wrogów | **Kaczki** (`strike`, 2 salwy) · **Fikołek** (`leap` z odrzutem) · **Klaps ogonem** (`repel`) | wręcz, wytrzymały; fantasy — bandana, wiosło, tarcza z muszli |
+
+## Niedźwiedzie — „Wielkie. Wściekłe. Wszystko przyjmą na klatę.” (D32, 2026-09-27)
+
+**Umiejętność rasy — Gęste futro** (`buff` pancerza całej armii na 8 s).
+
+| Dowódca (WebSlasher) | Rola | Umiejętności | Postać |
+|---|---|---|---|
+| **Grawitant** (GRAVITY MAGE) | pola grawitacji zatrzymują hordę | **Pole wstrząsów** (`zone`) · **Zapaść** (`strike` z ogłuszeniem) · **Pole grawitacji** (`zone`, mocne spowolnienie) | dystansowa, rzuca głazami; sci-fi — rękawice z osobliwościami |
+| **Szał** (RAMPAGE) | berserker, żyje z zadanych ran | **Zamach łapą** (`strike` wokół siebie) · **Żądza krwi** (`buff` wysysania + obrażeń) · **Taranowanie** (`leap` z odrzutem) | wręcz; fantasy — skóry, malunki, topór |
+| **Kolos** (HIBERNATION) | tank, który śpi i wraca silniejszy | **Sen zimowy** (`heal` wokół siebie) · **Tąpnięcie** (`strike` z ogłuszeniem) · **Kolos** (`buff` pancerza + obrażeń) | wręcz, najwięcej HP; sci-fi — egzoszkielet pod kopułą |
+
+## Wilki — „Szybkie ciosy, instynkt stada.” (D32, 2026-09-27)
+
+**Umiejętność rasy — Zew watahy** (`buff` szybkości ataku całej armii na 8 s).
+
+| Dowódca (WebSlasher) | Rola | Umiejętności | Postać |
+|---|---|---|---|
+| **Grom** (THUNDER FANG — w WebSlasherze combo Q/W/E) | błyskawice przez całe szeregi | **Łańcuch burzy** (`line`) · **Nova gromu** (`strike`, 3 salwy) · **Błyskawiczny zryw** (`leap`) | wręcz; sci-fi — cewki Tesli |
+| **Alfa** (ALPHA PACK) | prowadzi watahę | **Cios watahy** (`strike` wokół siebie) · **Furia watahy** (`buff` obrażeń w obszarze) · **Zew wilków** (`summon_units` na 20 s) | wręcz; fantasy — hełm z czaszki basiora |
+| **Wilkołak** (HOWL) | samotny berserker | **Wypad** (`leap`) · **Dzikie wycie** (`weaken` wokół siebie) · **Przemiana** (`buff` szybkości ataku + obrażeń) | wręcz, najszybszy; fantasy — bestia |
+
+## Jeże — „Dotknij, a pożałujesz.” (D32, 2026-09-27)
+
+**Umiejętność rasy — Najeżenie** (`buff` kolców całej armii: połowa obrażeń z ciosu wręcz wraca do atakującego).
+
+| Dowódca (WebSlasher) | Rola | Umiejętności | Postać |
+|---|---|---|---|
+| **Sonik** (SONIC) | rozpędzona kula kolców | **Toczenie** (`repel` wzdłuż linii) · **Wirujące kolce** (`strike` wokół siebie) · **Rozpęd** (`buff` szybkości + obrażeń) | wręcz, najszybszy z jeży; sci-fi — buty z odrzutem |
+| **Kłębek** (CURL) | tank — dotknij, a pożałujesz | **Nova kolców** (`strike`) · **Żelazny kłębek** (`buff` pancerza + kolców) · **Prowokacja** (`taunt`) | wręcz, dużo HP; fantasy — rycerz z tarczą |
+| **Bastion** (BASTION) | pułapka na hordę | **Działko** (`summon_building`) · **Mur kolców** (`zone`: spowolnienie + obrażenia) · **Podkręcenie** (`buff` szybkości ataku) | dystansowa; sci-fi — inżynier z dronem |

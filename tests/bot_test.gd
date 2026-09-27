@@ -88,6 +88,7 @@ func _init() -> void:
 	_test_gibbon_kinds()
 	_test_hyena_boar_kinds()
 	_test_hare_otter_kinds()
+	_test_thorns()
 	_test_hero_level()
 	_test_survival()
 	_test_daily()
@@ -1471,6 +1472,35 @@ func _test_hare_otter_kinds() -> void:
 		_check(cell != Vector2.INF and sim.use_ability("hydra", cell, team), "hydra (%s)" % who)
 		var hydra: Sim.Building = sim.buildings[-1]
 		_check(hydra.kind == "hydra" and hydra.team == team and hydra.temporary, "hydra stoi po stronie rzucającego (%s)" % who)
+
+
+## Jeże: kolce (`thorns`) oddają atakującemu wręcz część obrażeń; strzały nie wracają; Żelazny kłębek
+## daje dowódcy pancerz i kolce naraz. Dla obu drużyn.
+func _test_thorns() -> void:
+	for team in 2:
+		var foe_t := 1 - team
+		var who := "team %d" % team
+		var sim := _fx_sim()
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		var ally: Sim.Unit = sim.units[-1]
+		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1, 700)
+		var foe: Sim.Unit = sim.units[-1]
+		_check(sim.use_ability("quills", Vector2.ZERO, team), "najeżenie (%s)" % who)
+		_check(ally.buffs.has("thorns") and not foe.buffs.has("thorns"), "kolce tylko dla swoich (%s)" % who)
+		var hp := foe.hp
+		sim._melee_hit(foe, ally)
+		var back := foe.dmg * Cfg.ABILITIES["quills"]["mult"]
+		_check(is_equal_approx(hp - foe.hp, back), "cios wręcz wraca do atakującego: %.1f (%s)" % [back, who])
+		hp = ally.hp
+		sim._melee_hit(ally, foe)
+		_check(ally.hp == hp, "wróg bez kolców nie oddaje (%s)" % who)
+
+		var h := sim._make_hero(team, "curl")
+		sim.heroes[team] = h
+		h.pos = sim.lanes[1].point_at(500)
+		_check(sim.use_ability("iron_curl", Vector2.ZERO, team), "żelazny kłębek (%s)" % who)
+		_check(h.armor_bonus > 0.0 and is_equal_approx(h.buffs["thorns"][0], Cfg.ABILITIES["iron_curl"]["thorns"]),
+			"kłębek: pancerz i kolce dowódcy (%s)" % who)
 
 
 ## Awans dowódcy (T14): doświadczenie w pobliżu i za zabicie osobiste, progi, statystyki,

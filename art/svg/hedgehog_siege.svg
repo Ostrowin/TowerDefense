@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 134" data-world="0.3">
+  <!-- Machina jeży: opancerzony wóz-jeż z działem kolcowym i stalowym grzebieniem. -->
+  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M31.1 87.7 L21.9 77.8 L35.4 78.2 L29.9 65.9 L42.5 70.6 L41.3 57.2 L51.7 65.7 L54.8 52.6 L62.0 64.0 L69.2 52.6 L72.3 65.7 L82.7 57.2 L81.5 70.6 L94.1 65.9 L88.6 78.2 L102.1 77.8 L92.9 87.7 L105.8 91.7 L62.0 96.0 Z" fill="#6b7280"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M14 104 C14 80 34 64 62 64 C90 64 112 80 112 104 Z" fill="#6f7d45"/>
+    <path d="M60 70 L116 48 L120 58 L66 82 Z" fill="#3b3f45"/>
+  </g>
+  <path d="M20 96 L108 96" stroke="#c800c8" stroke-width="5"/>
+  <path d="M24 84 C40 72 70 70 90 76" stroke="#98a860" stroke-width="2" fill="none"/>
+  <rect x="40" y="80" width="12" height="6" rx="1" fill="#b8ff4a" stroke="#1a120c" stroke-width="1"/>
+  <path d="M118 50 L126 46 L124 54 Z" fill="#4a3a2a" stroke="#1a120c" stroke-width="1"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="34" cy="118" r="14" fill="#25282c"/>
+    <circle cx="34" cy="118" r="5.6000000000000005" fill="#6f7d45"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="92" cy="118" r="14" fill="#25282c"/>
+    <circle cx="92" cy="118" r="5.6000000000000005" fill="#6f7d45"/>
+  </g>
+</svg>

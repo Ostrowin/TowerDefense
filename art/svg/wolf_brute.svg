@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="60 136" data-world="0.3">
+  <!-- Wilk-osiłek: basior w kolczastym kołnierzu, korbacz z iskrzącą kulą. -->
+  <g transform="translate(-12 -4)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 100 C30 96 18 102 8 94 C14 108 26 114 42 110 Z" fill="#8a929c"/>
+  </g>
+  <path d="M10 96 C18 104 28 106 40 104" stroke="#c8ccd2" stroke-width="2" fill="none"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M34 100 L28 124 L26 136 L52 136 L52 120 L56 104 Z" fill="#5c636c"/>
+    <path d="M66 104 L64 124 L62 136 L92 136 L88 122 L86 104 Z" fill="#8a929c"/>
+  </g>
+  <path d="M26 136 L52 136 M62 136 L92 136" stroke="#1a120c" stroke-width="3"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M20 88 C16 62 36 44 64 42 C92 40 110 58 108 84 C106 106 92 120 66 120 C40 120 24 108 20 88 Z" fill="#8a929c"/>
+  </g>
+  <path d="M24 92 C30 110 46 120 66 120 C48 112 34 102 30 86 Z" fill="#5c636c" opacity="0.7"/>
+  <path d="M34 74 L100 70 L100 82 L34 86 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M34 75.5 L100 71.5" stroke="#ff00ff" stroke-width="1.5"/>
+  <path d="M26 56 C40 44 76 42 96 54 L90 62 C74 54 46 54 32 64 Z" fill="#5a6470" stroke="#1a120c" stroke-width="2.5"/>
+  <path d="M34 54 L30 44 L38 52 M48 48 L46 36 L52 47 M62 46 L64 34 L66 46 M78 48 L84 38 L82 50" fill="#8a96a4" stroke="#1a120c" stroke-width="1.5"/>
+  <g transform="translate(12 4) scale(0.78)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M54 34 L50 10 L66 28 Z" fill="#5c636c"/>
+    <path d="M66 30 L68 6 L80 28 Z" fill="#8a929c"/>
+    <path d="M46 50 C46 34 60 26 76 28 C88 30 96 38 98 46 C98 60 86 68 72 68 C58 68 46 62 46 50 Z" fill="#8a929c"/>
+    <path d="M86 42 C98 42 112 46 118 52 C118 58 110 62 98 62 C90 62 84 56 84 50 Z" fill="#d8dce0"/>
+  </g>
+  <path d="M70 26 L70 12 L76 26 Z" fill="#c08a8a"/>
+  <path d="M114 48 C118 48 120 51 118 54 C116 55 112 54 112 51 Z" fill="#1a1a1e"/>
+  <path d="M96 60 L100 64 L104 60 L108 63" stroke="#1a120c" stroke-width="1.3" fill="#ffffff"/>
+  <path d="M82 42 C86 38 92 38 94 42 C90 45 86 45 82 42 Z" fill="#ffd24a" stroke="#1a120c" stroke-width="1.2"/>
+  <circle cx="88" cy="42" r="1.4" fill="#1a1a1e"/>
+  <path d="M80 37 L94 36" stroke="#5c636c" stroke-width="2.2"/>
+  <path d="M48 54 C52 64 60 68 72 68 C62 64 54 58 52 50 Z" fill="#5c636c" opacity="0.7"/>
+  <path d="M52 46 C48 52 48 58 52 64" stroke="#c8ccd2" stroke-width="2" fill="none"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M96 70 L112 110" stroke-width="7"/>
+    <circle cx="116" cy="126" r="12" fill="#343a42"/>
+  </g>
+  <path d="M96 70 L112 110" stroke="#6a4a2e" stroke-width="3.5"/>
+  <path d="M112 110 L116 116" stroke="#8a96a4" stroke-width="2.5"/>
+  <path d="M104 126 L98 126 M128 126 L134 126 M116 114 L116 108 M116 138 L116 142 M108 118 L104 114 M124 134 L128 138" stroke="#1a120c" stroke-width="3"/>
+  <path d="M112 122 L118 124 L114 128 L120 130" stroke="#6ab4ff" stroke-width="1.8" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M84 60 C98 64 106 76 104 88 L94 90 C94 80 90 74 82 72 Z" fill="#8a929c"/>
+  </g>  <g stroke="#1a120c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="98" cy="88" r="8" fill="#5c636c"/>
+  </g>
+</svg>

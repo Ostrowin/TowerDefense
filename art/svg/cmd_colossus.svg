@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.27" data-scale="0.85">
+  <!-- Kolos (sci-fi): niedźwiedź w ciężkim egzoszkielecie pod szklaną kopułą, pięści-tłoki, rdzeń grawitacji. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M34 112 L30 136 L60 136 L58 114 Z" fill="#2c2f34"/>
+    <path d="M76 114 L74 136 L104 136 L100 112 Z" fill="#4a4e55"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M26 68 C30 52 50 46 68 46 C90 46 106 54 110 70 L110 112 C100 124 36 124 26 112 Z" fill="#4a4e55"/>
+    <path d="M18 60 C18 48 40 44 44 56 L44 72 L20 74 Z M92 54 C98 44 118 46 118 60 L116 74 L92 72 Z" fill="#767d86"/>
+  </g>
+  <path d="M30 84 L106 84 L106 96 L30 96 Z" fill="#c800c8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M30 85.5 L106 85.5" stroke="#ff00ff" stroke-width="1.5"/>
+  <circle cx="68" cy="106" r="7" fill="#2c2f34" stroke="#1a120c" stroke-width="2"/><circle cx="68" cy="106" r="3.5" fill="#b070ff"/>
+    <circle cx="24" cy="66" r="1.8" fill="#8b939e"/>
+    <circle cx="40" cy="66" r="1.8" fill="#8b939e"/>
+    <circle cx="98" cy="64" r="1.8" fill="#8b939e"/>
+    <circle cx="112" cy="66" r="1.8" fill="#8b939e"/>
+    <circle cx="36" cy="110" r="1.8" fill="#8b939e"/>
+    <circle cx="100" cy="110" r="1.8" fill="#8b939e"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="4" y="74" width="24" height="30" rx="6" fill="#2c2f34"/>
+    <rect x="104" y="74" width="24" height="30" rx="6" fill="#4a4e55"/>
+  </g>
+  <path d="M8 84 L24 84 M8 94 L24 94 M108 84 L124 84 M108 94 L124 94" stroke="#767d86" stroke-width="2"/>
+  <g transform="translate(10 -2) scale(0.72)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="56" cy="30" r="8" fill="#553519"/>
+    <circle cx="82" cy="26" r="8" fill="#7a4f2c"/>
+    <path d="M46 50 C46 34 60 26 76 26 C92 26 102 36 102 50 C102 62 90 70 74 70 C58 70 46 62 46 50 Z" fill="#7a4f2c"/>
+    <path d="M90 46 C100 44 110 48 112 54 C113 62 104 66 96 65 C90 64 86 58 88 52 Z" fill="#c09a70"/>
+  </g>
+  <circle cx="82" cy="26" r="3.5" fill="#c08a70"/>
+  <path d="M106 50 C110 49 113 51 112 54 C110 56 106 55 105 52 Z" fill="#1e1410"/>
+  <path d="M100 59 C104 62 108 62 111 59" fill="none" stroke="#1e1410" stroke-width="1.4"/>
+  <circle cx="88" cy="44" r="2.6" fill="#1e1410"/><circle cx="88.8" cy="43.2" r="0.9" fill="#ffffff"/>
+  <path d="M82 38 C86 36 92 37 94 40" stroke="#553519" stroke-width="2.4" fill="none"/>
+  <path d="M48 54 C52 64 62 70 74 70 C64 66 56 60 52 50 Z" fill="#553519" opacity="0.7"/>
+  <path d="M60 32 C66 29 76 28 84 30" fill="none" stroke="#9a6a40" stroke-width="2"/>
+  </g>
+  <path d="M36 44 C36 18 56 6 72 6 C90 6 104 20 104 44" fill="#8ad8ff" opacity="0.25" stroke="#1a120c" stroke-width="2.5"/>
+  <path d="M48 20 C56 12 66 10 74 10" stroke="#e0f6ff" stroke-width="2" fill="none"/>
+</svg>
