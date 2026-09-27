@@ -106,6 +106,8 @@ const TEMP_BUILDINGS := {
 		"range": 130.0, "heal": 20.0, "pulse": 2.0},
 	"repeller": {"name": "Odpychacz", "temporary": true, "hp": 300.0,
 		"range": 90.0, "repel": 50.0, "pulse": 3.0},
+	"hydra": {"name": "Hydra", "temporary": true, "hp": 260.0,
+		"range": 150.0, "dmg": 11.0, "cd": 0.5, "projectile": "arrow"},
 }
 ## Kolejność przycisków budowy (i skrótów 1–6).
 const BUILD_ORDER: Array[String] = ["tower", "cannon", "frost", "barracks", "range", "workshop"]
@@ -150,6 +152,7 @@ const ANTI_AIR: Array[String] = ["arrow", "frost"]
 #   repel         — cofa wrogów w obszarze/na linii (distance; radius albo length + width)
 #   leap          — skok dowódcy do punktu z uderzeniem (radius, dmg; repel — opcjonalne odrzucenie)
 #   bounty_buff   — zabójstwa dają więcej złota (mult, duration)
+#   heal          — leczy własne jednostki i dowódcę w promieniu (heal = ułamek max HP; radius 0 = cała armia)
 # target: czy trzeba wskazać miejsce na mapie. Cooldown liczy się od startu partii.
 # cast_range: zasięg rzucania od dowódcy (0 = bez ograniczenia: rasowe, global, rzucane bez dowódcy).
 # Liczby umiejętności dowódców to punkt startowy — strojenie botami od T9.
@@ -251,6 +254,50 @@ const ABILITIES := {
 	"boar_fury": {"name": "Furia odyńca", "short": "Furia", "kind": "buff", "cooldown": 40.0, "target": false,
 		"cast_range": 0.0, "self": true, "stat": "dmg", "mult": 1.6, "duration": 10.0},
 
+	# --- zające: Skoczek (WebSlasher: SLIPSTREAM — skok z falą uderzeniową, nova)
+	"leap_strike": {"name": "Skok bojowy", "short": "Skok", "kind": "leap", "cooldown": 14.0, "target": true,
+		"cast_range": 260.0, "radius": 70.0, "dmg": 55.0},
+	"shock_nova": {"name": "Nova", "short": "Nova", "kind": "strike", "cooldown": 16.0, "target": false,
+		"cast_range": 0.0, "radius": 90.0, "dmg": 45.0, "dmg_type": "blast", "volleys": 1, "interval": 0.0, "stun": 0.6},
+	"tailwind": {"name": "Wiatr w nogach", "short": "Wiatr", "kind": "buff", "cooldown": 30.0, "target": false,
+		"cast_range": 0.0, "self": true, "stat": "attack_speed", "mult": 1.7, "duration": 8.0},
+	# --- zające: Przywoływacz (SUMMONER — Behemot, hydra, rój)
+	"behemoth": {"name": "Behemot", "short": "Behemot", "kind": "summon_units", "cooldown": 45.0, "target": true,
+		"cast_range": 240.0, "count": 1, "unit": "brute", "max_lane_dist": 90.0, "lifetime": 25.0},
+	"hydra": {"name": "Hydra", "short": "Hydra", "kind": "summon_building", "cooldown": 40.0, "target": true,
+		"cast_range": 180.0, "building": "hydra", "duration": 18.0},
+	"swarm": {"name": "Rój", "short": "Rój", "kind": "summon_units", "cooldown": 40.0, "target": true,
+		"cast_range": 240.0, "count": 6, "unit": "runner", "max_lane_dist": 90.0, "lifetime": 12.0},
+	# --- zające: Mistrz Aur (AURA MASTER — leczenie, osłona, blask)
+	"mend": {"name": "Kojenie", "short": "Kojenie", "kind": "heal", "cooldown": 30.0, "target": true,
+		"cast_range": 220.0, "radius": 140.0, "heal": 0.35},
+	"ward": {"name": "Osłona", "short": "Osłona", "kind": "buff", "cooldown": 35.0, "target": true,
+		"cast_range": 220.0, "radius": 120.0, "stat": "armor", "mult": 0.4, "duration": 10.0},
+	"radiance": {"name": "Blask", "short": "Blask", "kind": "strike", "cooldown": 20.0, "target": false,
+		"cast_range": 0.0, "radius": 110.0, "dmg": 40.0, "dmg_type": "blast", "volleys": 1, "interval": 0.0},
+
+	# --- wydry: Pani Przypływu (TIDECALLER — fala, wir, straż przypływu)
+	"surf": {"name": "Fala", "short": "Fala", "kind": "repel", "cooldown": 25.0, "target": true,
+		"cast_range": 240.0, "length": 240.0, "width": 50.0, "distance": 100.0, "dmg": 25.0},
+	"whirlpool": {"name": "Wir", "short": "Wir", "kind": "zone", "cooldown": 30.0, "target": true,
+		"cast_range": 220.0, "radius": 60.0, "dps": 14.0, "slow": 0.4, "dmg_type": "blast", "trigger": "tick", "duration": 8.0},
+	"tide_guard": {"name": "Straż przypływu", "short": "Straż", "kind": "buff", "cooldown": 35.0, "target": true,
+		"cast_range": 200.0, "radius": 120.0, "stat": "armor", "mult": 0.35, "duration": 10.0},
+	# --- wydry: Lustrzany Nurt (MIRROR TIDE — włócznia, klony, przemoczenie)
+	"mirror_lance": {"name": "Lustrzana włócznia", "short": "Włócznia", "kind": "line", "cooldown": 18.0, "target": true,
+		"cast_range": 320.0, "length": 320.0, "width": 22.0, "dmg": 80.0, "dmg_type": "arrow"},
+	"mirrors": {"name": "Tysiąc luster", "short": "Klony", "kind": "summon_units", "cooldown": 40.0, "target": true,
+		"cast_range": 220.0, "count": 3, "unit": "soldier", "max_lane_dist": 90.0, "lifetime": 12.0},
+	"soak": {"name": "Przemoczenie", "short": "Mokro", "kind": "weaken", "cooldown": 28.0, "target": true,
+		"cast_range": 240.0, "radius": 100.0, "mult": 1.3, "duration": 8.0},
+	# --- wydry: Figlarz (PLAYFUL — kaczki, fikołek, klaps ogonem; krótkie odnowienia)
+	"skip_shot": {"name": "Kaczki", "short": "Kaczki", "kind": "strike", "cooldown": 10.0, "target": true,
+		"cast_range": 240.0, "radius": 50.0, "dmg": 30.0, "dmg_type": "arrow", "volleys": 2, "interval": 0.3},
+	"tumble": {"name": "Fikołek", "short": "Fikołek", "kind": "leap", "cooldown": 12.0, "target": true,
+		"cast_range": 200.0, "radius": 50.0, "dmg": 30.0, "repel": 60.0},
+	"tail_slap": {"name": "Klaps ogonem", "short": "Klaps", "kind": "repel", "cooldown": 12.0, "target": true,
+		"cast_range": 140.0, "length": 120.0, "width": 70.0, "distance": 90.0, "dmg": 35.0},
+
 	# --- umiejętności ras (bez zasięgu)
 	"dig_in": {"name": "Podkop", "short": "Podkop", "kind": "burrow", "cooldown": 60.0, "target": true,
 		"cast_range": 0.0, "duration": 6.0, "speed_mult": 1.3, "quake_dmg": 40.0, "quake_radius": 70.0},
@@ -260,6 +307,10 @@ const ABILITIES := {
 		"cast_range": 0.0, "mult": 1.5, "duration": 15.0},
 	"stampede": {"name": "Szarża", "short": "Szarża", "kind": "buff", "cooldown": 60.0, "target": true,
 		"cast_range": 0.0, "lane": true, "stat": "speed", "mult": 1.4, "knockback": 40.0, "duration": 10.0},
+	"hop": {"name": "Kicanie", "short": "Kicanie", "kind": "buff", "cooldown": 45.0, "target": false,
+		"cast_range": 0.0, "radius": 0.0, "stat": "speed", "mult": 1.7, "duration": 6.0},
+	"high_tide": {"name": "Przypływ", "short": "Przypływ", "kind": "heal", "cooldown": 60.0, "target": false,
+		"cast_range": 0.0, "radius": 0.0, "heal": 0.3},
 }
 ## Zestaw bez dowódcy (i dowódcy-zastępcy „Weteran") — dzisiejsza gra.
 const ABILITY_ORDER: Array[String] = ["arrows", "levy", "repair"]
@@ -267,7 +318,7 @@ const ABILITY_ORDER: Array[String] = ["arrows", "levy", "repair"]
 ## umiejętności i umiejętność rasy mają typ z tej listy — rośnie z T6/T9–T11b.
 const IMPLEMENTED_KINDS: Array[String] = ["strike", "summon_units", "global", "zone", "summon_building",
 	"buff", "line", "execute", "demolish", "burrow", "pull", "taunt", "repel",
-	"weaken", "leap", "raise_dead", "bounty_buff"]
+	"weaken", "leap", "raise_dead", "bounty_buff", "heal"]
 ## Umiejętności `zone` i `summon_building` nie dalej niż tyle od bazy przeciwnika (R2).
 const NO_CAST_NEAR_BASE := 150.0
 ## `demolish`: w jakim promieniu od wskazanego punktu szuka budynku wroga.
@@ -329,12 +380,34 @@ const COMMANDERS := {
 	"tusks": {"race": "boar", "name": "Kły", "role": "czyste obrażenia wręcz",
 		"hp": 480.0, "dmg": 32.0, "range": 24.0, "cd": 1.0, "speed": 72.0, "r": 13.0, "armor": 0.2,
 		"projectile": "", "anti_air": false, "abilities": ["gore", "spikes", "boar_fury"]},
+
+	"slipstream": {"race": "hare", "name": "Skoczek", "role": "wskakuje w hordę i rozbija ją falą",
+		"hp": 340.0, "dmg": 20.0, "range": 22.0, "cd": 0.6, "speed": 96.0, "r": 11.0, "armor": 0.0,
+		"projectile": "", "anti_air": false, "abilities": ["leap_strike", "shock_nova", "tailwind"]},
+	"summoner": {"race": "hare", "name": "Przywoływacz", "role": "Behemot, hydra i rój walczą za niego",
+		"hp": 300.0, "dmg": 14.0, "range": 140.0, "cd": 1.2, "speed": 80.0, "r": 11.0, "armor": 0.0,
+		"projectile": "arrow", "anti_air": true, "abilities": ["behemoth", "hydra", "swarm"]},
+	"aura_master": {"race": "hare", "name": "Mistrz Aur", "role": "ruchoma stacja wzmocnień",
+		"hp": 360.0, "dmg": 16.0, "range": 24.0, "cd": 0.8, "speed": 86.0, "r": 11.0, "armor": 0.1,
+		"projectile": "", "anti_air": false, "abilities": ["mend", "ward", "radiance"]},
+
+	"tidecaller": {"race": "otter", "name": "Pani Przypływu", "role": "fala i wir trzymają wroga z dala",
+		"hp": 360.0, "dmg": 15.0, "range": 130.0, "cd": 1.1, "speed": 70.0, "r": 11.0, "armor": 0.1,
+		"projectile": "arrow", "anti_air": true, "abilities": ["surf", "whirlpool", "tide_guard"]},
+	"mirror_tide": {"race": "otter", "name": "Lustrzany Nurt", "role": "zabójca z klonami-hologramami",
+		"hp": 300.0, "dmg": 26.0, "range": 24.0, "cd": 0.7, "speed": 82.0, "r": 11.0, "armor": 0.0,
+		"projectile": "", "anti_air": false, "abilities": ["mirror_lance", "mirrors", "soak"]},
+	"playful": {"race": "otter", "name": "Figlarz", "role": "krótkie odnowienia, odbija wrogów jak piłki",
+		"hp": 420.0, "dmg": 18.0, "range": 24.0, "cd": 0.8, "speed": 84.0, "r": 12.0, "armor": 0.2,
+		"projectile": "", "anti_air": false, "abilities": ["skip_shot", "tumble", "tail_slap"]},
 }
 ## Kolejność w menu (w obrębie rasy).
 const COMMANDER_ORDER: Array[String] = ["sapper", "sniper", "magma", "iron_grip", "wrecker", "warbeat",
-	"necromancer", "scavenger", "cackle", "totem_engineer", "stampede", "tusks", "veteran"]
+	"necromancer", "scavenger", "cackle", "totem_engineer", "stampede", "tusks",
+	"slipstream", "summoner", "aura_master", "tidecaller", "mirror_tide", "playful", "veteran"]
 ## Umiejętność rasy: id rasy → id z ABILITIES. Działa zawsze, także po śmierci dowódcy.
-const RACIAL := {"mole": "dig_in", "gibbon": "song", "hyena": "carrion", "boar": "stampede"}
+const RACIAL := {"mole": "dig_in", "gibbon": "song", "hyena": "carrion", "boar": "stampede",
+	"hare": "hop", "otter": "high_tide"}
 
 ## Odrodzenie dowódcy: COMMANDER_RESPAWN s + COMMANDER_RESPAWN_PER_WAVE na falę, najwyżej COMMANDER_RESPAWN_MAX.
 const COMMANDER_RESPAWN := 20.0

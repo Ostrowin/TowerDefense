@@ -1,11 +1,11 @@
-# Katalog dowódców — krety, gibony, hieny, dziki
+# Katalog dowódców — krety, gibony, hieny, dziki, zające, wydry
 
 Uzupełnienie projektu [dowodcy-ras.md](dowodcy-ras.md) (2026-09-25). **Propozycje do przejrzenia**, nie decyzje:
 każdy dowódca to specjalizacja klasy z WebSlashera przełożona na lane-pushera — 3 umiejętności z typów efektów
 (tabela R1 w projekcie) + opis postaci na mapie. Liczby celowo pominięte (strojenie od T9, botami).
 Spójne ma być lore, nie umiejętności — tam, gdzie WebSlasher nie pasuje do tej gry, tłumaczenie jest luźne.
 
-Grywalne rasy: krety, gibony, hieny, dziki; przeciwnik losowany przy starcie partii, więc każdy dowódca
+Grywalne rasy: krety, gibony, hieny, dziki, zające i wydry (D31); przeciwnik losowany przy starcie partii, więc każdy dowódca
 bywa też bossem rywala (R8).
 
 ## Nowe typy efektów potrzebne w katalogu
@@ -80,3 +80,23 @@ schodzą pod ziemię, omijają wieże, wynurzają się ze wstrząsem (przejmuje 
 - **„Weteran”** (dzisiejsze umiejętności, R10) pokrywa rasy, których dowódcy jeszcze nie istnieją — dotyczy teraz 3 ras.
 - **Pieśń (gibony) i Szarża (dziki)** to oba `buff` armii — różnica: Pieśń globalnie i krócej, Szarża na jedną ścieżkę z odrzutem.
 - **Bojowy Rytm i Kły** nie istnieją w WebSlasherze — wymyślone tutaj; jeśli spodobają się, mogą wrócić do WebSlashera.
+
+## Zające — „Za szybkie, żeby zginąć. Zazwyczaj.” (D31, 2026-09-27)
+
+**Umiejętność rasy — Kicanie** (`buff` całej armii: +70% szybkości na 6 s — mocniej i krócej niż Pieśń gibonów).
+
+| Dowódca (WebSlasher) | Rola | Umiejętności | Postać |
+|---|---|---|---|
+| **Skoczek** (SLIPSTREAM) | wskakuje w hordę i rozbija ją falą | **Skok bojowy** (`leap`) · **Nova** (`strike` wokół siebie z ogłuszeniem) · **Wiatr w nogach** (`buff` szybkości ataku dowódcy) | wręcz, najszybszy; sci-fi — buty odrzutowe, dwa sztylety |
+| **Przywoływacz** (SUMMONER) | przywołańce walczą za niego | **Behemot** (`summon_units`: jeden Ogr na 25 s) · **Hydra** (`summon_building`, strzela) · **Rój** (`summon_units`: 6 Goblinów na 12 s) | dystansowa, słaba; fantasy — druid z kosturem |
+| **Mistrz Aur** (AURA MASTER) | ruchoma stacja wzmocnień | **Kojenie** (`heal` w obszarze) · **Osłona** (`buff` pancerza) · **Blask** (`strike` wokół siebie) | wręcz; sci-fi — nadajnik z trzema kulami aur |
+
+## Wydry — „Trzymają drużynę przy życiu.” (D31, 2026-09-27)
+
+**Umiejętność rasy — Przypływ** (nowy typ `heal`: cała armia i dowódca odzyskują 30% HP).
+
+| Dowódca (WebSlasher) | Rola | Umiejętności | Postać |
+|---|---|---|---|
+| **Pani Przypływu** (TIDECALLER) | fala i wir trzymają wroga z dala | **Fala** (`repel` wzdłuż linii) · **Wir** (`zone`: obrażenia co sekundę + spowolnienie) · **Straż przypływu** (`buff` pancerza) | dystansowa; fantasy — korona z koralowca, kostur z kulą wody |
+| **Lustrzany Nurt** (MIRROR TIDE) | zabójca z klonami | **Lustrzana włócznia** (`line`) · **Tysiąc luster** (`summon_units`: 3 klony na 12 s) · **Przemoczenie** (`weaken` — SOAKED z WebSlashera) | wręcz, dużo obrażeń; sci-fi — kombinezon nurka, hologram |
+| **Figlarz** (PLAYFUL) | krótkie odnowienia, odbija wrogów | **Kaczki** (`strike`, 2 salwy) · **Fikołek** (`leap` z odrzutem) · **Klaps ogonem** (`repel`) | wręcz, wytrzymały; fantasy — bandana, wiosło, tarcza z muszli |

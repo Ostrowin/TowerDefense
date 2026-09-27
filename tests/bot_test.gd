@@ -87,6 +87,7 @@ func _init() -> void:
 	_test_burrow()
 	_test_gibbon_kinds()
 	_test_hyena_boar_kinds()
+	_test_hare_otter_kinds()
 	_test_hero_level()
 	_test_survival()
 	_test_daily()
@@ -250,13 +251,20 @@ func _hero_bot(sim: Sim, strategy: String) -> void:
 		level_times.append(int(sim.elapsed))
 
 
-## Umiejętność rasy: Podkop, gdy na jednej ścieżce idzie w natarciu ≥ 6 własnych jednostek.
+## Umiejętność rasy: gdy na jednej ścieżce idzie w natarciu ≥ 6 własnych jednostek (leczenie — gdy są ranni).
 func _cast_racial(sim: Sim) -> void:
 	var racial := ""
 	for a in sim.ability_order[0]:
 		if Cfg.RACIAL.values().has(a):
 			racial = a
-	if racial == "" or not sim.ability_ready(racial) or sim.stance != "attack":
+	if racial == "" or not sim.ability_ready(racial):
+		return
+	if Cfg.ABILITIES[racial]["kind"] == "heal":  # Przypływ: gdy rannych swoich jest ≥ 8
+		var hurt := sim.units.filter(func(u: Sim.Unit) -> bool: return u.team == 0 and u.hp > 0 and u.hp < u.max_hp * 0.6)
+		if hurt.size() >= 8:
+			sim.use_ability(racial)
+		return
+	if sim.stance != "attack":
 		return
 	var per_lane := {}
 	for u in sim.units:
@@ -370,6 +378,24 @@ func _cast_by_rules(sim: Sim, a: String) -> void:
 		"global":
 			if sim.base_hp[0] < Cfg.BASE_HP[0] * 0.6:
 				sim.use_ability(a)
+		"heal":
+			# tam, gdzie w promieniu jest najwięcej rannych swoich (poniżej 60% HP)
+			var hurt: Array[Sim.Unit] = []
+			for u in sim.units:
+				if u.team == 0 and u.hp > 0 and u.hp < u.max_hp * 0.6 and u.pos.distance_to(h.pos) <= reach:
+					hurt.append(u)
+			var best := Vector2.INF
+			var best_n := 3
+			for u in hurt:
+				var n := 0
+				for o in hurt:
+					if o.pos.distance_to(u.pos) <= cfg["radius"]:
+						n += 1
+				if n > best_n:
+					best_n = n
+					best = u.pos
+			if best != Vector2.INF:
+				sim.use_ability(a, best)
 
 
 ## Postawa bota:
@@ -1398,6 +1424,53 @@ func _test_hyena_boar_kinds() -> void:
 		var s0 := foe.s
 		sim._melee_hit(ally, foe)
 		_check((foe.s - s0) * fwd > 30.0 and not ally.buffs.has("knockback"), "pierwszy cios odrzuca, potem już nie (%s)" % who)
+
+
+## Zające i wydry: nowy typ `heal` (w promieniu i cała armia) dla obu drużyn, Behemot (summon_units
+## z jednostką fal) i hydra (summon_building) po stronie rzucającego.
+func _test_hare_otter_kinds() -> void:
+	for team in 2:
+		var foe_t := 1 - team
+		var who := "team %d" % team
+		var sim := _fx_sim()
+		var lane: Sim.Lane = sim.lanes[1]
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 700)
+		var near: Sim.Unit = sim.units[-1]
+		sim._spawn_unit(team, "soldier", 1, 1.0, 1, 1100)
+		var far: Sim.Unit = sim.units[-1]
+		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700)
+		var foe: Sim.Unit = sim.units[-1]
+		for u in [near, far, foe]:
+			u.hp = u.max_hp * 0.2
+		_check(sim.use_ability("mend", near.pos, team), "kojenie (%s)" % who)
+		var healed := near.max_hp * (0.2 + Cfg.ABILITIES["mend"]["heal"])
+		_check(is_equal_approx(near.hp, healed), "kojenie leczy swoich w promieniu (%s)" % who)
+		_check(is_equal_approx(far.hp, far.max_hp * 0.2) and is_equal_approx(foe.hp, foe.max_hp * 0.2),
+			"kojenie nie leczy dalekich ani wrogów (%s)" % who)
+		_check(sim.use_ability("high_tide", Vector2.ZERO, team), "przypływ (%s)" % who)
+		_check(is_equal_approx(far.hp, far.max_hp * (0.2 + Cfg.ABILITIES["high_tide"]["heal"])), "przypływ leczy całą armię (%s)" % who)
+		_check(is_equal_approx(foe.hp, foe.max_hp * 0.2), "przypływ nie leczy wrogów (%s)" % who)
+		near.hp = near.max_hp - 1.0
+		sim.ability_cd[team]["high_tide"] = 0.0
+		sim.use_ability("high_tide", Vector2.ZERO, team)
+		_check(near.hp == near.max_hp, "leczenie nie przekracza max HP (%s)" % who)
+
+		sim = _fx_sim()
+		lane = sim.lanes[1]
+		var own_s := 400.0 if team == 0 else lane.length - 400.0
+		var n0 := sim.army_size(team)
+		_check(sim.use_ability("behemoth", lane.point_at(own_s), team), "behemot (%s)" % who)
+		_check(sim.army_size(team) == n0 + 1 and sim.units[-1].kind == "brute" and sim.units[-1].team == team,
+			"behemot walczy po stronie rzucającego (%s)" % who)
+		var cell := Vector2.INF
+		for dx in range(-6, 7):
+			var c := Cfg.snap(lane.point_at(own_s) + Vector2(dx * Cfg.GRID, 3 * Cfg.GRID))
+			if sim.ability_target_ok("hydra", c, team):
+				cell = c
+				break
+		_check(cell != Vector2.INF and sim.use_ability("hydra", cell, team), "hydra (%s)" % who)
+		var hydra: Sim.Building = sim.buildings[-1]
+		_check(hydra.kind == "hydra" and hydra.team == team and hydra.temporary, "hydra stoi po stronie rzucającego (%s)" % who)
 
 
 ## Awans dowódcy (T14): doświadczenie w pobliżu i za zabicie osobiste, progi, statystyki,

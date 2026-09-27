@@ -268,6 +268,24 @@ def totems():
     totem("b_repeller", "#8fd8ff", horn, "Odpychacz (magia): totem z rogiem wojennym — podmuch cofa wrogów.")
 
 
+def hydra():
+    # przywołaniec zająca (Przywoływacz): omszały kopiec, z którego wyrastają trzy łby węża-ducha
+    mound = g(f'''    <path d="M12 136 C14 112 36 96 64 96 C92 96 114 112 116 136 C92 146 36 146 12 136 Z" fill="{STONE_S}"/>
+    <path d="M22 118 C34 104 52 100 64 100 C60 108 44 114 30 126 Z" fill="#4a6a3a"/>''') + f'''
+  <path d="M40 132 L46 124 L52 130 L58 122 L66 130 L74 122 L80 130 L88 124 L92 134" fill="none" stroke="{TEAM_M}" stroke-width="3"/>
+  <path d="M80 104 C90 106 100 112 106 122" stroke="#4a6a3a" stroke-width="3" fill="none"/>'''
+
+    def neck(x0, x1, y1, lean):
+        return g(f'''    <path d="M{x0-8} 110 C{x0-8} 90 {x1-10} {y1+26} {x1-6} {y1+6} L{x1+8} {y1+8} C{x1+4} {y1+30} {x0+8} 92 {x0+8} 110 Z" fill="#5a8a4a"/>
+    <path d="M{x1-10} {y1} C{x1-8} {y1-12} {x1+10} {y1-14} {x1+16+lean} {y1-4} L{x1+24+lean} {y1+2} L{x1+14+lean} {y1+6} C{x1+8} {y1+12} {x1-8} {y1+12} {x1-10} {y1} Z" fill="#6aa058"/>''') + f'''
+  <circle cx="{x1+6}" cy="{y1-4}" r="2.4" fill="#d8ff70" stroke="{INK}" stroke-width="1"/>
+  <path d="M{x1+14+lean} {y1+4} L{x1+20+lean} {y1+10} L{x1+22+lean} {y1+6}" stroke="#e87060" stroke-width="1.5" fill="none"/>
+  <path d="M{x0-4} 104 C{x0-2} 90 {x1-6} {y1+24} {x1-2} {y1+10}" stroke="#8ac070" stroke-width="1.5" fill="none"/>'''
+    heads = neck(40, 32, 58, -2) + "\n" + neck(84, 90, 52, 2) + "\n" + neck(62, 62, 30, 0)
+    svg("b_hydra", mound + "\n" + heads, h=150, anchor=(64, 138), world=0.34, scale=1,
+        note="Hydra Przywoływacza (magia): omszały kopiec z trzema łbami węża-ducha, runy drużyny u podstawy.")
+
+
 if __name__ == "__main__":
-    cannon(); frost(); barracks(); range_(); workshop(); extractor(); base(); drill_turret(); volcano(); totems()
+    cannon(); frost(); barracks(); range_(); workshop(); extractor(); base(); drill_turret(); volcano(); totems(); hydra()
     print("buildings ok")

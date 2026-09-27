@@ -173,3 +173,21 @@ Log decyzji (ADR-lite). Każdy wpis: **decyzja**, **dlaczego**, **status**. Źr�
 **Kompromis:** ThorVG nie zna filtrów SVG, więc faktura powstaje przy wypalaniu, nie w SVG; atlas trzeba przepalić i przeimportować po każdej zmianie SVG; każdy sprite to jedna poza (animacja tylko przez przekształcenia). Pliki `*.import` nie są w repo, więc mipmapy liczy gra przy starcie. Budynki nie są jeszcze sortowane z jednostkami po głębokości (jednostka za wieżą bywa narysowana na niej).
 **Status:** aktywna.
 
+### D31 — Zające i wydry grywalne: dowódcy ze specjalizacji WebSlashera (2026-09-27)
+**Decyzja:** zające i wydry grywalne (6 ras). Dowódcy to specjalizacje klas z WebSlashera przełożone na typy efektów:
+zające — Skoczek (SLIPSTREAM, sci-fi: Skok bojowy `leap`, Nova `strike` z ogłuszeniem, Wiatr w nogach `buff`),
+Przywoływacz (SUMMONER, fantasy: Behemot i Rój `summon_units` z czasem życia, Hydra `summon_building`), Mistrz Aur
+(AURA MASTER, sci-fi: Kojenie `heal`, Osłona `buff` pancerza, Blask `strike`); wydry — Pani Przypływu (TIDECALLER,
+fantasy: Fala `repel`, Wir `zone` ze spowolnieniem, Straż przypływu `buff`), Lustrzany Nurt (MIRROR TIDE, sci-fi:
+Lustrzana włócznia `line`, Tysiąc luster — klony jako `summon_units`, Przemoczenie `weaken` = SOAKED), Figlarz
+(PLAYFUL, fantasy: krótkie odnowienia — Kaczki `strike`, Fikołek `leap` z odrzutem, Klaps ogonem `repel`).
+Umiejętności ras: Kicanie (zające, `buff` szybkości całej armii — mocniej i krócej niż Pieśń) i Przypływ (wydry,
+nowy typ `heal`: leczy całą armię). Nowy typ `heal` — leczenie w promieniu albo całej armii, dla obu drużyn.
+Armie: zające — sci-fi „aero” (ceramika, turbiny, błękit wiatru), wydry — morskie fantasy (muszle, trójzęby, turkus wody).
+**Dlaczego:** wybór użytkownika — więcej ras przed multiplayerem, zające i wydry pierwsze. Mechaniki WebSlashera,
+których ta gra nie ma (reset skoku, pasywne aury slotów, klony powtarzające cios), uproszczone do istniejących typów;
+jedyny nowy typ to leczenie, bo bez niego wydry („trzymają drużynę przy życiu”) nie miałyby tożsamości.
+**Kompromis:** Behemot i Rój używają jednostek fal (Ogr, Goblin) po stronie gracza — rysowane sylwetkami rasy, ale
+statystyki wroga. Pasywne aury Mistrza Aur zostały zwykłymi umiejętnościami z odnowieniem. Liczby — punkt startowy,
+bot `balanced` wygrywa z każdym z 6 nowych dowódców na wszystkich mapach i trudnościach.
+**Status:** aktywna.

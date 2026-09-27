@@ -24,7 +24,9 @@ const UNIT_ART := {"soldier": ["soldier", 1.0], "grunt": ["soldier", 1.0], "runn
 const SHOT_COLORS := {"hyena": [Color(1.0, 0.35, 0.21), Color(1.0, 0.85, 0.69)],
 	"gibbon": [Color(0.37, 0.95, 1.0), Color(0.9, 1.0, 1.0)],
 	"mole": [Color(1.0, 0.76, 0.2), Color(1.0, 0.95, 0.75)],
-	"boar": [Color(1.0, 0.6, 0.24), Color(1.0, 0.88, 0.63)]}
+	"boar": [Color(1.0, 0.6, 0.24), Color(1.0, 0.88, 0.63)],
+	"hare": [Color(0.55, 0.85, 1.0), Color(0.95, 1.0, 1.0)],
+	"otter": [Color(0.25, 0.8, 0.75), Color(0.85, 1.0, 0.97)]}
 ## Miejsce osadzenia obrotowej lufy (`b_<rodzaj>_gun`) względem stóp budynku.
 const GUN_MOUNT := {"tower": Vector2(0, -26.6), "cannon": Vector2(0, -16.6), "drill_turret": Vector2(0, -18.0)}
 ## Stopy budynku względem środka pola budowy (rzut 3/4: podstawa trochę niżej).
@@ -825,7 +827,8 @@ func draw_zones() -> void:
 
 
 ## Pociski w stylu rasy strzelca (D30): hieny — lasery, gibony — fale soniczne, krety — rozżarzone
-## nity i pociski moździerza, dziki — oszczepy i głazy z runami. Armata to plazma, mróz — lodowy odłamek.
+## nity i pociski moździerza, dziki — oszczepy i głazy z runami, zające — lekkie strzałki i kule wiatru,
+## wydry — harpuny i bańki wody. Armata to plazma, mróz — lodowy odłamek.
 func draw_shot(s: Sim.Shot) -> void:
 	var at := s.prev_pos.lerp(s.pos, m.render_alpha)
 	var race := team_race(s.team)
@@ -846,6 +849,10 @@ func draw_shot(s: Sim.Shot) -> void:
 					var a := d.angle()
 					pen.arc(at, 5.0, a - 1.0, a + 1.0, 6, Color(glow, 0.9), 2.0)
 					pen.arc(at - d * 5.0, 4.0, a - 1.0, a + 1.0, 6, Color(glow, 0.5), 1.5)
+				"otter":  # harpun z kroplami
+					pen.line(at - d * 12.0, at, Color(0.55, 0.45, 0.32), 2.5)
+					pen.circle(at - d * 15.0, 1.8, Color(glow, 0.6))
+					pen.circle(at, 2.0, core)
 				_:  # laser
 					pen.line(at - d * 14.0, at, Color(glow, 0.45), 4.0)
 					pen.line(at - d * 12.0, at, core, 1.5)
@@ -875,6 +882,12 @@ func draw_shot(s: Sim.Shot) -> void:
 				"mole":  # pocisk moździerza
 					pen.circle(top, 4.5, Color(0.2, 0.2, 0.22))
 					pen.circle(top + Vector2(-1.5, -1.5), 1.5, Color(0.6, 0.6, 0.62))
+				"hare":  # kula energii wiatru
+					pen.circle(top, 7.0, Color(glow, 0.3))
+					pen.circle(top, 3.5, core)
+				"otter":  # bańka wody
+					pen.circle(top, 6.0, Color(glow, 0.45))
+					pen.arc(top, 6.0, 0, TAU, 12, core, 1.5)
 				_:  # głaz z runą
 					pen.circle(top, 5.5, Color(0.42, 0.4, 0.37))
 					pen.circle(top, 2.0, glow)

@@ -565,6 +565,16 @@ func _consume_events() -> void:
 				sfx.play("build", 0.0)
 			"summon_expired":
 				burst(pos, 10, Color(0.7, 0.7, 0.7), 70.0, 0.5)
+			"heal":
+				var tc := HEAL_COLOR if e["team"] == 0 else TEAM_COLORS[1].lightened(0.3)
+				if e["radius"] > 0.0:
+					ring(pos, e["radius"], tc)
+					burst(pos, 16, tc, 90.0, 0.7)
+				else:  # cała armia — iskry przy każdej jednostce byłyby za drogie, jeden napis przy bazie
+					var at := sim.base_pos(e["team"]) + Vector2(0, -60)
+					burst(at, 20, tc, 90.0, 0.8)
+					float_text(at, "Przypływ! (%d)" % e["count"], tc)
+				sfx.play("repair", 0.0)
 			"pulse":
 				ring(pos, e["radius"], HEAL_COLOR if e["team"] == 0 else TEAM_COLORS[1])
 			"buff":

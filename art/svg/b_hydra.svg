@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 150" width="128" height="150" data-anchor="64 138" data-world="0.34" data-scale="1">
+  <!-- Hydra Przywoływacza (magia): omszały kopiec z trzema łbami węża-ducha, runy drużyny u podstawy. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M12 136 C14 112 36 96 64 96 C92 96 114 112 116 136 C92 146 36 146 12 136 Z" fill="#4f4a42"/>
+    <path d="M22 118 C34 104 52 100 64 100 C60 108 44 114 30 126 Z" fill="#4a6a3a"/>
+  </g>
+  <path d="M40 132 L46 124 L52 130 L58 122 L66 130 L74 122 L80 130 L88 124 L92 134" fill="none" stroke="#c800c8" stroke-width="3"/>
+  <path d="M80 104 C90 106 100 112 106 122" stroke="#4a6a3a" stroke-width="3" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M32 110 C32 90 22 84 26 64 L40 66 C36 88 48 92 48 110 Z" fill="#5a8a4a"/>
+    <path d="M22 58 C24 46 42 44 46 54 L54 60 L44 64 C40 70 24 70 22 58 Z" fill="#6aa058"/>
+  </g>
+  <circle cx="38" cy="54" r="2.4" fill="#d8ff70" stroke="#1a120c" stroke-width="1"/>
+  <path d="M44 62 L50 68 L52 64" stroke="#e87060" stroke-width="1.5" fill="none"/>
+  <path d="M36 104 C38 90 26 82 30 68" stroke="#8ac070" stroke-width="1.5" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M76 110 C76 90 80 78 84 58 L98 60 C94 82 92 92 92 110 Z" fill="#5a8a4a"/>
+    <path d="M80 52 C82 40 100 38 108 48 L116 54 L106 58 C98 64 82 64 80 52 Z" fill="#6aa058"/>
+  </g>
+  <circle cx="96" cy="48" r="2.4" fill="#d8ff70" stroke="#1a120c" stroke-width="1"/>
+  <path d="M106 56 L112 62 L114 58" stroke="#e87060" stroke-width="1.5" fill="none"/>
+  <path d="M80 104 C82 90 84 76 88 62" stroke="#8ac070" stroke-width="1.5" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M54 110 C54 90 52 56 56 36 L70 38 C66 60 70 92 70 110 Z" fill="#5a8a4a"/>
+    <path d="M52 30 C54 18 72 16 78 26 L86 32 L76 36 C70 42 54 42 52 30 Z" fill="#6aa058"/>
+  </g>
+  <circle cx="68" cy="26" r="2.4" fill="#d8ff70" stroke="#1a120c" stroke-width="1"/>
+  <path d="M76 34 L82 40 L84 36" stroke="#e87060" stroke-width="1.5" fill="none"/>
+  <path d="M58 104 C60 90 56 54 60 40" stroke="#8ac070" stroke-width="1.5" fill="none"/>
+</svg>

@@ -592,6 +592,8 @@ static func _upgrade_cfg(cfg: Dictionary, kind: String) -> void:
 				"global":
 					cfg["heal"] *= k
 					cfg["base_heal"] *= k
+				"heal":
+					cfg["heal"] *= k
 				_:
 					for key in ["dmg", "dps", "building_dmg", "distance"]:
 						if cfg.has(key):
@@ -625,7 +627,7 @@ static func _upgrade_label(cfg: Dictionary, kind: String) -> String:
 			return "czas +30%"
 		"pull":
 			return "zasięg chwytu +30%"
-		"global":
+		"global", "heal":
 			return "leczenie +30%"
 		"buff", "weaken", "bounty_buff":
 			return "efekt +30%"
@@ -963,6 +965,8 @@ func use_ability(ability: String, at := Vector2.ZERO, team := 0) -> bool:
 					u.on_path = false  # z walki najpierw wraca na ścieżkę (pod ziemią)
 					n += 1
 			events.append({"type": "burrow", "pos": at, "team": team, "lane": lane_i, "count": n})
+		"heal":
+			_cast_heal(team, at, cfg)
 		"line":
 			_cast_line(team, at, cfg)
 		"execute":
@@ -1004,6 +1008,22 @@ func _cast_buff(team: int, at: Vector2, cfg: Dictionary) -> void:
 		if cfg.has("knockback"):
 			_apply_buff(u, "knockback", cfg["knockback"], cfg["duration"])
 	events.append({"type": "buff", "pos": at, "team": team, "count": targets.size()})
+
+
+## `heal`: leczy własne jednostki i dowódcę o `heal` × max HP — w promieniu od celu (bez celu:
+## od dowódcy, bez dowódcy od bazy); `radius` 0 = cała armia.
+func _cast_heal(team: int, at: Vector2, cfg: Dictionary) -> void:
+	var center := at if cfg["target"] else (heroes[team].pos if hero_alive(team) else base_pos(team))
+	var radius: float = cfg.get("radius", 0.0)
+	var n := 0
+	for u in units:
+		if u.team != team or u.hp <= 0:
+			continue
+		if radius > 0.0 and u.pos.distance_to(center) > radius + u.radius:
+			continue
+		u.hp = minf(u.max_hp, u.hp + u.max_hp * cfg["heal"])
+		n += 1
+	events.append({"type": "heal", "pos": center, "radius": radius, "team": team, "count": n})
 
 
 ## `line`: przebicie od dowódcy (albo od bazy, gdy dowódcy brak) w stronę `at` na `length` px.

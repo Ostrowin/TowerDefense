@@ -7,7 +7,13 @@
 - [x] **P2 — Android smoke test**: szablony eksportu (tylko Android), preset, `tools/android.ps1` (build / instalacja / log / benchmark na telefonie), realme 8i (Helio G96, Mali-G57): pełny ekran 20:9, dotyk i HUD ×1,3 sprawdzone graniem, „Wstecz” jak Esc, ★/●/→/— z fontu OK, **duża bitwa: mediana 17,6 ms, p95 22,9 ms** (Trudny x3, do ~240 jednostek; wcześniej 60 ms). APK krąży też poza projektem (sideload).
 - [x] **P3 — głębia**: ulepszenia i sprzedaż, armata, mróz, warsztat + katapulta, postawa, umiejętności, nietoperze i tarczownicy, sprytny wybór ścieżek.
 - [x] **P4 — treść**: 3 mapy (Trzy drogi, Przesmyk, Serpentyna) jako dane w `Levels`, wybór w menu, rekordy i gwiazdki.
-- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren, **grafika (D30)**: sprite'y SVG z brudem — 4 rasy × 6 jednostek, 12 dowódców, budynki i budowle tymczasowe, forteca, teren z kafli, dekoracje, pociski w stylu ras. ✘ ikona aplikacji (teraz domyślna Godota), portrety dowódców i ras w menu/HUD, pomiar na telefonie.
+- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren, **grafika (D30)**: sprite'y SVG z brudem — 6 ras × 6 jednostek, 18 dowódców, budynki i budowle tymczasowe, forteca, teren z kafli, dekoracje, pociski w stylu ras. ✘ ikona aplikacji (teraz domyślna Godota), portrety dowódców i ras w menu/HUD, pomiar na telefonie.
+
+## Sesja 8 (2026-09-27) — podział widoku, zające i wydry
+
+Podział `main.gd` na `world_view.gd` / `hud.gd` / `controls.gd` · zające i wydry grywalne (D31): 6 dowódców ze
+specjalizacji WebSlashera, umiejętności ras Kicanie i Przypływ, nowy typ efektu `heal`, grafika obu armii,
+dowódców i Hydry (`tools/svg_gen/hare.py`, `otter.py`, `commanders_hare_otter.py`).
 
 ## Sesja 7 (2026-09-25) — dowódcy: projekt i fundamenty
 

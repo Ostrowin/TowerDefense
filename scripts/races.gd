@@ -15,7 +15,7 @@ const ALL: Array[Dictionary] = [
 	{"id": "bear", "name": "Niedźwiedzie", "color": Color("#8b5a2b"), "blurb": "Wielkie. Wściekłe. Wszystko przyjmą na klatę.", "playable": false},
 	{"id": "wolf", "name": "Wilki", "color": Color("#9aa5b1"), "blurb": "Szybkie ciosy, instynkt stada.", "playable": false},
 	{"id": "fox", "name": "Lisy", "color": Color("#ff7a29"), "blurb": "Biją rzadko, ale mocno.", "playable": false},
-	{"id": "hare", "name": "Zające", "color": Color("#f5f5f5"), "blurb": "Za szybkie, żeby zginąć. Zazwyczaj.", "playable": false},
+	{"id": "hare", "name": "Zające", "color": Color("#f5f5f5"), "blurb": "Za szybkie, żeby zginąć. Zazwyczaj.", "playable": true},
 	{"id": "mole", "name": "Krety", "color": Color("#5d4037"), "blurb": "Inżynierowie podziemi.", "playable": true},
 	{"id": "hedgehog", "name": "Jeże", "color": Color("#8a9a5b"), "blurb": "Dotknij, a pożałujesz.", "playable": false},
 	{"id": "bat", "name": "Nietoperze", "color": Color("#8e44ad"), "blurb": "Nocni łowcy, przyszłe wampiry.", "playable": false},
@@ -23,12 +23,20 @@ const ALL: Array[Dictionary] = [
 	{"id": "gibbon", "name": "Gibony", "color": Color("#d9c29c"), "blurb": "Długie ręce. Głośny śpiew.", "playable": true},
 	{"id": "rat", "name": "Szczury", "color": Color("#b6d94c"), "blurb": "Choroba na czterech łapach.", "playable": false},
 	{"id": "boar", "name": "Dziki", "color": Color("#9c3b1e"), "blurb": "Pełen gaz. Bez hamulców.", "playable": true},
-	{"id": "otter", "name": "Wydry", "color": Color("#3fa7a0"), "blurb": "Trzymają drużynę przy życiu.", "playable": false},
+	{"id": "otter", "name": "Wydry", "color": Color("#3fa7a0"), "blurb": "Trzymają drużynę przy życiu.", "playable": true},
 	{"id": "hyena", "name": "Hieny", "color": Color("#c9a227"), "blurb": "Śmieją się z rannych.", "playable": true},
 ]
 
 
+## Rasa gracza na starcie gry — krety, choć zające stoją w ALL wcześniej.
+const DEFAULT := "mole"
+
+
+## Domyślna rasa gracza (DEFAULT), a gdyby nie była grywalna — pierwsza grywalna.
 static func first_playable() -> int:
+	var d := ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == DEFAULT)
+	if d >= 0 and ALL[d]["playable"]:
+		return d
 	for i in ALL.size():
 		if ALL[i]["playable"]:
 			return i

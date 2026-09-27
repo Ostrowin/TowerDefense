@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 160" width="128" height="160" data-anchor="64 152" data-world="0.3">
+  <!-- Machina zajęcy: działo pneumatyczne z turbiną na lekkim wózku. -->
+  <g transform="translate(0 16)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 104 L100 70" stroke-width="3"/>
+    <path d="M100 72 L118 76 L114 84 L118 92 L100 90 Z" fill="#c800c8"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M14 104 L112 104 L108 114 L18 114 Z" fill="#a9b4bc"/>
+    <path d="M40 104 L58 72 L72 72 L66 104 Z" fill="#dfe6ea"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="30" cy="84" r="16" fill="#3b3f45"/>
+    <circle cx="30" cy="84" r="5" fill="#dfe6ea"/>
+  </g>
+  <path d="M30 70 L32 84 L44 86 M18 76 L30 84 L22 96" stroke="#8b939e" stroke-width="3" fill="none"/>
+  <circle cx="30" cy="84" r="16" fill="none" stroke="#8cdcff" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 82 L108 44 L116 56 L52 94 Z" fill="#dfe6ea"/>
+    <path d="M104 40 L122 34 L126 58 L114 60 Z" fill="#3b3f45"/>
+  </g>
+  <path d="M50 86 L110 50" stroke="#8cdcff" stroke-width="2"/>
+  <path d="M64 78 L68 86 M78 70 L82 78 M92 62 L96 70" stroke="#c800c8" stroke-width="4"/>
+  <circle cx="126" cy="44" r="4" fill="#8cdcff" opacity="0.8"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="34" cy="120" r="14" fill="#25282c"/>
+    <circle cx="34" cy="120" r="6.3" fill="#dfe6ea"/>
+  </g>
+  <circle cx="34" cy="120" r="2.8000000000000003" fill="#8cdcff"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="92" cy="120" r="14" fill="#25282c"/>
+    <circle cx="92" cy="120" r="6.3" fill="#dfe6ea"/>
+  </g>
+  <circle cx="92" cy="120" r="2.8000000000000003" fill="#8cdcff"/>
+  </g>
+</svg>

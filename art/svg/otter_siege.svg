@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 144" width="128" height="144" data-anchor="64 136" data-world="0.3">
+  <!-- Machina wydr: balista z muszli na tratwie z kołami, strzela bańkami wody. -->
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M22 102 L22 40" stroke-width="3"/>
+    <path d="M24 42 C40 50 40 78 24 90 Z" fill="#c800c8"/>
+  </g>
+  <path d="M26 46 C36 54 36 76 26 86" stroke="#ff00ff" stroke-width="1.2" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M10 102 L116 102 L112 116 L14 116 Z" fill="#7a5a3a"/>
+  </g>
+  <path d="M30 102 L28 116 M50 102 L49 116 M70 102 L70 116 M90 102 L91 116" stroke="#1a120c" stroke-width="2"/>
+  <path d="M12 108 L114 108" stroke="#b8a070" stroke-width="2.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 102 L60 76 L72 76 L80 102 Z" fill="#6a5238"/>
+    <path d="M30 70 C44 54 92 54 110 70" fill="none" stroke-width="6"/>
+    <path d="M40 84 L118 50" stroke-width="5"/>
+  </g>
+  <path d="M30 70 C44 54 92 54 110 70" fill="none" stroke="#b89878" stroke-width="3"/>
+  <path d="M40 84 L118 50" stroke="#b8a070" stroke-width="2.5"/>
+  <circle cx="118" cy="48" r="7" fill="#3fd0c0" stroke="#1a120c" stroke-width="2"/><circle cx="116" cy="46" r="2.5" fill="#c8fff6"/>
+  <path d="M30 70 L66 68 L110 70" stroke="#e8dcc8" stroke-width="1.2" fill="none"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="34" cy="122" r="13" fill="#6a5238"/>
+    <circle cx="34" cy="122" r="4.55" fill="#e8cfae"/>
+  </g>
+  <path d="M24 122 L44 122 M34 112 L34 132" stroke="#1a120c" stroke-width="2.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="92" cy="122" r="13" fill="#6a5238"/>
+    <circle cx="92" cy="122" r="4.55" fill="#e8cfae"/>
+  </g>
+  <path d="M82 122 L102 122 M92 112 L92 132" stroke="#1a120c" stroke-width="2.5"/>
+</svg>

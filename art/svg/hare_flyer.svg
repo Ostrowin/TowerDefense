@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 160" width="128" height="160" data-anchor="64 132" data-world="0.24">
+  <!-- Latający zając: lotnia z ceramicznym skrzydłem i dyszą, uszy położone od pędu. -->
+  <g transform="translate(0 16)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M4 40 C30 24 90 20 124 34 C96 38 60 44 20 50 Z" fill="#dfe6ea"/>
+  </g>
+  <path d="M10 42 C40 30 90 26 118 34" stroke="#8cdcff" stroke-width="2" fill="none"/>
+  <path d="M40 34 L44 46 M64 30 L66 44 M88 30 L88 42" stroke="#a9b4bc" stroke-width="2"/>
+  <path d="M48 34 L80 30 L80 38 L48 42 Z" fill="#c800c8"/>
+  <path d="M40 46 L60 70 M90 40 L74 70" stroke="#1a120c" stroke-width="3"/>
+  <path d="M40 46 L60 70 M90 40 L74 70" stroke="#6b7280" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="38" y="74" width="12" height="18" rx="3" fill="#3b3f45"/>
+  </g>
+  <path d="M38 84 L22 82 M38 88 L24 92" stroke="#8cdcff" stroke-width="3" stroke-linecap="round"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M50 84 C48 70 58 62 70 62 C84 62 92 72 90 84 C88 96 78 102 68 102 C58 102 52 94 50 84 Z" fill="#eeeae2"/>
+    <path d="M56 100 C50 104 46 110 50 114 L62 110 Z M74 100 C74 108 78 114 86 114 L84 104 Z" fill="#c4bcae"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M52 74 C62 68 80 68 90 74 C94 88 90 104 80 108 L60 108 C50 102 48 88 52 74 Z" fill="#dfe6ea"/>
+  </g>
+  <path d="M52 82 L91 82 L90 90 L51 90 Z" fill="#c800c8"/>
+  <path d="M52 82 L91 82" stroke="#ff00ff" stroke-width="1.2"/>
+  <path d="M58 98 C66 102 76 102 84 98" stroke="#a9b4bc" stroke-width="2" fill="none"/>
+  <circle cx="71" cy="96" r="3" fill="#8cdcff" stroke="#1a120c" stroke-width="1.2"/>
+  <g transform="translate(4 26) scale(0.72)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M62 34 C46 26 26 22 10 26 C20 34 40 40 60 42 Z" fill="#c4bcae"/>
+    <path d="M66 30 C52 18 34 10 16 10 C24 22 44 32 64 38 Z" fill="#eeeae2"/>
+  </g>
+  <path d="M60 34 C46 24 32 17 22 15 C32 24 46 31 60 36 Z" fill="#e8a8a8"/>  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M48 50 C48 34 62 26 78 28 C92 30 100 40 100 50 C100 62 90 70 76 70 C60 70 48 62 48 50 Z" fill="#eeeae2"/>
+    <path d="M92 46 C102 44 110 48 111 54 C112 60 104 64 96 63 C90 62 88 56 90 50 Z" fill="#eeeae2"/>
+  </g>
+  <path d="M106 50 C109 50 111 52 110 54 C108 55 105 54 105 52 Z" fill="#d97a86"/>
+  <path d="M104 57 C106 60 108 60 110 58" fill="none" stroke="#1a120c" stroke-width="1.3"/>
+  <path d="M104 58 L104 62 L107 62 L107 59" fill="#ffffff" stroke="#1a120c" stroke-width="0.8"/>
+  <path d="M100 54 L122 50 M100 56 L123 57 M99 58 L120 63" stroke="#8a8078" stroke-width="0.8"/>
+  <path d="M50 54 C54 64 64 70 76 70 C66 66 56 60 54 50 Z" fill="#c4bcae" opacity="0.6"/>
+  <path d="M60 34 C68 30 78 30 86 32" fill="none" stroke="#ffffff" stroke-width="2"/>
+  <ellipse cx="72" cy="58" rx="5" ry="3" fill="#f0b8b8" opacity="0.5"/>
+  <path d="M50 44 C64 40 82 38 98 42" stroke="#25282c" stroke-width="4.5" fill="none"/>
+  <path d="M80 38 C86 36 96 37 100 42 C100 48 94 50 88 50 C82 50 78 46 80 38 Z" fill="#3fb8e8" stroke="#1a120c" stroke-width="2"/>
+  <path d="M84 40 C88 39 94 40 96 42" stroke="#e6f8ff" stroke-width="1.5" fill="none"/>
+  </g>
+  </g>
+</svg>
