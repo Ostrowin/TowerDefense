@@ -8,7 +8,7 @@ Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** 
 - `scripts/races.gd` (`Races`) — rasy wspólne z innymi grami tego świata (id i kolory jak tam). Na razie tożsamość (nazwa, kolor, hasło, przeciwnik), bez statystyk; grywalne `playable`, reszta „Wkrótce".
 - `scripts/progress.gd`, `scripts/settings.gd` — zapis w `user://`; testy podmieniają `path`, żeby nie ruszać danych gracza.
 - `scripts/sim.gd` (`Sim`) — logika gry, **bez węzłów i rysowania**. Nowa mechanika trafia tu, z testem. Zna też rzekę i mosty (`river`, `bridges`) oraz trasę po mapie dla dowódcy (`path_to`, A* omijający wodę).
-- `scripts/main.gd` — widok: render przez `_draw`, HUD z Control budowany w kodzie, input, efekty. Nie wkładaj tu reguł gry.
+- `scripts/main.gd` (`Main`) — widok: przebieg gry, pętla sima, efekty, samouczek, kamera. Części widoku: `world_view.gd` (`WorldView`, render świata), `hud.gd` (`Hud`, HUD/menu/nakładki z Control w kodzie), `controls.gd` (`Controls`, input i dowódca). Nie wkładaj tu reguł gry.
 - `scripts/sfx.gd` (`Sfx`) — dźwięki syntezowane.
 - `scripts/art.gd` (`Art`) — sprite'y z atlasu (`Art.draw` przez `Painter`) i kafle terenu. Źródła: `art/svg/*.svg` (D30), część generuje `tools/svg_gen/*.py`.
 
@@ -39,9 +39,9 @@ Smoke test wstrzykuje zdarzenia przez `root.push_input(e, true)` — okno headle
 
 ## Konwencje
 - Statyczne typy w GDScript (`var x: float`, jawny typ gdy RHS to Variant).
-- Współrzędne: ekran wirtualny o wysokości 720, szerokość wg proporcji ekranu (stretch `canvas_items`/`expand` → `view_size`: 1280 przy 16:9, ~1600 na telefonie 20:9), świat 1600×900 pod `Camera2D`; ekran↔świat przez `_to_world`/`_to_screen`. Dotyk emulowany jako mysz + gesty dwoma palcami.
+- Współrzędne: ekran wirtualny o wysokości 720, szerokość wg proporcji ekranu (stretch `canvas_items`/`expand` → `view_size`: 1280 przy 16:9, ~1600 na telefonie 20:9), świat 1600×900 pod `Camera2D`; ekran↔świat przez `to_world`/`to_screen`. Dotyk emulowany jako mysz + gesty dwoma palcami.
 - Grafika (D30): SVG z wypalonym brudem + ruch z kodu. Rzut 3/4, postać patrzy w prawo, stopy w `data-anchor`; kolor drużyny tylko przez magentę `#RR00RR`; kontur `#1a120c`, światło z lewej-góry. Każdy dowódca jest albo sci-fi, albo fantasy (podział w D30) — trzymaj się go przy nowych postaciach. Nowa jednostka/rasa = SVG (najlepiej przez `tools/svg_gen`, części rasy są tam wspólne) + bake + import; brakujący sprite spada do starego rysunku z kształtów.
 - Umiejętności to dane: `Cfg.ABILITIES` z typem efektu (`kind`: strike / summon_units / global), `Sim` obsługuje typy, każdy dla obu drużyn (`use_ability(id, at, team)`). Nowa umiejętność istniejącego typu = wpis w `Cfg`; nowy typ = kod w `Sim` + test dla team 0 i team 1.
-- Rysowanie świata w `main.gd` idzie przez `pen` (`Painter`: `pen.circle(...)` zamiast `draw_circle(...)`, te same argumenty) — cały świat to jedno wywołanie rysowania. Gołe `draw_circle`/`draw_arc`/`draw_colored_polygon` w pętli po jednostkach = setki wywołań i spadek FPS na telefonie (Mali). HUD (Control) i minimapa rysują normalnie.
+- Rysowanie świata w `world_view.gd` idzie przez `pen` (`Painter`: `pen.circle(...)` zamiast `draw_circle(...)`, te same argumenty) — cały świat to jedno wywołanie rysowania. Gołe `draw_circle`/`draw_arc`/`draw_colored_polygon` w pętli po jednostkach = setki wywołań i spadek FPS na telefonie (Mali). HUD (Control) i minimapa rysują normalnie.
 - Zakres pod dyscypliną — najpierw zabawa rdzenia, potem treść.
 - Commity robi użytkownik — nie commituj sam.

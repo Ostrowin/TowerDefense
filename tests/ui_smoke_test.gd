@@ -30,7 +30,7 @@ func _initialize() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 	Progress.reset_cache()
 	main = load("res://main.tscn").instantiate()
-	if not main.has_method("_start"):
+	if not main.has_method("start"):
 		print("BŁĄD: skrypt sceny się nie załadował (błąd parsowania?)")
 		quit(1)
 		return
@@ -43,71 +43,71 @@ func _process(_delta: float) -> bool:
 	match frame:
 		2:
 			_check(main.state == main.State.MENU, "start w menu")
-			_check(main.menu_layer.visible, "menu widoczne")
-			var playable: Array = main.race_buttons.filter(func(b: Button) -> bool: return not b.disabled)
-			_check(main.race_buttons.size() == 12 and playable.size() == 4, "12 ras w menu, grywalne cztery")
-			var cards: Dictionary = main.commander_buttons
+			_check(main.hud.menu_layer.visible, "menu widoczne")
+			var playable: Array = main.hud.race_buttons.filter(func(b: Button) -> bool: return not b.disabled)
+			_check(main.hud.race_buttons.size() == 12 and playable.size() == 4, "12 ras w menu, grywalne cztery")
+			var cards: Dictionary = main.hud.commander_buttons
 			_check(cards.size() == 3 and not cards.has("veteran"), "krety: 3 karty dowódców, bez Weterana")
 			_check(not cards["sapper"].disabled and main.commander_id == "sapper", "krety: Saper grywalny i domyślny")
-			main.race_buttons[0].emit_signal("pressed")  # niedźwiedzie — „Wkrótce"
+			main.hud.race_buttons[0].emit_signal("pressed")  # niedźwiedzie — „Wkrótce"
 			_check(Races.ALL[main.race_index]["id"] == "mole", "zablokowanej rasy nie da się wybrać")
-			main.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon")].emit_signal("pressed")
-			main.map_buttons[2].emit_signal("pressed")
-			main.mode_button.emit_signal("pressed")
+			main.hud.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon")].emit_signal("pressed")
+			main.hud.map_buttons[2].emit_signal("pressed")
+			main.hud.mode_button.emit_signal("pressed")
 		3:
 			_check(Races.ALL[main.race_index]["id"] == "gibbon", "wybór rasy w menu")
-			_check(main.race_desc.text.contains("Przeciwnik: losowy"), "menu zapowiada losowego przeciwnika")
-			_check(main.race_desc.text.contains("Pieśń"), "menu podaje umiejętność rasy")
-			var cards: Dictionary = main.commander_buttons
+			_check(main.hud.race_desc.text.contains("Przeciwnik: losowy"), "menu zapowiada losowego przeciwnika")
+			_check(main.hud.race_desc.text.contains("Pieśń"), "menu podaje umiejętność rasy")
+			var cards: Dictionary = main.hud.commander_buttons
 			_check(cards.size() == 3 and not cards.has("veteran"), "gibony: 3 karty, bez Weterana")
 			_check(not cards["iron_grip"].disabled and not cards["wrecker"].disabled, "gibony: wszyscy trzej grywalni")
 			_check(main.commander_id == "iron_grip" and cards["iron_grip"].button_pressed, "zmiana rasy wybiera pierwszego grywalnego")
 			cards["warbeat"].emit_signal("pressed")
 			_check(main.commander_id == "warbeat", "karta wybiera dowódcę")
 			_check(main.level_index == 2 and sim.level["id"] == "serpentyna", "wybór mapy w menu")
-			_check(main.game_mode == "survival" and main.mode_button.text.contains("Przetrwanie"), "przełącznik trybu w menu")
-			main.mode_button.emit_signal("pressed")
+			_check(main.game_mode == "survival" and main.hud.mode_button.text.contains("Przetrwanie"), "przełącznik trybu w menu")
+			main.hud.mode_button.emit_signal("pressed")
 			_check(main.game_mode == "battle", "powrót do bitwy")
-			main.diff_buttons[1].emit_signal("pressed")
+			main.hud.diff_buttons[1].emit_signal("pressed")
 		4:
 			var rival: int = main.rival_index
 			_check(rival >= 0 and rival != main.race_index and Races.ALL[rival]["playable"], "przeciwnik wylosowany spośród innych grywalnych ras")
 			_check(main.banner_sub.begins_with("Przeciwnik: %s" % Races.ALL[maxi(rival, 0)]["name"]), "baner startu podaje przeciwnika")
 			_check(main.state == main.State.PLAY and sim.difficulty["name"] == "Normalny", "trudność startuje grę")
 			_check(sim.commander == "warbeat", "partia z dowódcą wybranym w menu")
-			_check(main.tutorial_step == 0 and main.tutorial_panel.visible, "samouczek przy pierwszej grze")
+			_check(main.tutorial_step == 0 and main.hud.tutorial_panel.visible, "samouczek przy pierwszej grze")
 			main.speed_mult = 3
 			sim.gold = 5000
-			_click(main._to_screen(sim.nodes[1]))
+			_click(main.to_screen(sim.nodes[1]))
 		6:
 			_check(sim.extractor_on(1) != null, "klik w złoże stawia wydobywacz")
 			_check(main.tutorial_step == 1, "samouczek: krok za wydobywacz zaliczony")
-			main.build_buttons["barracks"].emit_signal("pressed")
+			main.hud.build_buttons["barracks"].emit_signal("pressed")
 			cell = sim.free_cell_near(Vector2(170, 330))
-			_click(main._to_screen(cell))
+			_click(main.to_screen(cell))
 		8:
 			_check(sim.building_at(cell, 0) != null, "klik w trybie budowy stawia koszary")
 			_check(main.tutorial_step == 2, "samouczek: krok za produkcję zaliczony")
-			_click(main._to_screen(cell))
+			_click(main.to_screen(cell))
 		10:
 			_check(main.selected != null and main.selected.kind == "barracks", "klik w budynek go zaznacza")
-			_check(main.sel_panel.visible and main.lane_row.visible, "panel pokazuje wybór ścieżki")
-			main.lane_buttons[2].emit_signal("pressed")
+			_check(main.hud.sel_panel.visible and main.hud.lane_row.visible, "panel pokazuje wybór ścieżki")
+			main.hud.lane_buttons[2].emit_signal("pressed")
 		12:
 			_check(main.selected.lane == 2, "przycisk ścieżki kieruje produkcję")
-			main.tutorial_panel.get_child(0).get_child(1).emit_signal("pressed")  # „Pomiń"
+			main.hud.tutorial_panel.get_child(0).get_child(1).emit_signal("pressed")  # „Pomiń"
 			for i in 4:
 				_wheel(Vector2(640, 360), MOUSE_BUTTON_WHEEL_UP)
 		14:
 			_check(main.tutorial_step == -1 and Progress.tutorial_done(), "Pomiń kończy samouczek na stałe")
-			_check(main._is_zoomed_in() and main.minimap.visible, "kółko przybliża, minimapa widoczna")
+			_check(main.is_zoomed_in() and main.hud.minimap.visible, "kółko przybliża, minimapa widoczna")
 			cam_before = main.camera.position
 			var sel_before: Object = main.selected
 			_drag(Vector2(640, 400), Vector2(480, 330))
 			_check(main.selected == sel_before, "przeciąganie nie jest klikiem")
 		16:
 			_check(main.camera.position.x > cam_before.x, "przeciąganie przesuwa mapę")
-			var mm: Control = main.minimap
+			var mm: Control = main.hud.minimap
 			_click((mm.global_position + mm.size * Vector2(0.1, 0.5)) * Settings.ui_scale())
 		18:
 			_check(main.camera.position.x < cam_before.x, "klik w minimapę przenosi kamerę")
@@ -115,55 +115,55 @@ func _process(_delta: float) -> bool:
 			_key(KEY_Q)
 		20:
 			var order: Array = sim.ability_order[0]
-			_check(not main._is_zoomed_in(), "C wraca do widoku całej mapy")
+			_check(not main.is_zoomed_in(), "C wraca do widoku całej mapy")
 			_check(sim.hero() != null and order.size() == 4, "partia z dowódcą: 3 umiejętności + rasowa (%s)" % sim.commander)
 			_check(main.mode == "ab:" + order[0], "Q wybiera pierwszą umiejętność dowódcy")
-			_click(main._to_screen(sim.hero().pos + Vector2(900, 0)))
+			_click(main.to_screen(sim.hero().pos + Vector2(900, 0)))
 		22:
 			var order: Array = sim.ability_order[0]
 			_check(sim.ability_cd[0][order[0]] == 0.0 and main.mode == "ab:" + order[0], "poza zasięgiem dowódcy — odmowa")
-			_click(main._to_screen(sim.hero().pos + Vector2(40, 0)))
+			_click(main.to_screen(sim.hero().pos + Vector2(40, 0)))
 		23:
 			var order: Array = sim.ability_order[0]
 			_check(sim.ability_cd[0][order[0]] > 0 and main.mode == "", "klik w zasięgu rzuca umiejętność")
 			_key(KEY_T)
-			main.ability_buttons[order[2]].emit_signal("pressed")
+			main.hud.ability_buttons[order[2]].emit_signal("pressed")
 		24:
 			var order: Array = sim.ability_order[0]
 			_check(not Cfg.ABILITIES[order[3]]["target"] and sim.ability_cd[0][order[3]] > 0, "T rzuca umiejętność rasy od razu")
 			_check(main.mode == "ab:" + order[2], "przycisk na pasku wybiera umiejętność")
-			_click(main._to_screen(sim.hero().pos + Vector2(40, 0)))
+			_click(main.to_screen(sim.hero().pos + Vector2(40, 0)))
 			_check(sim.ability_cd[0][order[2]] > 0, "przycisk + klik rzuca umiejętność")
 			_key(KEY_3)
 			cell = sim.free_cell_near(sim.lanes[1].slot_at(420, 70))
-			_click(main._to_screen(cell))
+			_click(main.to_screen(cell))
 		26:
 			_check(sim.building_at(cell, 0) != null and sim.building_at(cell, 0).kind == "frost", "3 stawia wieżę mrozu")
-			_click(main._to_screen(cell))
+			_click(main.to_screen(cell))
 		28:
-			main._sell_selected()
+			main.controls.sell_selected()
 			_check(sim.building_at(cell, 0) == null, "sprzedaż z panelu")
 			_key(KEY_P)
 		30:
-			_check(main.state == main.State.PAUSED and main.pause_layer.visible, "P pauzuje")
-			main._open_overlay("settings")
+			_check(main.state == main.State.PAUSED and main.hud.pause_layer.visible, "P pauzuje")
+			main.open_overlay("settings")
 		31:
-			_check(main.settings_layer.visible and not main.pause_layer.visible, "ustawienia nad pauzą")
-			main.music_slider.value = 0.2
-			main._cycle_ui_scale()
+			_check(main.hud.settings_layer.visible and not main.hud.pause_layer.visible, "ustawienia nad pauzą")
+			main.hud.music_slider.value = 0.2
+			main.cycle_ui_scale()
 		33:
-			_check(Settings.ui_scale_index == 1 and main.screen.x < main.view_size.x, "większy interfejs przebudowuje HUD")
-			_check(main.settings_layer.visible, "po przebudowie ustawienia zostają otwarte")
+			_check(Settings.ui_scale_index == 1 and main.hud.screen.x < main.view_size.x, "większy interfejs przebudowuje HUD")
+			_check(main.hud.settings_layer.visible, "po przebudowie ustawienia zostają otwarte")
 			_key(KEY_ESCAPE)
 		35:
-			_check(not main.settings_layer.visible and main.pause_layer.visible, "Esc zamyka ustawienia")
+			_check(not main.hud.settings_layer.visible and main.hud.pause_layer.visible, "Esc zamyka ustawienia")
 			var saved := ConfigFile.new()
 			_check(saved.load(Settings.path) == OK and is_equal_approx(saved.get_value("audio", "music"), 0.2), "ustawienia zapisane")
 			_key(KEY_P)
 		37:
 			_check(main.state == main.State.PLAY, "P wznawia")
 			_key(KEY_SPACE)
-			main._cancel()
+			main.controls.cancel()
 			main.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 		38:
 			_check(main.state == main.State.PAUSED, "Wstecz (Android) pauzuje")
@@ -174,24 +174,24 @@ func _process(_delta: float) -> bool:
 			root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 		40:
 			_check(main.state == main.State.PLAY, "drugie Wstecz wznawia")
-			_check(main.view_size == Cfg.VIEW and is_equal_approx(main.screen.y, Cfg.VIEW.y / Settings.ui_scale()),
+			_check(main.view_size == Cfg.VIEW and is_equal_approx(main.hud.screen.y, Cfg.VIEW.y / Settings.ui_scale()),
 				"zmiana proporcji ekranu przebudowuje HUD")
-			_check(not main._is_zoomed_in(), "po zmianie proporcji kamera dalej pokazuje całą mapę")
-			_check(main.portrait_button.visible, "portret dowódcy w HUD")
-			_click(main._to_screen(sim.hero().pos))
+			_check(not main.is_zoomed_in(), "po zmianie proporcji kamera dalej pokazuje całą mapę")
+			_check(main.hud.portrait_button.visible, "portret dowódcy w HUD")
+			_click(main.to_screen(sim.hero().pos))
 		42:
 			_check(main.hero_selected, "stuknięcie w dowódcę go zaznacza")
 			cell = sim.lanes[0].point_at(260)  # ścieżka: pusty teren, bez budynków i złóż
-			_click(main._to_screen(cell))
+			_click(main.to_screen(cell))
 		44:
 			var h := sim.hero()
 			_check(h.state == "march" and h.post.distance_to(cell) < 30.0, "stuknięcie w teren = rozkaz marszu")
 			_check(main.hero_selected, "po rozkazie dowódca zostaje zaznaczony (D6)")
 			cell = sim.lanes[2].point_at(260)
-			_click(main._to_screen(cell))
+			_click(main.to_screen(cell))
 		46:
 			_check(sim.hero().post.distance_to(cell) < 30.0 and main.hero_selected, "drugi rozkaz bez ponownego wyboru")
-			_click(main._to_screen(sim.nodes[0]))
+			_click(main.to_screen(sim.nodes[0]))
 		48:
 			_check(sim.extractor_on(0) != null, "złoże przy zaznaczonym dowódcy stawia wydobywacz")
 			_check(not main.hero_selected, "akcja na złożu odznacza dowódcę")
@@ -203,23 +203,23 @@ func _process(_delta: float) -> bool:
 			_check(not main.hero_selected and main.state == main.State.PLAY, "Esc odznacza dowódcę (bez pauzy)")
 			sim._gain_xp(sim.hero(), Cfg.HERO_XP[0])
 		52:
-			_check(sim.hero().hero_level == 2 and main.upgrade_panel.visible, "awans pokazuje ofertę ulepszeń")
-			_check(main.portrait_button.text.contains("poz. 2"), "portret pokazuje poziom")
-			main.upgrade_buttons[1].emit_signal("pressed")
+			_check(sim.hero().hero_level == 2 and main.hud.upgrade_panel.visible, "awans pokazuje ofertę ulepszeń")
+			_check(main.hud.portrait_button.text.contains("poz. 2"), "portret pokazuje poziom")
+			main.hud.upgrade_buttons[1].emit_signal("pressed")
 		54:
-			_check(sim.hero_offers[0].is_empty() and not main.upgrade_panel.visible, "wybór ulepszenia zamyka ofertę")
+			_check(sim.hero_offers[0].is_empty() and not main.hud.upgrade_panel.visible, "wybór ulepszenia zamyka ofertę")
 			_check(not sim.ability_cfg[0].is_empty(), "ulepszenie trafia do konfiguracji gracza")
-			main._start_daily()
+			main.start_daily()
 		56:
 			var today := Cfg.daily(Time.get_date_string_from_system())
 			_check(main.state == main.State.PLAY and sim.commander == today["commander"] and sim.mods == today["mods"]
 				and sim.level_index == today["map"] and sim.mode == today["mode"], "wyzwanie dnia startuje zestaw z daty")
-			_check(main.daily_label.visible and main.daily_label.text.contains(Cfg.DAILY_MODS[today["mods"][0]]["name"]), "HUD pokazuje modyfikatory dnia")
-			main._show_menu()
+			_check(main.hud.daily_label.visible and main.hud.daily_label.text.contains(Cfg.DAILY_MODS[today["mods"][0]]["name"]), "HUD pokazuje modyfikatory dnia")
+			main.show_menu()
 		58:
 			_check(main.state == main.State.MENU and Races.ALL[main.race_index]["id"] == "gibbon" and main.commander_id == "warbeat"
 				and main.level_index == 2 and main.game_mode == "battle", "po wyzwaniu menu wraca do wyborów gracza")
-			main._start(1)
+			main.start(1)
 		60:
 			_check(main.state == main.State.PLAY and sim.mods.is_empty() and sim.commander == "warbeat", "zwykła gra po wyzwaniu bez modyfikatorów")
 		1200:
@@ -231,12 +231,12 @@ func _process(_delta: float) -> bool:
 					sim.set_lane(sim.building_at(c, 0), 1)
 			for i in sim.nodes.size():
 				sim.build_extractor(i)
-	if main.state == main.State.OVER and main.over_layer.visible:
+	if main.state == main.State.OVER and main.hud.over_layer.visible:
 		var won: bool = sim.result == 1
 		print("koniec partii: %s po %d s gry, fala %d" % ["wygrana" if won else "przegrana", sim.elapsed, sim.wave])
 		if won:
 			_check(Progress.best("serpentyna", 1) > 0, "wygrana zapisuje rekord")
-			_check(main.over_stats.text.contains("Nowy rekord"), "ekran końca ogłasza rekord")
+			_check(main.hud.over_stats.text.contains("Nowy rekord"), "ekran końca ogłasza rekord")
 		return _finish()
 	if frame >= MAX_FRAMES:
 		print("limit klatek: %d s gry, fala %d, wynik %d" % [sim.elapsed, sim.wave, sim.result])

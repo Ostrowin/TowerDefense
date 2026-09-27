@@ -43,7 +43,7 @@ func _process(_delta: float) -> void:
 	var dt := (now - last_us) / 1000.0
 	last_us = now
 	if frame == 3:
-		main._start(1)
+		main.start(1)
 		var sim: Sim = main.sim
 		sim.gold = 3000
 		for i in sim.nodes.size():
@@ -79,9 +79,9 @@ func _next_phase() -> void:
 	phase_t = 0.0
 	samples.clear()
 	var p: Array = PHASES[phase]
-	main.terrain.visible = p[1]  # teren to dziecko main — ukryty świat chowa też teren
+	main.view.terrain.visible = p[1]  # teren to dziecko main — ukryty świat chowa też teren
 	main.visible = p[2]
-	main.ui_layer.visible = p[3]
+	main.hud.ui_layer.visible = p[3]
 	get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT if p[4] else Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 
 

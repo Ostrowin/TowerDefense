@@ -13,7 +13,10 @@ scripts/levels.gd        Levels   — mapy jako dane (ścieżki, bazy, rzeka, z�
 scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + losowanie przeciwnika,
                          dowódcy rasy (`commanders`) i jej umiejętność (`racial`)
 scripts/sim.gd           Sim      — logika gry: stan, rozkazy gracza, step(dt), zdarzenia. Zero węzłów i rysowania.
-scripts/main.gd          widok: kamera, render (_draw + warstwa terenu), HUD, minimapa, menu, nakładki, samouczek
+scripts/main.gd          Main     — scena: przebieg gry (stany), pętla sima, zdarzenia → efekty i dźwięk, samouczek, kamera
+scripts/world_view.gd    WorldView — render świata: teren (warstwa `terrain`), podświetlenia ścieżek, `draw()` przez `pen`
+scripts/hud.gd           Hud      — HUD, minimapa, baner, menu i nakładki (Control budowany w kodzie)
+scripts/controls.gd      Controls — input (mysz, dotyk, gesty, klawisze), klik w mapę, dowódca, budowa, umiejętności
 scripts/painter.gd       Painter  — kształty (koła, łuki, linie, wielokąty, elipsy) i sprite'y z atlasu sklejane
                          w jedno wywołanie rysowania (z teksturą: UV każdego wierzchołka)
 scripts/art.gd           Art      — atlas sprite'ów i kafle terenu: ładowanie (mipmapy), `Art.draw` (stopy, lustro,
@@ -197,7 +200,12 @@ jednostka wroga w zasięgu + AGGRO             → w zasięgu: bij / poza: podej
 Wybór ścieżek fali: waga ścieżki = (1 + obrona / 40)⁻², gdzie obrona = siła wież gracza
 sięgających ścieżki + jego jednostki na niej. Losowanie bez zwracania, z `rng` sima.
 
-## Widok (main.gd)
+## Widok (main.gd + world_view.gd, hud.gd, controls.gd)
+
+`Main` trzyma stan widoku (stan ekranu, `mode`, `selected`, `hero_selected`, kamera, efekty) i tworzy
+trzy pomocnicze obiekty (`RefCounted` z referencją `m` do main): `view` rysuje, `hud` buduje i odświeża
+interfejs, `controls` zamienia input na rozkazy Sim. Nowy element HUD → `hud.gd`, nowy gest/skrót →
+`controls.gd`, nowy rysunek w świecie → `world_view.gd` (przez `pen`).
 
 Stany ekranu + nakładki (`overlay`: ustawienia, jak grać) — widoczność warstw HUD
 wynika co klatkę ze stanu, nie jest przełączana ręcznie:
@@ -209,7 +217,7 @@ MENU ──(rasa + dowódca + tryb + mapa + trudność)──▶ PLAY ⇄ PAUSED
                            OVER ──▶ PLAY (Jeszcze raz) / MENU (też Esc/Wstecz)
 ```
 
-Esc i androidowe „Wstecz” idą przez `_back()`: nakładka → tryb/zaznaczenie → pauza ⇄ gra →
+Esc i androidowe „Wstecz” idą przez `back()`: nakładka → tryb/zaznaczenie → pauza ⇄ gra →
 koniec → menu; „Wstecz” w menu głównym zamyka grę.
 
 Widok: stretch `expand` — wysokość zawsze 720 px wirtualnych, szerokość wg proporcji ekranu
@@ -217,7 +225,7 @@ Widok: stretch `expand` — wysokość zawsze 720 px wirtualnych, szerokość wg
 okna (`size_changed`) przelicza kamerę i przebudowuje HUD.
 
 Kamera: `Camera2D`, domyślnie cała mapa (zoom 0,8), zoom do 2×. Mapowanie ekran↔świat
-liczone wprost (`_to_world` / `_to_screen`). HUD żyje w `CanvasLayer` skalowanym przez
+liczone wprost (`to_world` / `to_screen`). HUD żyje w `CanvasLayer` skalowanym przez
 `Settings.ui_scale()` (na telefonie domyślnie ×1,3); układ liczony od `screen = view_size / skala`,
 zmiana skali przebudowuje HUD.
 

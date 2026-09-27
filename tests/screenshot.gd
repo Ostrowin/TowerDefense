@@ -42,7 +42,7 @@ func _process(_delta: float) -> void:
 		if race != "":
 			main.race_index = _race_index(race)
 			main.commander_id = ""
-		main._start(1)
+		main.start(1)
 		if rival != "":
 			main.rival_index = _race_index(rival)
 		main.banner_life = 0.0
@@ -61,18 +61,18 @@ func _process(_delta: float) -> void:
 		Engine.time_scale = 1.0
 		main.banner_life = 0.0
 	if frame == 3 + 60 * 14 + 20:
-		main._reset_camera()
+		main.reset_camera()
 	if frame == 3 + 60 * 14 + 30:
 		_shot("shot_full.png")
 	if frame == 3 + 60 * 14 + 32:  # zrzut czeka na koniec klatki — kamerę ruszamy dopiero potem
 		main.camera.zoom = Vector2.ONE * main.ZOOM_MAX
 		main.camera.position = _front(0)
-		main._clamp_camera()
+		main.clamp_camera()
 	if frame == 3 + 60 * 14 + 40:
 		_shot("shot_zoom.png")
 	if frame == 3 + 60 * 14 + 42:
 		main.camera.position = main.sim.e_base + Vector2(-160, 0)
-		main._clamp_camera()
+		main.clamp_camera()
 	if frame == 3 + 60 * 14 + 50:
 		_shot("shot_zoom_enemy.png")
 		get_tree().quit()

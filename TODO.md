@@ -81,7 +81,7 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 - [x] **Etap 2 — reszta dowódców:** ~~T10 Snajper, Magma~~ ✅ · ~~T11 gibony~~ ✅ · ~~T11b hieny i dziki~~ ✅
 - [x] **Etap 3 — domknięcie:** ~~T12 boss rywala~~ (usunięte, D5) · ~~T13 balans całości, kontrakt regresji, perf, dokumentacja~~ ✅ (telefon: p95 20,3 ms w późnej grze z Saperem, 2026-09-26)
 - [ ] **Seria wydajności wszystkich dowódców na telefonie (~1 h):** jedno uruchomienie `-Bench`, które samo przechodzi przez 12 dowódców z `--stress` (dziś każdy = osobny eksport). Argumenty podawać przez `pwsh -Command "& ./tools/android.ps1 -Bench -BenchArgs ..."` — `pwsh -File` skleja listę `-BenchArgs` w jeden napis i benchmark rusza z domyślnymi.
-- [ ] **Etap 4 — rozbudowa (CEO review):** ~~T14 awans dowódcy w partii~~ ✅ · ~~T15 tryb przetrwania~~ ✅ · ~~T16 wyzwanie dnia z modyfikatorami~~ ✅ · T17 pojedynek 2 graczy na jednym telefonie (największe ryzyko: symetryczna ekonomia wroga)
+- [ ] **Etap 4 — rozbudowa (CEO review):** ~~T14 awans dowódcy w partii~~ ✅ · ~~T15 tryb przetrwania~~ ✅ · ~~T16 wyzwanie dnia z modyfikatorami~~ ✅ · T17 pojedynek 2 graczy — zmiana (2026-09-27): nie na jednym telefonie, tylko multiplayer na osobnych telefonach; szczegóły do ustalenia
 
 ## Lore i rasy (do przemyślenia)
 
@@ -93,7 +93,6 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 ## Backlog (świadomie odroczone)
 
 - AI dowódcy wroga — samo decyduje, na której ścieżce dowódca wroga się przyda (eng review 2026-09-25, D5; umiejętności już działają dla obu drużyn)
-- Podział `main.gd` (~2000 linii): HUD i sterowanie dowódcą do osobnych plików, najlepiej przed większymi zmianami widoku (eng review, D9)
 
 - Multiplayer / netcode
 - Asymetryczne rasy (różne jednostki i mechaniki — wybór ras w menu już jest, patrz „Lore i rasy”)

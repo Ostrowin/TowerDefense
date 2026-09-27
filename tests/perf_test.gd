@@ -65,7 +65,7 @@ func _process(_delta: float) -> void:
 		if commander != "":
 			main.race_index = Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == Cfg.COMMANDERS[commander]["race"])
 			main.commander_id = commander
-		main._start(2)
+		main.start(2)
 		main.speed_mult = 3
 		# baza gracza nie do zdobycia — mierzymy późną grę, nie przegraną
 		main.sim.base_hp[0] = 1e9
