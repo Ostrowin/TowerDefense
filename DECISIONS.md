@@ -211,3 +211,19 @@ uproszczone do istniejących typów; kolce zostały, bo bez nich jeże nie miał
 **Kompromis:** Wilkołak i Kolos nie zmieniają sylwetki w formie — tylko wzmocnienie. Krety zostają rasą domyślną
 (`Races.DEFAULT`), choć niedźwiedzie, wilki i zające stoją wcześniej w `Races.ALL`.
 **Status:** aktywna.
+
+### D33 — AI dowódcy wroga (2026-09-28)
+**Decyzja:** na Trudnym (`Cfg.DIFFICULTIES[...]["enemy_commander"]`) wróg ma dowódcę rasy rywala, losowanego
+z `sim.rng`. Steruje nim `EnemyCommander` (co 0,5 s z `Sim.step`), wydając te same rozkazy co gracz
+(`order_hero`, `use_ability`, `choose_upgrade` dla drużyny 1). Ruch: przy HP < 30% pod własną bazę; gdy armia
+gracza weszła na połowę wroga — broni tej ścieżki; gdy idzie fala — za jej czołem (nie bliżej bazy gracza niż
+350 px); inaczej czeka przed bazą na ścieżce następnej fali. Umiejętności: reguły po typie efektu
+(`AbilityRules`, przeniesione z bota testowego R9 i sparametryzowane drużyną) — nowy dowódca z istniejących
+typów nie wymaga zmian w AI. Zabicie dowódcy wroga: 100 zł i doświadczenie jak za jednostkę (150).
+**Dlaczego:** wybór użytkownika — gra z dowódcą po obu stronach, najpierw na Trudnym (bot i tak wygrywał go
+z każdym dowódcą). AI po stronie symulacji, bez losowania i bez własnego stanu = deterministyczne; w grze
+sieciowej (lockstep) drugi gracz zastąpi AI tymi samymi rozkazami. Jedna implementacja reguł dla AI i bota.
+**Kompromis:** AI nie odróżnia dowódców (ruch jest wspólny) i nie gra ekonomią wroga — fale zostają skryptem.
+Rywal meczów botów zależy od mapy i trudności (`_bot_rival`), więc wiersze Trudnego we wzorcu się zmieniły.
+Łatwy i Normalny bez dowódcy wroga — do decyzji po graniu.
+**Status:** aktywna. Granie 2026-09-28 (desktop): Trudny wygrany „ledwo co” — poziom dobry, bez zmian liczb.

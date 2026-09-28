@@ -7,7 +7,7 @@ Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** 
 - `scripts/levels.gd` (`Levels`) — mapy jako dane (ścieżki, złoża, sloty). Nowa mapa = nowy wpis + pełny bot_test.
 - `scripts/races.gd` (`Races`) — rasy wspólne z innymi grami tego świata (id i kolory jak tam). Na razie tożsamość (nazwa, kolor, hasło, przeciwnik), bez statystyk; grywalne `playable`, reszta „Wkrótce".
 - `scripts/progress.gd`, `scripts/settings.gd` — zapis w `user://`; testy podmieniają `path`, żeby nie ruszać danych gracza.
-- `scripts/sim.gd` (`Sim`) — logika gry, **bez węzłów i rysowania**. Nowa mechanika trafia tu, z testem. Zna też rzekę i mosty (`river`, `bridges`) oraz trasę po mapie dla dowódcy (`path_to`, A* omijający wodę).
+- `scripts/sim.gd` (`Sim`) — logika gry, **bez węzłów i rysowania**. Nowa mechanika trafia tu, z testem. Dowódcą wroga (Trudny) steruje `EnemyCommander`, umiejętności obu stron rzuca `AbilityRules` (reguły po typie efektu — nowy typ efektu = nowa reguła tam). AI bez losowania i bez własnego stanu gry — to warunek lockstepu w multiplayerze. Zna też rzekę i mosty (`river`, `bridges`) oraz trasę po mapie dla dowódcy (`path_to`, A* omijający wodę).
 - `scripts/main.gd` (`Main`) — widok: przebieg gry, pętla sima, efekty, samouczek, kamera. Części widoku: `world_view.gd` (`WorldView`, render świata), `hud.gd` (`Hud`, HUD/menu/nakładki z Control w kodzie), `controls.gd` (`Controls`, input i dowódca). Nie wkładaj tu reguł gry.
 - `scripts/sfx.gd` (`Sfx`) — dźwięki syntezowane.
 - `scripts/art.gd` (`Art`) — sprite'y z atlasu (`Art.draw` przez `Painter`) i kafle terenu. Źródła: `art/svg/*.svg` (D30), część generuje `tools/svg_gen/*.py`.

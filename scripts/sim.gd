@@ -6,8 +6,8 @@ extends RefCounted
 ##
 ## Kolejność w step(dt):
 ##
-##   dochód → umiejętności (cooldowny, salwy) → fale wroga → budynki (regeneracja,
-##   strzały, produkcja) → jednostki → pociski → sprzątanie martwych → warunek końca
+##   dochód → umiejętności (cooldowny, salwy) → AI dowódcy wroga → fale wroga → budynki
+##   (regeneracja, strzały, produkcja) → jednostki → pociski → sprzątanie martwych → warunek końca
 ##
 ## Jednostka naziemna idzie po swojej ścieżce (Lane): `s` = odległość od bazy gracza
 ## wzdłuż krzywej. Gracz zwiększa `s`, wróg zmniejsza. Po walce wraca na ścieżkę
@@ -228,6 +228,11 @@ var mode := "battle"
 var mods: Array[String] = []
 ## Dowódca gracza (id z Cfg.COMMANDERS); "" = bez dowódcy — gra jak przed dowódcami (D8).
 var commander := ""
+## Dowódca wroga (trudność z `enemy_commander`): losowany z `rng` spośród dowódców rasy rywala;
+## "" = wróg bez dowódcy. Steruje nim `ai` (EnemyCommander) co EnemyCommander.THINK s.
+var rival_commander := ""
+var ai: EnemyCommander = null
+var _ai_timer := 0.0
 ## Per drużyna: umiejętności na pasku (3 dowódcy + rasowa albo Cfg.ABILITY_ORDER bez dowódcy).
 var ability_order: Array = [Cfg.ABILITY_ORDER.duplicate(), Cfg.ABILITY_ORDER.duplicate()]
 ## Per drużyna: dowódca (null = drużyna bez dowódcy). Rekord żyje też po śmierci.
@@ -271,8 +276,9 @@ var _nav_bridge := {}  ## Vector2i → indeks ścieżki: pola mostów (przejezdn
 var _nav_near := {}  ## Vector2i → true: pola przy wodzie — tylko tam punkt trzeba sprawdzać dokładnie
 
 
+## `rival_race` — id rasy rywala (Races); dowódcę wroga dostaje tylko na trudności z `enemy_commander`.
 func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, commander_id := "", mode_id := "battle",
-		mod_ids: Array = []) -> void:
+		mod_ids: Array = [], rival_race := "") -> void:
 	difficulty = Cfg.DIFFICULTIES[difficulty_index]
 	mode = mode_id
 	mods.assign(mod_ids)
@@ -294,6 +300,10 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 	for l in level["lanes"]:
 		lanes.append(Lane.new(l["name"], l["points"]))
 	_find_bridges()
+	if difficulty.get("enemy_commander", false) and rival_race != "":
+		rival_commander = _pick_rival_commander(rival_race)
+		if rival_commander != "":
+			ability_order[1] = Cfg.commander_abilities(rival_commander)
 	gold = difficulty["start_gold"] * mod("start_gold_mult")
 	wave_timer = difficulty["first_wave"] * mod("wave_interval_mult")
 	for team in 2:
@@ -307,6 +317,22 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 	next_wave_lanes = _plan_lanes(1)
 	if commander != "":
 		heroes[0] = _make_hero(0, commander)
+	if rival_commander != "":
+		heroes[1] = _make_hero(1, rival_commander)
+		ai = EnemyCommander.new(1)
+		_ai_timer = EnemyCommander.THINK
+
+
+## Grywalny dowódca rasy rywala (bez zastępcy „Weteran”), losowany z `rng` — powtarzalny z ziarnem.
+func _pick_rival_commander(race_id: String) -> String:
+	var i := Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == race_id)
+	if i < 0:
+		return ""
+	var ready: Array[String] = []
+	for c in Races.commanders(i):
+		if c != "veteran" and Cfg.commander_ready(c):
+			ready.append(c)
+	return "" if ready.is_empty() else ready[rng.randi_range(0, ready.size() - 1)]
 
 
 # ================================================================ zapytania
@@ -668,6 +694,16 @@ func _award_xp(u: Unit) -> void:
 		if value <= 0.0:
 			value = u.max_hp * 0.1
 		_gain_xp(h, value * (1.0 + Cfg.HERO_XP_OWN_BONUS if own else 1.0))
+
+
+## Poległy dowódca: te same zasady co za jednostkę, wartość = COMMANDER_KILL_XP.
+func _award_hero_kill_xp(h: Hero) -> void:
+	var t := 1 - h.team
+	if not hero_alive(t):
+		return
+	var own := _hero_blow == t
+	if own or heroes[t].pos.distance_to(h.pos) <= Cfg.HERO_XP_RADIUS:
+		_gain_xp(heroes[t], Cfg.COMMANDER_KILL_XP * (1.0 + Cfg.HERO_XP_OWN_BONUS if own else 1.0))
 
 
 ## Zburzony budynek: te same zasady co za jednostkę, wartość = nagroda za wieżę.
@@ -1113,6 +1149,11 @@ func step(dt: float) -> void:
 		s.prev_pos = s.pos
 	var events_at_start := events.size()
 	var t := Time.get_ticks_usec() if profile else 0
+	if ai != null:
+		_ai_timer -= dt
+		if _ai_timer <= 0.0:
+			_ai_timer = EnemyCommander.THINK
+			ai.think(self)
 	_update_strikes(dt)
 	_update_respawns(dt)
 	_update_waves(dt)
@@ -1810,6 +1851,10 @@ func _damage_unit(u: Unit, dmg: float, kind: String) -> void:
 		h.respawn = Cfg.commander_respawn(wave)
 		if h.team == 0:
 			stats["hero_deaths"] += 1
+		else:
+			stats["kills"] += 1
+			_earn(Cfg.COMMANDER_KILL_BOUNTY, h.pos)
+		_award_hero_kill_xp(h)
 		events.append({"type": "hero_died", "pos": h.pos, "team": h.team, "respawn": h.respawn})
 		return
 	events.append({"type": "death", "pos": u.pos, "team": u.team, "kind": u.kind})

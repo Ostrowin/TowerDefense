@@ -695,6 +695,8 @@ func draw_minimap() -> void:
 		c.draw_rect(Rect2(u.pos * k - Vector2(1, 1), Vector2(2, 2)), Main.TEAM_COLORS[u.team])
 	if m.sim.hero_alive():
 		c.draw_circle(m.sim.hero().pos * k, 4.0, Main.HERO_COLOR)
+	if m.sim.hero_alive(1):
+		c.draw_circle(m.sim.hero(1).pos * k, 4.0, Main.TEAM_COLORS[1].lightened(0.4))
 	var view := Rect2(m.to_world(Vector2.ZERO) * k, m.view_size / m.camera.zoom.x * k)
 	c.draw_rect(view, Color(1, 1, 1, 0.9), false, 1.5)
 	c.draw_rect(Rect2(Vector2.ZERO, c.size), Color(1, 1, 1, 0.3), false, 1.0)

@@ -44,10 +44,12 @@ const MAX_SPAWN_QUEUE := 40
 const SELL_REFUND := 0.6
 const MAX_LEVEL := 3
 
+## enemy_commander: wróg ma dowódcę rasy rywala sterowanego przez AI (EnemyCommander).
 const DIFFICULTIES: Array[Dictionary] = [
 	{"name": "Łatwy", "start_gold": 220, "enemy_hp": 0.8, "wave_interval": 1.15, "first_wave": 30.0},
 	{"name": "Normalny", "start_gold": 160, "enemy_hp": 1.0, "wave_interval": 1.0, "first_wave": 22.0},
-	{"name": "Trudny", "start_gold": 130, "enemy_hp": 1.25, "wave_interval": 0.85, "first_wave": 18.0},
+	{"name": "Trudny", "start_gold": 130, "enemy_hp": 1.25, "wave_interval": 0.85, "first_wave": 18.0,
+		"enemy_commander": true},
 ]
 
 # ---------------------------------------------------------------- jednostki
@@ -527,6 +529,9 @@ const COMMANDER_INVULNERABLE := 2.0
 const COMMANDER_LEASH := 120.0
 ## Dowódca bije budynki słabiej niż jednostki; bazy nie bije wcale.
 const COMMANDER_BUILDING_MULT := 0.5
+## Zabicie dowódcy wroga: złoto dla gracza i doświadczenie dla dowódcy, który był blisko (jak za jednostkę).
+const COMMANDER_KILL_BOUNTY := 100
+const COMMANDER_KILL_XP := 150.0
 
 # ---------------------------------------------------------------- awans dowódcy (T14)
 # Doświadczenie: wróg ginący w promieniu HERO_XP_RADIUS od żywego dowódcy daje jego nagrodę

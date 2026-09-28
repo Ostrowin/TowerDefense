@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432">
+  <g transform="translate(73.44000000000001 73.44000000000001) scale(0.66)">
+  <g transform="translate(-115.71428571428572 54.0) scale(3.857142857142857)">
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M44 50 C44 32 58 22 74 22 C90 22 100 34 100 46 C100 58 90 68 74 68 C58 68 44 62 44 50 Z" fill="#6b5548"/>
+    <path d="M94 42 C104 40 116 44 119 50 C120 55 114 58 106 58 C99 58 94 55 93 50 Z" fill="#d98f8f"/>
+  </g>
+  <ellipse cx="117" cy="50" rx="2.6" ry="3" fill="#b86a6a"/>
+  <path d="M104 56 L106 61 L108 56" fill="#efe6cf" stroke="#1a120c" stroke-width="1"/>
+  <path d="M110 48 L124 44 M110 52 L125 53 M108 50 L122 48" stroke="#2a201a" stroke-width="0.9"/>
+  <path d="M46 54 C50 64 62 68 74 68 C64 64 54 58 50 50 Z" fill="#463830" opacity="0.7"/>
+  <path d="M60 30 C66 26 74 25 80 26" fill="none" stroke="#8a7060" stroke-width="1.8"/>
+  <path d="M46 44 C60 40 80 38 96 40" stroke="#4a3a2a" stroke-width="5" fill="none"/>
+  <circle cx="97" cy="41" r="5" fill="#b8893a" stroke="#1a120c" stroke-width="1.8"/><circle cx="97" cy="41" r="3" fill="#ffb020"/>
+  <circle cx="86" cy="43" r="7" fill="#b8893a" stroke="#1a120c" stroke-width="2"/><circle cx="86" cy="43" r="4.6" fill="#ffb020"/>
+  <path d="M84 40 L87 42 L85 46" stroke="#7a4a10" stroke-width="0.9" fill="none"/>
+  <circle cx="84.5" cy="41.5" r="1.4" fill="#fff2c0"/>  <g stroke="#1a120c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M46 38 C48 22 62 14 76 15 C90 16 100 26 101 36 C84 31 62 31 46 38 Z" fill="#d9a032"/>
+    <path d="M42 40 C60 32 86 30 106 36 L104 40 C86 35 62 36 44 44 Z" fill="#a8741e"/>
+    <path d="M92 20 C98 20 102 24 102 30 C102 34 98 36 94 36 C90 36 88 32 88 28 C88 24 90 20 92 20 Z" fill="#3b3f45"/>
+  </g>
+  <circle cx="96" cy="28" r="4" fill="#ffc233"/><circle cx="96" cy="28" r="2" fill="#fff2c0"/>
+  <path d="M70 15.5 L79 15.5 L81 32.5 L70 33 Z" fill="#4a84e0"/>
+  <path d="M70 16 L70.5 32.5" stroke="#6aa8ff" stroke-width="1.2"/>
+  <path d="M54 24 C62 18 68 16.5 70 16.5" fill="none" stroke="#f0c860" stroke-width="2"/>
+  <path d="M66 20 L70 28 L66 30" stroke="#a8741e" stroke-width="1.5" fill="none"/>
+  <circle cx="58" cy="30" r="1.2" fill="#a8741e"/>
+  </g>
+  <circle cx="254.57142857142856" cy="162.0" r="34.714285714285715" fill="#fff2c0" opacity="0.5"/>
+  </g>
+</svg>

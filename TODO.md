@@ -16,7 +16,8 @@ specjalizacji WebSlashera, umiejętności ras Kicanie i Przypływ, nowy typ efek
 dowódców i Hydry (`tools/svg_gen/hare.py`, `otter.py`, `commanders_hare_otter.py`) · niedźwiedzie, wilki i jeże
 grywalne (D32): 9 dowódców, umiejętności ras Gęste futro, Zew watahy, Najeżenie, kolce (`thorns`) jako wzmocnienie,
 grafika trzech armii, dowódców i Działka (`bear.py`, `wolf.py`, `hedgehog.py`, `commanders_bwh.py`).
-Zostały: lisy, nietoperze (kolizja nazwy z wrogiem `bat`), szczury.
+Zostały: lisy (na deser), szczury i nietoperze zastąpią kiedyś koty.
+AI dowódcy wroga na Trudnym (D33): `EnemyCommander` + wspólne reguły umiejętności `AbilityRules` (też dla bota testowego).
 
 ## Sesja 7 (2026-09-25) — dowódcy: projekt i fundamenty
 
@@ -101,7 +102,7 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 
 ## Backlog (świadomie odroczone)
 
-- AI dowódcy wroga — samo decyduje, na której ścieżce dowódca wroga się przyda (eng review 2026-09-25, D5; umiejętności już działają dla obu drużyn)
+- AI dowódcy wroga na Łatwym/Normalnym — dziś tylko Trudny (D33); decyzja po graniu na telefonie
 
 - Multiplayer / netcode
 - Asymetryczne rasy (różne jednostki i mechaniki — wybór ras w menu już jest, patrz „Lore i rasy”)

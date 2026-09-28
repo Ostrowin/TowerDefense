@@ -178,10 +178,14 @@ func start(d: int) -> void:
 	difficulty = d
 	if commander_id == "" or not Races.commanders(race_index).has(commander_id):
 		commander_id = default_commander(race_index)
+	var rnd := RandomNumberGenerator.new()
+	rnd.randomize()  # własny los — nie ruszamy rng sima
+	rival_index = Races.random_rival(race_index, rnd)
+	var rival_id: String = Races.ALL[rival_index]["id"]
 	if daily.is_empty():
-		sim = Sim.new(d, -1, level_index, commander_id, game_mode)
+		sim = Sim.new(d, -1, level_index, commander_id, game_mode, [], rival_id)
 	else:
-		sim = Sim.new(d, daily["seed"], level_index, commander_id, game_mode, daily["mods"])
+		sim = Sim.new(d, daily["seed"], level_index, commander_id, game_mode, daily["mods"], rival_id)
 	hero_ordered = false
 	view.make_terrain()
 	_clear_view_state()
@@ -192,11 +196,11 @@ func start(d: int) -> void:
 	tutorial_step = -1 if Progress.tutorial_done() else 0
 	tutorial_timer = 0.0
 	camera_used = false
-	var rnd := RandomNumberGenerator.new()
-	rnd.randomize()  # własny los — nie ruszamy rng sima
-	rival_index = Races.random_rival(race_index, rnd)
+	var rival_name: String = Races.ALL[rival_index]["name"]
+	if sim.rival_commander != "":
+		rival_name += " (dowódca: %s)" % Cfg.COMMANDERS[sim.rival_commander]["name"]
 	banner("Przygotuj się!", "Przeciwnik: %s · pierwsza fala za %d s: %s" % [
-		Races.ALL[rival_index]["name"], int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
+		rival_name, int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
 	if not daily.is_empty():
 		banner("Wyzwanie dnia — %s" % daily["date"], "%s — %s · %s · %s · %s" % [Races.ALL[race_index]["name"],
 			Cfg.COMMANDERS[commander_id]["name"], sim.level["name"], "Przetrwanie" if game_mode == "survival" else "Bitwa",
@@ -555,6 +559,10 @@ func _consume_events() -> void:
 					banner("Dowódca poległ!", "Wróci do bazy za %d s — umiejętności dowódcy czekają" % ceili(e["respawn"]))
 					hero_selected = false
 					sfx.play("lose", 0.0)
+				else:
+					banner("Dowódca wroga poległ!", "+%d zł · wróci za %d s" % [Cfg.COMMANDER_KILL_BOUNTY, ceili(e["respawn"])])
+					float_text(pos + Vector2(0, -30), "+%d" % Cfg.COMMANDER_KILL_BOUNTY, GOLD_COLOR)
+					sfx.play("win", 0.0)
 			"hero_respawn":
 				if e["team"] == 0:
 					burst(pos, 18, HERO_COLOR, 110.0, 0.6)

@@ -13,6 +13,9 @@ scripts/levels.gd        Levels   — mapy jako dane (ścieżki, bazy, rzeka, z�
 scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + losowanie przeciwnika,
                          dowódcy rasy (`commanders`) i jej umiejętność (`racial`)
 scripts/sim.gd           Sim      — logika gry: stan, rozkazy gracza, step(dt), zdarzenia. Zero węzłów i rysowania.
+scripts/enemy_commander.gd EnemyCommander — AI dowódcy wroga (Trudny): gdzie stoi, co rzuca; wołane z Sim.step
+scripts/ability_rules.gd AbilityRules — kiedy i gdzie rzucić umiejętność (po typie efektu, dla obu drużyn);
+                         używa go AI wroga i bot gracza w testach
 scripts/main.gd          Main     — scena: przebieg gry (stany), pętla sima, zdarzenia → efekty i dźwięk, samouczek, kamera
 scripts/world_view.gd    WorldView — render świata: teren (warstwa `terrain`), podświetlenia ścieżek, `draw()` przez `pen`
 scripts/hud.gd           Hud      — HUD, minimapa, baner, menu i nakładki (Control budowany w kodzie)

@@ -89,6 +89,7 @@ func _init() -> void:
 	_test_hyena_boar_kinds()
 	_test_hare_otter_kinds()
 	_test_thorns()
+	_test_enemy_commander()
 	_test_hero_level()
 	_test_survival()
 	_test_daily()
@@ -182,7 +183,7 @@ func _report(lv: int, d: int, strategy: String, commander := "") -> void:
 # ================================================================ bot
 
 func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
-	var sim := Sim.new(difficulty, 1234, lv, commander, game_mode)
+	var sim := Sim.new(difficulty, 1234, lv, commander, game_mode, [], _bot_rival(lv, difficulty))
 	var plan: Array = TURTLE_PLAN if strategy == "turtle" else BALANCED_PLAN
 	var plan_i := 0
 	var think := 0.0
@@ -220,12 +221,21 @@ func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
 
 # ---------------------------------------------------------------- bot dowódcy (R9)
 
+## Rasa rywala w meczu botów — stała dla mapy i trudności, żeby tabela była powtarzalna.
+func _bot_rival(lv: int, difficulty: int) -> String:
+	var ids: Array[String] = []
+	for r in Races.ALL:
+		if r["playable"]:
+			ids.append(r["id"])
+	return ids[(lv * 3 + difficulty) % ids.size()]
+
+
 ## Dowódca bota: balanced/mass — stoi na ścieżce następnej fali na linii zbiórki, przy HP < 30%
-## wraca pod bazę; turtle — zawsze pod bazą. Umiejętności według tabeli R9 (po typie efektu).
+## wraca pod bazę; turtle — zawsze pod bazą. Umiejętności według tabeli R9 (`AbilityRules`, po typie efektu).
 func _hero_bot(sim: Sim, strategy: String) -> void:
 	var h := sim.hero()
 	if not sim.hero_alive():
-		_cast_racial(sim)
+		AbilityRules.cast_racial(sim, 0, sim.stance == "attack")
 		return
 	var post := sim._hero_spawn_pos(0)
 	if strategy != "turtle" and h.hp >= h.max_hp * 0.3:
@@ -241,162 +251,10 @@ func _hero_bot(sim: Sim, strategy: String) -> void:
 				post = sim.lanes[PUSH_LANE].point_at(front - 50.0)
 	if h.post.distance_to(post) > 40.0 and h.state != "march":
 		sim.order_hero(post)
-	for a in sim.ability_order[0]:
-		if sim.ability_ready(a) and not Cfg.RACIAL.values().has(a):
-			_cast_by_rules(sim, a)
-	_cast_racial(sim)
-	# awans: bot bierze „moc”, jeśli jest w ofercie, inaczej pierwszą opcję
-	if not sim.hero_offers[0].is_empty():
-		var offer: Array = sim.hero_offers[0][0]
-		sim.choose_upgrade(1 if offer[1]["kind"] == "power" and offer[0]["kind"] != "power" else 0)
+	AbilityRules.cast_hero_abilities(sim, 0)
+	AbilityRules.cast_racial(sim, 0, sim.stance == "attack")
+	if AbilityRules.pick_upgrade(sim, 0):
 		level_times.append(int(sim.elapsed))
-
-
-## Umiejętność rasy: gdy na jednej ścieżce idzie w natarciu ≥ 6 własnych jednostek (leczenie — gdy są ranni).
-func _cast_racial(sim: Sim) -> void:
-	var racial := ""
-	for a in sim.ability_order[0]:
-		if Cfg.RACIAL.values().has(a):
-			racial = a
-	if racial == "" or not sim.ability_ready(racial):
-		return
-	if Cfg.ABILITIES[racial]["kind"] == "heal":  # Przypływ: gdy rannych swoich jest ≥ 8
-		var hurt := sim.units.filter(func(u: Sim.Unit) -> bool: return u.team == 0 and u.hp > 0 and u.hp < u.max_hp * 0.6)
-		if hurt.size() >= 8:
-			sim.use_ability(racial)
-		return
-	if sim.stance != "attack":
-		return
-	var per_lane := {}
-	for u in sim.units:
-		if u.team == 0 and not u.flying and not u.is_hero and u.burrow <= 0.0:
-			per_lane[u.lane] = per_lane.get(u.lane, 0) + 1
-	for li in per_lane:
-		if per_lane[li] >= 6:
-			sim.use_ability(racial, sim.lanes[li].point_at(sim.lanes[li].length / 2.0))
-			return
-
-
-## R9: kiedy i gdzie rzucić umiejętność danego typu (wszystko w zasięgu od dowódcy).
-func _cast_by_rules(sim: Sim, a: String) -> void:
-	var cfg: Dictionary = Cfg.ABILITIES[a]
-	var h := sim.hero()
-	var reach: float = cfg["cast_range"] if cfg["cast_range"] > 0.0 else 1e9
-	var foes: Array[Sim.Unit] = []
-	for u in sim.units:
-		if u.team == 1 and u.hp > 0 and u.pos.distance_to(h.pos) <= reach:
-			foes.append(u)
-	match cfg["kind"]:
-		"pull":
-			var big: Sim.Unit = null
-			for u in foes:
-				if u.hp >= 150.0 and not u.flying and u.kind != "warlord" and (big == null or u.hp > big.hp):
-					big = u
-			if big != null and h.hp >= h.max_hp * 0.5:
-				sim.use_ability(a, big.pos)
-		"taunt":
-			var close := foes.filter(func(u: Sim.Unit) -> bool: return not u.flying and u.pos.distance_to(h.pos) <= cfg["radius"])
-			if close.size() >= 3 and h.hp >= h.max_hp * 0.5:
-				sim.use_ability(a)
-		"leap":
-			if h.hp < h.max_hp * 0.5:
-				return
-			for u in foes:
-				var n := 0
-				for o in foes:
-					if o.pos.distance_to(u.pos) <= cfg["radius"]:
-						n += 1
-				if n >= 3 and sim.ability_target_ok(a, u.pos):
-					sim.use_ability(a, u.pos)
-					return
-		"strike", "line", "repel", "weaken", "raise_dead":
-			var r: float = cfg.get("radius", 60.0)
-			if not cfg["target"]:
-				r = cfg["radius"]  # „wokół siebie" — grupa musi stać przy dowódcy
-				foes.assign(foes.filter(func(u: Sim.Unit) -> bool: return u.pos.distance_to(h.pos) <= r))
-			var best := Vector2.INF
-			var best_n := 2
-			for u in foes:
-				var n := 0
-				for o in foes:
-					if o.pos.distance_to(u.pos) <= r:
-						n += 1
-				if n > best_n:
-					best_n = n
-					best = u.pos
-			if best != Vector2.INF:
-				sim.use_ability(a, best if cfg["target"] else Vector2.ZERO)
-		"zone":
-			# na ścieżce 60 px przed czołem grupy (czoło = wróg najbliżej bazy gracza)
-			var lead: Sim.Unit = null
-			for u in foes:
-				if not u.flying and (lead == null or u.s < lead.s):
-					lead = u
-			if lead != null:
-				sim.use_ability(a, sim.lanes[lead.lane].point_at(lead.s - 60.0))
-		"summon_building":
-			if foes.is_empty():
-				return
-			for b in sim.buildings:
-				if b.team == 0 and Cfg.is_shooter(b.kind) and b.pos.distance_to(h.pos) < 150.0:
-					return
-			var target := foes[0].pos
-			var best := Vector2.INF
-			for dx in range(-4, 5):
-				for dy in range(-4, 5):
-					var c := Cfg.snap(h.pos + Vector2(dx, dy) * Cfg.GRID)
-					if sim.ability_target_ok(a, c) and (best == Vector2.INF or c.distance_to(target) < best.distance_to(target)):
-						best = c
-			if best != Vector2.INF:
-				sim.use_ability(a, best)
-		"summon_units":
-			var ground := foes.filter(func(u: Sim.Unit) -> bool: return not u.flying)
-			if ground.size() >= 3:
-				var u: Sim.Unit = ground[0]
-				sim.use_ability(a, sim.lanes[u.lane].point_at(maxf(u.s - 60.0, 80.0)))
-		"buff":
-			var own := 0
-			for u in sim.units:
-				if u.team == 0 and not u.is_hero and u.pos.distance_to(h.pos) <= maxf(cfg.get("radius", 120.0), 120.0):
-					own += 1
-			if own >= 4 and not foes.is_empty():
-				sim.use_ability(a, h.pos)
-		"execute":
-			var big: Sim.Unit = null
-			for u in foes:
-				if u.hp >= 150.0 and (big == null or u.hp > big.hp):
-					big = u
-			if big != null:
-				sim.use_ability(a, big.pos)
-		"demolish":
-			var near: Sim.Building = null
-			for b in sim.buildings:
-				if b.team == 1 and b.kind != "basegun" and b.pos.distance_to(h.pos) <= reach:
-					if near == null or b.pos.distance_to(h.pos) < near.pos.distance_to(h.pos):
-						near = b
-			if near != null:
-				sim.use_ability(a, near.pos)
-		"global":
-			if sim.base_hp[0] < Cfg.BASE_HP[0] * 0.6:
-				sim.use_ability(a)
-		"heal":
-			# tam, gdzie w promieniu jest najwięcej rannych swoich (poniżej 60% HP)
-			var hurt: Array[Sim.Unit] = []
-			for u in sim.units:
-				if u.team == 0 and u.hp > 0 and u.hp < u.max_hp * 0.6 and u.pos.distance_to(h.pos) <= reach:
-					hurt.append(u)
-			var best := Vector2.INF
-			var best_n := 3
-			for u in hurt:
-				var n := 0
-				for o in hurt:
-					if o.pos.distance_to(u.pos) <= cfg["radius"]:
-						n += 1
-				if n > best_n:
-					best_n = n
-					best = u.pos
-			if best != Vector2.INF:
-				sim.use_ability(a, best)
 
 
 ## Postawa bota:
@@ -1501,6 +1359,71 @@ func _test_thorns() -> void:
 		_check(sim.use_ability("iron_curl", Vector2.ZERO, team), "żelazny kłębek (%s)" % who)
 		_check(h.armor_bonus > 0.0 and is_equal_approx(h.buffs["thorns"][0], Cfg.ABILITIES["iron_curl"]["thorns"]),
 			"kłębek: pancerz i kolce dowódcy (%s)" % who)
+
+
+## AI dowódcy wroga: tylko na trudności z `enemy_commander`, dowódca z rasy rywala, powtarzalne
+## z ziarnem, broni ścieżki, na którą weszła armia gracza, każdy dowódca rzuca umiejętności po stronie
+## wroga, zabicie go daje złoto.
+func _test_enemy_commander() -> void:
+	var normal := Sim.new(1, 7, 0, "", "battle", [], "mole")
+	_check(normal.hero(1) == null and normal.ai == null, "Normalny: wróg bez dowódcy")
+	var hard := Sim.new(2, 7, 0, "", "battle", [], "mole")
+	_check(hard.hero(1) != null and Cfg.COMMANDERS[hard.rival_commander]["race"] == "mole", "Trudny: dowódca wroga z rasy rywala")
+	_check(hard.ability_order[1].has(Cfg.RACIAL["mole"]), "dowódca wroga ma umiejętność rasy")
+	_check(Sim.new(2, 7, 0).hero(1) == null, "bez rasy rywala — bez dowódcy wroga")
+
+	var a := Sim.new(2, 99, 1, "", "battle", [], "wolf")
+	var b := Sim.new(2, 99, 1, "", "battle", [], "wolf")
+	for i in int(90.0 / DT):
+		a.step(DT)
+		b.step(DT)
+	_check(a.rival_commander == b.rival_commander and a.hero(1).pos == b.hero(1).pos and a.units.size() == b.units.size(),
+		"AI powtarzalne: to samo ziarno — ten sam przebieg")
+
+	var sim := Sim.new(2, 3, 0, "", "battle", [], "bear")
+	sim.buildings = sim.buildings.filter(func(x: Sim.Building) -> bool: return x.kind == "basegun")
+	sim.wave_timer = INF
+	var lane: Sim.Lane = sim.lanes[2]
+	for i in 5:
+		sim._spawn_unit(0, "soldier", 1, 1.0, 2, lane.length * 0.7 + i * 10.0)
+	for i in int(1.0 / DT):
+		sim.step(DT)
+	_check(sim.hero(1).post.distance_to(lane.point_at(minf(lane.length * 0.7 + 80.0, lane.length - 125.0))) < 60.0,
+		"dowódca wroga idzie bronić ścieżki, na którą weszła armia gracza")
+
+	var silent: Array[String] = []
+	for id in Cfg.COMMANDER_ORDER:
+		if id == "veteran" or not Cfg.commander_ready(id):
+			continue
+		var s := _fx_sim(1)
+		var h := s._make_hero(1, id)
+		s.heroes[1] = h
+		s.units.append(h)
+		s.ability_order[1] = Cfg.commander_abilities(id)
+		s.ai = EnemyCommander.new(1)
+		var ln: Sim.Lane = s.lanes[1]
+		h.pos = ln.point_at(ln.length * 0.6)
+		h.post = h.pos
+		for i in 6:
+			s._spawn_unit(0, "soldier", 1, 1.0, 1, ln.length * 0.6 - 50.0 + i * 8.0)
+		s._spawn_unit(0, "brute", 1, 1.0, 1, ln.length * 0.6 - 30.0)
+		for i in 5:
+			s._spawn_unit(1, "grunt", 1, 1.0, 1, ln.length * 0.6 + 20.0 + i * 8.0)
+		for u in s.units:
+			if u.team == 1 and not u.is_hero:
+				u.hp *= 0.5
+		s.ai.think(s)
+		var used := false
+		for ab in Cfg.COMMANDERS[id]["abilities"]:
+			used = used or s.ability_cd[1][ab] > 0.0
+		if not used:
+			silent.append(id)
+	_check(silent.is_empty(), "każdy dowódca wroga rzuca umiejętności w walce (milczą: %s)" % ", ".join(silent))
+
+	sim = Sim.new(2, 5, 0, "", "battle", [], "otter")
+	var gold := sim.gold
+	sim._damage_unit(sim.hero(1), 1e6, "melee")
+	_check(sim.hero(1).state == "dead" and is_equal_approx(sim.gold - gold, Cfg.COMMANDER_KILL_BOUNTY), "zabicie dowódcy wroga daje złoto")
 
 
 ## Awans dowódcy (T14): doświadczenie w pobliżu i za zabicie osobiste, progi, statystyki,
