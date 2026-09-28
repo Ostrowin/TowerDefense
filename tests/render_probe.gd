@@ -45,7 +45,7 @@ func _process(_delta: float) -> void:
 	if frame == 3:
 		main.start(1)
 		var sim: Sim = main.sim
-		sim.gold = 3000
+		sim.players[0].gold = 3000
 		for i in sim.nodes.size():
 			sim.build_extractor(i)
 		for k in ["barracks", "range", "tower", "cannon", "frost", "barracks"]:

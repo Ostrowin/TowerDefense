@@ -100,7 +100,7 @@ func _process(_delta: float) -> void:
 			print("klatki: %d, mediana %.1f ms, p95 %.1f ms, p99 %.1f ms, maks %.1f ms, wynik %d" % [
 				n, frame_times[n / 2], frame_times[int(n * 0.95)], frame_times[int(n * 0.99)], frame_times[n - 1], sim.result])
 			series_rows.append("%-16s %-16s %7.1f %7.1f %7.1f %7.1f %6d" % [commander if commander != "" else "-",
-				sim.rival_commander if sim.rival_commander != "" else "-", frame_times[n / 2], frame_times[int(n * 0.95)],
+				sim.players[1].commander if sim.players[1].commander != "" else "-", frame_times[n / 2], frame_times[int(n * 0.95)],
 				frame_times[int(n * 0.99)], frame_times[n - 1], sim.units.size()])
 			if not series.is_empty():
 				commander = series.pop_front()
@@ -140,8 +140,8 @@ func _begin() -> void:
 	# baza gracza nie do zdobycia — mierzymy późną grę, nie przegraną
 	main.sim.base_hp[0] = 1e9
 	print("mapa %s, Trudny, x3, %d min gry, dowódca: %s%s, dowódca wroga: %s" % [main.sim.level["name"], minutes,
-		main.sim.commander if main.sim.commander != "" else "brak", " (stress)" if stress else "",
-		main.sim.rival_commander if main.sim.rival_commander != "" else "brak"])
+		main.sim.players[0].commander if main.sim.players[0].commander != "" else "brak", " (stress)" if stress else "",
+		main.sim.players[1].commander if main.sim.players[1].commander != "" else "brak"])
 	print("%6s %5s %6s %6s %6s %6s %8s %8s %6s %6s %6s %6s %6s %7s" % ["gra", "fala", "jedn.", "pocis.", "iskry", "napisy",
 		"klatka", "maks", "sim", "kroki", "zdarz", "hud", "rys.", "pamięć"])
 
@@ -156,35 +156,41 @@ func _reset_measure() -> void:
 	think = 0.0
 
 
+## Rozkaz jako komenda Sim (multiplayer T2) — ta sama droga co dotyk w grze.
+func _cmd(sim: Sim, cmd: Dictionary) -> bool:
+	cmd["player"] = 0
+	return sim.apply(cmd)
+
+
 func _bot(sim: Sim) -> void:
 	think -= 1.0 / 60.0 * main.speed_mult
 	if think > 0:
 		return
 	think = BOT_THINK
 	for i in sim.nodes.size():
-		sim.build_extractor(i)
+		_cmd(sim, {"type": "build_extractor", "node": i})
 	if plan_i < PLAN.size():
 		var a: Variant = PLAN[plan_i][1]
 		var p: Vector2 = a if a is Vector2 else sim.lanes[int(a.x)].slot_at(a.y, a.z)
 		var cell := sim.free_cell_near(p, 120.0)
-		if cell == Vector2.INF or sim.build(PLAN[plan_i][0], cell):
+		if cell == Vector2.INF or _cmd(sim, {"type": "build", "kind": PLAN[plan_i][0], "cell": cell}):
 			if cell != Vector2.INF:
-				sim.set_lane(sim.building_at(cell, 0), plan_i % 3)
+				_cmd(sim, {"type": "set_lane", "at": cell, "lane": plan_i % 3})
 			plan_i += 1
 		return
 	for b in sim.buildings:
-		if b.team == 0 and b.kind != "basegun" and sim.upgrade_cost(b) > 0 and sim.upgrade(b):
+		if b.team == 0 and b.kind != "basegun" and sim.upgrade_cost(b) > 0 and _cmd(sim, {"type": "upgrade", "at": b.pos}):
 			return
 	var kinds := ["workshop", "barracks", "range"]
 	var kind: String = kinds[sim.stats["units_made"] % 3]
-	if sim.gold > Cfg.BUILDINGS[kind]["cost"] + 100:
+	if sim.players[0].gold > Cfg.BUILDINGS[kind]["cost"] + 100:
 		var cell := sim.free_cell_near(sim.p_base + Vector2(200, 0), 500.0)
-		if cell != Vector2.INF and sim.build(kind, cell):
-			sim.set_lane(sim.building_at(cell, 0), sim.stats["units_made"] % 3)
+		if cell != Vector2.INF and _cmd(sim, {"type": "build", "kind": kind, "cell": cell}):
+			_cmd(sim, {"type": "set_lane", "at": cell, "lane": sim.stats["units_made"] % 3})
 	# bez Naprawy — przycina HP bazy do maksimum i test przestałby trzymać bazę przy życiu
 	for ab in ["arrows", "levy"]:
 		if sim.ability_ready(ab):
-			sim.use_ability(ab, sim.lanes[1].point_at(400))
+			_cmd(sim, {"type": "use_ability", "ability": ab, "at": sim.lanes[1].point_at(400)})
 	# profil faz kroku zbieramy dopiero w dużej bitwie
 	if not sim.profile and sim.units.size() > 150:
 		sim.profile = true
@@ -203,21 +209,21 @@ func _hero(sim: Sim) -> void:
 			front = maxf(front, u.s)
 	var post := sim.lanes[1].point_at(front - 50.0)
 	if h.post.distance_to(post) > 60.0 and h.state != "march":
-		sim.order_hero(post)
-	if not sim.hero_offers[0].is_empty():
-		sim.choose_upgrade(0)
+		_cmd(sim, {"type": "order_hero", "at": post})
+	if not sim.players[0].hero_offers.is_empty():
+		_cmd(sim, {"type": "choose_upgrade", "i": 0})
 	if not stress:
 		return
 	var foe: Sim.Unit = null
 	for u in sim.units:
 		if u.team == 1 and (foe == null or u.pos.distance_to(h.pos) < foe.pos.distance_to(h.pos)):
 			foe = u
-	for a in sim.ability_order[0]:
+	for a in sim.players[0].ability_order:
 		if not sim.ability_ready(a):
 			continue
 		var tries: Array[Vector2] = [foe.pos if foe != null else h.pos, h.pos]
 		for k in 8:
 			tries.append(h.pos + Vector2.from_angle(TAU * k / 8.0) * 80.0)
 		for at in tries:
-			if sim.use_ability(a, at):
+			if _cmd(sim, {"type": "use_ability", "ability": a, "at": at}):
 				break

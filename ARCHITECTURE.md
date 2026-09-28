@@ -54,6 +54,19 @@ Sim komunikuje „co się stało" przez listę `events` (strzał, trafienie, śm
 salwa, atak na budynek…), którą widok opróżnia co klatkę i zamienia na cząsteczki, napisy,
 drgania ekranu i dźwięk. Dzięki temu całą grę da się puścić headless (boty, testy).
 
+**Gracze (multiplayer, docs/designs/multiplayer.md).** `Sim.players` — `Sim.Player` ma drużynę, złoto,
+dowódcę, pasek umiejętności (odnowienia, ulepszenia z awansu), oferty awansu, postawę i łupy. Jednostki
+i budynki mają `owner` (indeks gracza). Indeksy: 0 = gracz drużyny 0, 1 = strona drużyny 1 (fale i dowódca
+wroga, w PvP drugi gracz), 2+ = kolejni gracze kooperacji (`add_player`). Rozkazy i zapytania o umiejętności
+biorą numer gracza (`use_ability(id, at, player)`, `build(kind, cell, player)`…); efekty celują w jego drużynę.
+Widok pokazuje gracza `Main.me`. Gra solo to gracze 0 i 1 — tabela botów bez zmian.
+
+**Komendy.** Rozkazy wchodzą do Sim tylko przez `Sim.apply(cmd)` — słownik prostych wartości
+`{player, type, …}` (budynek wskazany pozycją `at`), więc da się go wysłać siecią. Widok wysyła je przez
+`Main.send` (dopisuje `player = me`), boty testów i AI dowódcy wroga (`AbilityRules`, `EnemyCommander`) też
+przez `apply`. Metody rozkazów (`build`, `upgrade`, `use_ability`…) zostają implementacją komend; testy mechanik
+wołają je wprost. Komenda z błędnym graczem, brakującym polem czy złym typem = false bez zmian stanu.
+
 ```
  input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
               ▲                        │

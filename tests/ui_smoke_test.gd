@@ -74,10 +74,10 @@ func _process(_delta: float) -> bool:
 			_check(rival >= 0 and rival != main.race_index and Races.ALL[rival]["playable"], "przeciwnik wylosowany spośród innych grywalnych ras")
 			_check(main.banner_sub.begins_with("Przeciwnik: %s" % Races.ALL[maxi(rival, 0)]["name"]), "baner startu podaje przeciwnika")
 			_check(main.state == main.State.PLAY and sim.difficulty["name"] == "Normalny", "trudność startuje grę")
-			_check(sim.commander == "warbeat", "partia z dowódcą wybranym w menu")
+			_check(sim.players[0].commander == "warbeat", "partia z dowódcą wybranym w menu")
 			_check(main.tutorial_step == 0 and main.hud.tutorial_panel.visible, "samouczek przy pierwszej grze")
 			main.speed_mult = 3
-			sim.gold = 5000
+			sim.players[0].gold = 5000
 			_click(main.to_screen(sim.nodes[1]))
 		6:
 			_check(sim.extractor_on(1) != null, "klik w złoże stawia wydobywacz")
@@ -114,26 +114,26 @@ func _process(_delta: float) -> bool:
 			_key(KEY_C)
 			_key(KEY_Q)
 		20:
-			var order: Array = sim.ability_order[0]
+			var order: Array = sim.players[0].ability_order
 			_check(not main.is_zoomed_in(), "C wraca do widoku całej mapy")
-			_check(sim.hero() != null and order.size() == 4, "partia z dowódcą: 3 umiejętności + rasowa (%s)" % sim.commander)
+			_check(sim.hero() != null and order.size() == 4, "partia z dowódcą: 3 umiejętności + rasowa (%s)" % sim.players[0].commander)
 			_check(main.mode == "ab:" + order[0], "Q wybiera pierwszą umiejętność dowódcy")
 			_click(main.to_screen(sim.hero().pos + Vector2(900, 0)))
 		22:
-			var order: Array = sim.ability_order[0]
-			_check(sim.ability_cd[0][order[0]] == 0.0 and main.mode == "ab:" + order[0], "poza zasięgiem dowódcy — odmowa")
+			var order: Array = sim.players[0].ability_order
+			_check(sim.players[0].ability_cd[order[0]] == 0.0 and main.mode == "ab:" + order[0], "poza zasięgiem dowódcy — odmowa")
 			_click(main.to_screen(sim.hero().pos + Vector2(40, 0)))
 		23:
-			var order: Array = sim.ability_order[0]
-			_check(sim.ability_cd[0][order[0]] > 0 and main.mode == "", "klik w zasięgu rzuca umiejętność")
+			var order: Array = sim.players[0].ability_order
+			_check(sim.players[0].ability_cd[order[0]] > 0 and main.mode == "", "klik w zasięgu rzuca umiejętność")
 			_key(KEY_T)
 			main.hud.ability_buttons[order[2]].emit_signal("pressed")
 		24:
-			var order: Array = sim.ability_order[0]
-			_check(not Cfg.ABILITIES[order[3]]["target"] and sim.ability_cd[0][order[3]] > 0, "T rzuca umiejętność rasy od razu")
+			var order: Array = sim.players[0].ability_order
+			_check(not Cfg.ABILITIES[order[3]]["target"] and sim.players[0].ability_cd[order[3]] > 0, "T rzuca umiejętność rasy od razu")
 			_check(main.mode == "ab:" + order[2], "przycisk na pasku wybiera umiejętność")
 			_click(main.to_screen(sim.hero().pos + Vector2(40, 0)))
-			_check(sim.ability_cd[0][order[2]] > 0, "przycisk + klik rzuca umiejętność")
+			_check(sim.players[0].ability_cd[order[2]] > 0, "przycisk + klik rzuca umiejętność")
 			_key(KEY_3)
 			cell = sim.free_cell_near(sim.lanes[1].slot_at(420, 70))
 			_click(main.to_screen(cell))
@@ -207,12 +207,12 @@ func _process(_delta: float) -> bool:
 			_check(main.hud.portrait_button.text.contains("poz. 2"), "portret pokazuje poziom")
 			main.hud.upgrade_buttons[1].emit_signal("pressed")
 		54:
-			_check(sim.hero_offers[0].is_empty() and not main.hud.upgrade_panel.visible, "wybór ulepszenia zamyka ofertę")
-			_check(not sim.ability_cfg[0].is_empty(), "ulepszenie trafia do konfiguracji gracza")
+			_check(sim.players[0].hero_offers.is_empty() and not main.hud.upgrade_panel.visible, "wybór ulepszenia zamyka ofertę")
+			_check(not sim.players[0].ability_cfg.is_empty(), "ulepszenie trafia do konfiguracji gracza")
 			main.start_daily()
 		56:
 			var today := Cfg.daily(Time.get_date_string_from_system())
-			_check(main.state == main.State.PLAY and sim.commander == today["commander"] and sim.mods == today["mods"]
+			_check(main.state == main.State.PLAY and sim.players[0].commander == today["commander"] and sim.mods == today["mods"]
 				and sim.level_index == today["map"] and sim.mode == today["mode"], "wyzwanie dnia startuje zestaw z daty")
 			_check(main.hud.daily_label.visible and main.hud.daily_label.text.contains(Cfg.DAILY_MODS[today["mods"][0]]["name"]), "HUD pokazuje modyfikatory dnia")
 			main.show_menu()
@@ -221,10 +221,10 @@ func _process(_delta: float) -> bool:
 				and main.level_index == 2 and main.game_mode == "battle", "po wyzwaniu menu wraca do wyborów gracza")
 			main.start(1)
 		60:
-			_check(main.state == main.State.PLAY and sim.mods.is_empty() and sim.commander == "warbeat", "zwykła gra po wyzwaniu bez modyfikatorów")
+			_check(main.state == main.State.PLAY and sim.mods.is_empty() and sim.players[0].commander == "warbeat", "zwykła gra po wyzwaniu bez modyfikatorów")
 		1200:
 			# dokładamy gospodarkę i armię, żeby dojść do końca partii
-			sim.gold += 8000
+			sim.players[0].gold += 8000
 			for kind in ["range", "workshop", "tower", "cannon", "barracks", "workshop", "frost", "barracks"]:
 				var c := sim.free_cell_near(Vector2(250, 450), 400)
 				if sim.build(kind, c) and Cfg.is_production(kind):

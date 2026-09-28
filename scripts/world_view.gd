@@ -388,7 +388,7 @@ func draw_overlays() -> void:
 			pen.rect(Rect2(c - Vector2(18, 18), Vector2(36, 36)), Color(1, 1, 1, 0.07))
 
 	# linie zbiórki — po jednej na każdej ścieżce
-	if m.sim.stance == "defend" and m.state != Main.State.MENU:
+	if m.sim.players[m.me].stance == "defend" and m.state != Main.State.MENU:
 		for lane in m.sim.lanes:
 			var s := m.sim.rally_s + 14.0
 			var n := lane.normal_at(s)
@@ -430,7 +430,7 @@ func draw_resource_node(n: Vector2) -> void:
 	if m.sim.extractor_on(idx) == null and m.state == Main.State.PLAY:
 		var pulse := 0.3 + 0.2 * sin(m.time * 3.0)
 		pen.arc(n, 26, 0, TAU, 32, Color(1, 1, 1, pulse), 2.0)
-		if m.sim.gold >= Cfg.BUILDINGS["extractor"]["cost"]:
+		if m.sim.players[m.me].gold >= Cfg.BUILDINGS["extractor"]["cost"]:
 			pen.text(m.font, n + Vector2(-40, 44), "%d zł" % Cfg.BUILDINGS["extractor"]["cost"],
 				HORIZONTAL_ALIGNMENT_CENTER, 80, 13, Color(1, 1, 1, 0.6))
 
@@ -913,8 +913,8 @@ func draw_selection() -> void:
 
 ## Zaznaczony dowódca: pulsujący krąg, trasa marszu i chorągiewka punktu postoju.
 func draw_hero_selection() -> void:
-	var h := m.sim.hero()
-	if h == null or not m.sim.hero_alive() or m.state != Main.State.PLAY:
+	var h := m.sim.hero(m.me)
+	if h == null or not m.sim.hero_alive(m.me) or m.state != Main.State.PLAY:
 		return
 	if h.state == "march" or h.state == "back":
 		var pts := PackedVector2Array([h.pos])
@@ -937,18 +937,18 @@ func draw_ghost() -> void:
 		return
 	var ability := m.controls.ability_mode()
 	# zasięg rzucania wokół dowódcy — widoczny przez całe celowanie, także bez kursora (dotyk)
-	var cast_range: float = m.sim.ability_config(ability).get("cast_range", 0.0) if ability != "" else 0.0
-	if cast_range > 0.0 and m.sim.hero_alive():
-		var hp := m.sim.hero().pos
+	var cast_range: float = m.sim.ability_config(ability, m.me).get("cast_range", 0.0) if ability != "" else 0.0
+	if cast_range > 0.0 and m.sim.hero_alive(m.me):
+		var hp := m.sim.hero(m.me).pos
 		pen.circle(hp, cast_range, Color(Main.HERO_COLOR, 0.05))
 		pen.arc(hp, cast_range, 0, TAU, 64, Color(Main.HERO_COLOR, 0.55), 2.0)
 	if not (m.controls.pointer_active or m.controls.dragging):
 		return
 	var world := m.to_world(m.controls.pointer_screen)
 	if ability != "":
-		var ok := m.sim.ability_target_ok(ability, world)
+		var ok := m.sim.ability_target_ok(ability, world, m.me)
 		var tint := Color(0.3, 1, 0.4) if ok else Color(1, 0.3, 0.3)
-		var r: float = m.sim.ability_config(ability).get("radius", 40.0)
+		var r: float = m.sim.ability_config(ability, m.me).get("radius", 40.0)
 		pen.circle(world, r, Color(tint, 0.12))
 		pen.arc(world, r, 0, TAU, 48, Color(tint, 0.8), 2.0)
 		return

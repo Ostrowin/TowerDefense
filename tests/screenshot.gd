@@ -47,7 +47,7 @@ func _process(_delta: float) -> void:
 			main.rival_index = _race_index(rival)
 		main.banner_life = 0.0
 		var sim: Sim = main.sim
-		sim.gold = 5000
+		sim.players[0].gold = 5000
 		for i in sim.nodes.size():
 			sim.build_extractor(i)
 		var kinds := ["tower", "cannon", "frost", "barracks", "range", "workshop", "tower", "barracks"]

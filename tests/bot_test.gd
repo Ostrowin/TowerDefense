@@ -90,6 +90,9 @@ func _init() -> void:
 	_test_hare_otter_kinds()
 	_test_thorns()
 	_test_enemy_commander()
+	for n in [2, 3, 4]:
+		_test_players(n)
+	_test_commands()
 	_test_hero_level()
 	_test_survival()
 	_test_daily()
@@ -194,20 +197,20 @@ func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
 			if e["type"] == "building_destroyed" and e["kind"] == "extractor":
 				node_cooldown[sim.node_at(e["pos"])] = sim.elapsed + 90.0
 		sim.events.clear()
-		_check(sim.gold >= 0, "złoto nie może spaść poniżej zera")
+		_check(sim.players[0].gold >= 0, "złoto nie może spaść poniżej zera")
 		think -= DT
 		if think > 0 or strategy == "idle":
 			continue
 		think = BOT_THINK
 		for i in sim.nodes.size():
 			if sim.elapsed >= node_cooldown.get(i, 0.0):
-				sim.build_extractor(i)
+				_cmd(sim, {"type": "build_extractor", "node": i})
 		if plan_i < plan.size():
 			var cell := _resolve(sim, plan[plan_i][1])
 			if cell == Vector2.INF:
 				plan_i += 1  # brak miejsca — pomiń (test mapy i tak to wyłapie)
-			elif sim.build(plan[plan_i][0], cell):
-				sim.set_lane(sim.building_at(cell, 0), PUSH_LANE)
+			elif _cmd(sim, {"type": "build", "kind": plan[plan_i][0], "cell": cell}):
+				_cmd(sim, {"type": "set_lane", "at": cell, "lane": PUSH_LANE})
 				plan_i += 1
 		elif not _upgrade_cheapest(sim) and strategy != "turtle":
 			_expand(sim)
@@ -217,6 +220,12 @@ func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
 			_use_abilities(sim)
 		_set_stance(sim, strategy)
 	return sim
+
+
+## Rozkaz bota gracza 0 jako komenda Sim (multiplayer T2) — ta sama droga co dotyk w grze.
+func _cmd(sim: Sim, cmd: Dictionary) -> bool:
+	cmd["player"] = 0
+	return sim.apply(cmd)
 
 
 # ---------------------------------------------------------------- bot dowódcy (R9)
@@ -235,14 +244,14 @@ func _bot_rival(lv: int, difficulty: int) -> String:
 func _hero_bot(sim: Sim, strategy: String) -> void:
 	var h := sim.hero()
 	if not sim.hero_alive():
-		AbilityRules.cast_racial(sim, 0, sim.stance == "attack")
+		AbilityRules.cast_racial(sim, 0, sim.players[0].stance == "attack")
 		return
 	var post := sim._hero_spawn_pos(0)
 	if strategy != "turtle" and h.hp >= h.max_hp * 0.3:
 		var lane := sim.lanes[sim.next_wave_lanes[0]]
 		post = lane.point_at(sim.rally_s)
 		# w natarciu: tuż za czołem własnej armii na ścieżce natarcia (tam jest walka)
-		if sim.stance == "attack":
+		if sim.players[0].stance == "attack":
 			var front := -1.0
 			for u in sim.units:
 				if u.team == 0 and u.lane == PUSH_LANE and not u.is_hero and not u.flying:
@@ -250,9 +259,9 @@ func _hero_bot(sim: Sim, strategy: String) -> void:
 			if front > sim.rally_s:
 				post = sim.lanes[PUSH_LANE].point_at(front - 50.0)
 	if h.post.distance_to(post) > 40.0 and h.state != "march":
-		sim.order_hero(post)
+		_cmd(sim, {"type": "order_hero", "at": post})
 	AbilityRules.cast_hero_abilities(sim, 0)
-	AbilityRules.cast_racial(sim, 0, sim.stance == "attack")
+	AbilityRules.cast_racial(sim, 0, sim.players[0].stance == "attack")
 	if AbilityRules.pick_upgrade(sim, 0):
 		level_times.append(int(sim.elapsed))
 
@@ -266,18 +275,18 @@ func _set_stance(sim: Sim, strategy: String) -> void:
 	var army := sim.army_size(0)
 	match strategy:
 		"turtle":
-			sim.set_stance("defend")
+			_cmd(sim, {"type": "set_stance", "stance": "defend"})
 		"balanced":
 			if army >= 10:
-				sim.set_stance("attack")
+				_cmd(sim, {"type": "set_stance", "stance": "attack"})
 			elif army <= 3:
-				sim.set_stance("defend")
+				_cmd(sim, {"type": "set_stance", "stance": "defend"})
 		"mass":
 			var early := sim.elapsed < 240.0
 			if army >= (10 if early else int(Cfg.MAX_ARMY * 0.7)):
-				sim.set_stance("attack")
+				_cmd(sim, {"type": "set_stance", "stance": "attack"})
 			elif army <= (3 if early else 30):
-				sim.set_stance("defend")
+				_cmd(sim, {"type": "set_stance", "stance": "defend"})
 
 
 func _resolve(sim: Sim, anchor: Variant) -> Vector2:
@@ -293,7 +302,7 @@ func _upgrade_cheapest(sim: Sim) -> bool:
 			if best == null or sim.upgrade_cost(b) < sim.upgrade_cost(best):
 				best = b
 	if best != null:
-		sim.upgrade(best)
+		_cmd(sim, {"type": "upgrade", "at": best.pos})
 	return best != null
 
 
@@ -301,11 +310,11 @@ func _upgrade_cheapest(sim: Sim) -> bool:
 func _expand(sim: Sim) -> void:
 	var kinds := ["workshop", "barracks", "range"]
 	var kind: String = kinds[sim.stats["units_made"] % kinds.size()]
-	if sim.gold < Cfg.BUILDINGS[kind]["cost"] + 100:
+	if sim.players[0].gold < Cfg.BUILDINGS[kind]["cost"] + 100:
 		return
 	var cell := sim.free_cell_near(sim.p_base + Vector2(200, 0), 500.0)
-	if cell != Vector2.INF and sim.build(kind, cell):
-		sim.set_lane(sim.building_at(cell, 0), PUSH_LANE)
+	if cell != Vector2.INF and _cmd(sim, {"type": "build", "kind": kind, "cell": cell}):
+		_cmd(sim, {"type": "set_lane", "at": cell, "lane": PUSH_LANE})
 
 
 ## Umiejętności: deszcz strzał w największe skupisko wrogów, pobór przeciw wrogowi
@@ -326,14 +335,14 @@ func _use_abilities(sim: Sim) -> void:
 				best_n = n
 				best_pos = u.pos
 		if best_pos != Vector2.INF:
-			sim.use_ability("arrows", best_pos)
+			_cmd(sim, {"type": "use_ability", "ability": "arrows", "at": best_pos})
 	if sim.ability_ready("levy"):
 		for u in sim.units:
 			if u.team == 1 and not u.flying and u.pos.x < sim.size.x * 0.35:
-				sim.use_ability("levy", sim.lanes[u.lane].point_at(maxf(u.s - 60.0, 80.0)))
+				_cmd(sim, {"type": "use_ability", "ability": "levy", "at": sim.lanes[u.lane].point_at(maxf(u.s - 60.0, 80.0))})
 				break
 	if sim.ability_ready("repair") and sim.base_hp[0] < Cfg.BASE_HP[0] * 0.7:
-		sim.use_ability("repair")
+		_cmd(sim, {"type": "use_ability", "ability": "repair"})
 
 
 # ================================================================ testy mechanik
@@ -456,7 +465,7 @@ func _lane_gap(sim: Sim, p: Vector2) -> float:
 
 func _test_build_rules() -> void:
 	var sim := Sim.new(1, 1)
-	sim.gold = 10000
+	sim.players[0].gold = 10000
 	_check(not sim.can_place(Cfg.snap(sim.lanes[1].point_at(300))), "nie można stawiać na ścieżce")
 	_check(not sim.can_place(sim.nodes[0]), "nie można stawiać na złożu")
 	_check(not sim.can_place(Vector2(1100, 820)), "nie można stawiać na połowie wroga")
@@ -465,13 +474,13 @@ func _test_build_rules() -> void:
 	_check(not sim.build("tower", cell), "nie można stawiać na zajętej komórce")
 	_check(sim.build_extractor(0), "budowa wydobywacza")
 	_check(not sim.build_extractor(0), "jedno złoże = jeden wydobywacz")
-	sim.gold = 0
+	sim.players[0].gold = 0
 	_check(not sim.build("tower", sim.free_cell_near(Vector2(300, 330))), "brak złota blokuje budowę")
 
 
 func _test_upgrade_and_sell() -> void:
 	var sim := Sim.new(1, 1)
-	sim.gold = 1000
+	sim.players[0].gold = 1000
 	var cell := sim.free_cell_near(Vector2(300, 330))
 	sim.build("tower", cell)
 	var t := sim.building_at(cell, 0)
@@ -479,16 +488,16 @@ func _test_upgrade_and_sell() -> void:
 	_check(sim.upgrade(t) and sim.upgrade(t), "dwa ulepszenia")
 	_check(t.level == 3 and not sim.upgrade(t), "maks. poziom 3")
 	_check(t.invested == 80 + 70 + 140, "invested sumuje koszty")
-	var before := sim.gold
+	var before := sim.players[0].gold
 	_check(sim.sell(t), "sprzedaż")
-	_check(is_equal_approx(sim.gold - before, int(290 * Cfg.SELL_REFUND)), "zwrot 60% włożonego złota")
+	_check(is_equal_approx(sim.players[0].gold - before, int(290 * Cfg.SELL_REFUND)), "zwrot 60% włożonego złota")
 	_check(sim.building_at(cell, 0) == null, "sprzedany budynek znika")
 	_check(sim.tower_stats("tower", 3)["dmg"] > sim.tower_stats("tower", 1)["dmg"], "ulepszenie zwiększa obrażenia")
 
 
 func _test_income() -> void:
 	var sim := Sim.new(1, 1)
-	sim.gold = 1000
+	sim.players[0].gold = 1000
 	_check(is_equal_approx(sim.income(), Cfg.PASSIVE_INCOME), "dochód bazowy")
 	sim.build_extractor(1)
 	sim.upgrade(sim.extractor_on(1))
@@ -499,7 +508,7 @@ func _test_income() -> void:
 
 func _test_splash() -> void:
 	var sim := _empty_sim()
-	sim.gold = 1000
+	sim.players[0].gold = 1000
 	var lane := sim.lanes[1]
 	var cell := sim.free_cell_near(lane.slot_at(400, 60))
 	sim.build("cannon", cell)
@@ -588,7 +597,7 @@ func _test_stance() -> void:
 
 func _test_production_lane() -> void:
 	var sim := _empty_sim()
-	sim.gold = 1000
+	sim.players[0].gold = 1000
 	var cell := sim.free_cell_near(Vector2(170, 330))
 	sim.build("barracks", cell)
 	var b := sim.building_at(cell, 0)
@@ -617,7 +626,7 @@ func _test_wave_lanes() -> void:
 ## Mocno bronione ścieżki 0 i 1 → fala najczęściej idzie ścieżką 2.
 func _test_smart_lane_choice() -> void:
 	var sim := _empty_sim()
-	sim.gold = 1e6
+	sim.players[0].gold = 1e6
 	for lane_i in 2:
 		for s in [300.0, 380.0, 460.0]:
 			# poz. 1: zasięg sięga tylko „swojej" ścieżki (poz. 3 dosięgnąłby też trzeciej)
@@ -632,7 +641,7 @@ func _test_smart_lane_choice() -> void:
 
 func _test_enemies_hit_buildings_and_regen() -> void:
 	var sim := _empty_sim()
-	sim.gold = 1000
+	sim.players[0].gold = 1000
 	sim.build_extractor(4)  # sporne złoże przy Północy
 	var ex := sim.extractor_on(4)
 	var lane := sim.lanes[0]
@@ -680,7 +689,7 @@ func _test_flying() -> void:
 	for s in [arrows, cannons]:
 		s.buildings = s.buildings.filter(func(b: Sim.Building) -> bool: return b.kind == "basegun" and b.team == 1)
 		s.wave_timer = INF
-		s.gold = 1000
+		s.players[0].gold = 1000
 	arrows.build("tower", arrows.free_cell_near(Vector2(400, 450)))
 	cannons.build("cannon", cannons.free_cell_near(Vector2(400, 450)))
 	for s in [arrows, cannons]:
@@ -713,7 +722,7 @@ func _test_frost_slows() -> void:
 	var moved: Array[float] = []
 	for frosted in [false, true]:
 		var sim := _empty_sim()
-		sim.gold = 1000
+		sim.players[0].gold = 1000
 		if frosted:
 			sim.build("frost", sim.free_cell_near(sim.lanes[1].slot_at(420, 70)))
 		sim._spawn_unit(1, "grunt", 1, 1.0, 1)
@@ -749,7 +758,7 @@ func _test_abilities() -> void:
 	_check(sim.army_size(0) == Cfg.ABILITIES["levy"]["count"], "Pobór wystawia oddział")
 	_check(sim.units[0].lane == 2 and absf(sim.units[0].s - 400.0) < 60.0, "posiłki stają na wskazanej ścieżce")
 
-	sim.gold = 1000
+	sim.players[0].gold = 1000
 	sim.build("tower", sim.free_cell_near(Vector2(300, 330)))
 	var t: Sim.Building = sim.buildings[-1]
 	t.hp = 10.0
@@ -824,9 +833,9 @@ func _test_commander_data() -> void:
 	_check(Cfg.commander_respawn(0) == 20.0 and Cfg.commander_respawn(5) == 30.0 and Cfg.commander_respawn(50) == 40.0,
 		"odrodzenie 20 s + 2 s/falę, maks. 40 s")
 	var sim := Sim.new(1, 1, 0, "sapper")
-	_check(sim.ability_cd[0].has("dig_in") and not sim.ability_cd[0].has("arrows"), "Sim z dowódcą: jego umiejętności")
-	_check(sim.ability_cd[1].has("arrows"), "wróg bez dowódcy — dzisiejszy zestaw")
-	_check(Sim.new(1, 1).ability_order[0] == Cfg.ABILITY_ORDER, "Sim bez dowódcy — dzisiejszy zestaw")
+	_check(sim.players[0].ability_cd.has("dig_in") and not sim.players[0].ability_cd.has("arrows"), "Sim z dowódcą: jego umiejętności")
+	_check(sim.players[1].ability_cd.has("arrows"), "wróg bez dowódcy — dzisiejszy zestaw")
+	_check(Sim.new(1, 1).players[0].ability_order == Cfg.ABILITY_ORDER, "Sim bez dowódcy — dzisiejszy zestaw")
 
 
 ## Dowódca w Sim (T5, R4, D3): marsz przez most, walka na smyczy, śmierć i odrodzenie,
@@ -913,12 +922,12 @@ func _test_hero() -> void:
 	_check(h.state == "dead" and is_equal_approx(h.respawn, Cfg.commander_respawn(5)), "po śmierci odlicza odrodzenie (30 s w fali 5)")
 	_check(not sim.ability_ready("barrage") and sim.ability_ready("dig_in"), "umiejętności dowódcy wyszarzone, rasowa działa")
 	_check(not sim.order_hero(sim.p_base), "martwy dowódca nie przyjmuje rozkazów")
-	sim.ability_cd[0]["barrage"] = 5.0
+	sim.players[0].ability_cd["barrage"] = 5.0
 	for i in 30 * 31:
 		sim.step(DT)
 	_check(h.state == "idle" and sim.units.has(h) and h.hp == h.max_hp, "dowódca odradza się z pełnym HP")
 	_check(h.pos.distance_to(sim.p_base) < Cfg.BASE_R + 40.0, "odradza się przy bazie")
-	_check(sim.ability_cd[0]["barrage"] == 0.0 and sim.ability_ready("barrage"), "odnowienie biegło w czasie śmierci")
+	_check(sim.players[0].ability_cd["barrage"] == 0.0 and sim.ability_ready("barrage"), "odnowienie biegło w czasie śmierci")
 	_check(h.invulnerable > 0.0, "po odrodzeniu nietykalny")
 	var hp := h.hp
 	sim._damage_unit(h, 50.0, "melee")
@@ -987,7 +996,7 @@ func _test_effect_kinds() -> void:
 		var t: Sim.Building = sim.buildings[-1]
 		_check(t.temporary and t.team == team and t.pos == cell, "budowla tymczasowa drużyny (%s)" % who)
 		_check(not sim.use_ability("drill_turret", spot, team), "wieżyczka ma odnowienie (%s)" % who)
-		sim.ability_cd[team]["drill_turret"] = 0.0
+		sim.players[team].ability_cd["drill_turret"] = 0.0
 		_check(not sim.ability_target_ok("drill_turret", spot, team), "zajęte pole odrzucone (%s)" % who)
 		_check(not sim.ability_target_ok("drill_turret", sim.lanes[1].point_at(700), team), "nie na ścieżce (%s)" % who)
 		_check(sim.building_at(cell, team) == null and not sim.sell(t) and sim.upgrade_cost(t) < 0,
@@ -1064,7 +1073,7 @@ func _test_effect_kinds() -> void:
 		var boss: Sim.Unit = sim.units[-1]
 		boss.pos = spot
 		boss.hp = boss.max_hp * 0.2
-		sim.ability_cd[team]["snipe"] = 0.0
+		sim.players[team].ability_cd["snipe"] = 0.0
 		var before := boss.hp
 		sim.use_ability("snipe", spot, team)
 		_check(boss.hp > 0 and is_equal_approx(before - boss.hp, Cfg.ABILITIES["snipe"]["dmg"]), "Wódz odporny na dobicie (%s)" % who)
@@ -1125,7 +1134,7 @@ func _test_gibbon_kinds() -> void:
 		sim.base_hp = [1e9, 1e9]
 		var lane: Sim.Lane = sim.lanes[1]
 		var h := sim._make_hero(team, "iron_grip")
-		sim.heroes[team] = h
+		sim.players[team].hero = h
 		h.pos = lane.point_at(700)
 		h.post = h.pos
 		var fwd := 1.0 if team == 0 else -1.0  # „naprzód" dla rzucającego wzdłuż ścieżki
@@ -1145,7 +1154,7 @@ func _test_gibbon_kinds() -> void:
 		# pull: najsilniejszy wróg w obszarze ląduje przy dowódcy; Wódz odporny
 		sim = _fx_sim()
 		h = sim._make_hero(team, "iron_grip")
-		sim.heroes[team] = h
+		sim.players[team].hero = h
 		h.pos = lane.point_at(700)
 		var spot := lane.point_at(700 + 160 * fwd)
 		_check(not sim.ability_target_ok("grip", spot, team), "chwyt bez celu — odmowa (%s)" % who)
@@ -1160,7 +1169,7 @@ func _test_gibbon_kinds() -> void:
 		sim = _fx_sim()
 		sim.base_hp = [1e9, 1e9]
 		h = sim._make_hero(team, "iron_grip")
-		sim.heroes[team] = h
+		sim.players[team].hero = h
 		h.pos = lane.slot_at(700, 130)  # obok ścieżki, poza zasięgiem wzroku przechodzących
 		h.post = h.pos
 		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700)
@@ -1176,7 +1185,7 @@ func _test_gibbon_kinds() -> void:
 		# repel: fala uderzeniowa cofa wrogów na linii wzdłuż ich ścieżki, swoich nie
 		sim = _fx_sim()
 		h = sim._make_hero(team, "wrecker")
-		sim.heroes[team] = h
+		sim.players[team].hero = h
 		h.pos = lane.point_at(700)
 		sim._spawn_unit(foe_t, "grunt", 1, 1.0, 1, 700 + 120 * fwd)
 		foe = sim.units[-1]
@@ -1218,7 +1227,7 @@ func _test_hyena_boar_kinds() -> void:
 		sim = _fx_sim(river_lv)
 		lane = sim.lanes[1]
 		var h := sim._make_hero(team, "cackle")
-		sim.heroes[team] = h
+		sim.players[team].hero = h
 		h.pos = lane.point_at(600)
 		var land := lane.point_at(600 + 150 * fwd)
 		sim._spawn_unit(foe_t, "brute", 1, 1.0, 1, 600 + 150 * fwd)
@@ -1232,7 +1241,7 @@ func _test_hyena_boar_kinds() -> void:
 				water = p
 				break
 		h.pos = water + Vector2(150, 0)
-		sim.ability_cd[team]["pounce"] = 0.0
+		sim.players[team].ability_cd["pounce"] = 0.0
 		_check(not sim.ability_target_ok("pounce", water, team), "skok do rzeki — odmowa (%s)" % who)
 
 		# raise_dead: wróg ginący w obszarze wstaje po naszej stronie
@@ -1258,12 +1267,12 @@ func _test_hyena_boar_kinds() -> void:
 		sim = _fx_sim()
 		_check(sim.use_ability("carrion", Vector2.ZERO, team), "padlina (%s)" % who)
 		sim._spawn_unit(1, "brute", 1, 1.0, 1, 700)
-		var gold := sim.gold
+		var gold := sim.players[0].gold
 		sim._damage_unit(sim.units[-1], 1e6, "melee")
 		var expected: int = Cfg.UNITS["brute"]["bounty"]
 		if team == 0:
 			expected = roundi(expected * Cfg.ABILITIES["carrion"]["mult"])
-		_check(is_equal_approx(sim.gold - gold, expected), "nagroda za zabicie: %d (%s)" % [expected, who])
+		_check(is_equal_approx(sim.players[0].gold - gold, expected), "nagroda za zabicie: %d (%s)" % [expected, who])
 
 		# summon_units z lifetime (Tabun) znika po czasie; Szarża — pierwszy cios odrzuca
 		sim = _fx_sim()
@@ -1310,7 +1319,7 @@ func _test_hare_otter_kinds() -> void:
 		_check(is_equal_approx(far.hp, far.max_hp * (0.2 + Cfg.ABILITIES["high_tide"]["heal"])), "przypływ leczy całą armię (%s)" % who)
 		_check(is_equal_approx(foe.hp, foe.max_hp * 0.2), "przypływ nie leczy wrogów (%s)" % who)
 		near.hp = near.max_hp - 1.0
-		sim.ability_cd[team]["high_tide"] = 0.0
+		sim.players[team].ability_cd["high_tide"] = 0.0
 		sim.use_ability("high_tide", Vector2.ZERO, team)
 		_check(near.hp == near.max_hp, "leczenie nie przekracza max HP (%s)" % who)
 
@@ -1354,7 +1363,7 @@ func _test_thorns() -> void:
 		_check(ally.hp == hp, "wróg bez kolców nie oddaje (%s)" % who)
 
 		var h := sim._make_hero(team, "curl")
-		sim.heroes[team] = h
+		sim.players[team].hero = h
 		h.pos = sim.lanes[1].point_at(500)
 		_check(sim.use_ability("iron_curl", Vector2.ZERO, team), "żelazny kłębek (%s)" % who)
 		_check(h.armor_bonus > 0.0 and is_equal_approx(h.buffs["thorns"][0], Cfg.ABILITIES["iron_curl"]["thorns"]),
@@ -1368,8 +1377,8 @@ func _test_enemy_commander() -> void:
 	var normal := Sim.new(1, 7, 0, "", "battle", [], "mole")
 	_check(normal.hero(1) == null and normal.ai == null, "Normalny: wróg bez dowódcy")
 	var hard := Sim.new(2, 7, 0, "", "battle", [], "mole")
-	_check(hard.hero(1) != null and Cfg.COMMANDERS[hard.rival_commander]["race"] == "mole", "Trudny: dowódca wroga z rasy rywala")
-	_check(hard.ability_order[1].has(Cfg.RACIAL["mole"]), "dowódca wroga ma umiejętność rasy")
+	_check(hard.hero(1) != null and Cfg.COMMANDERS[hard.players[1].commander]["race"] == "mole", "Trudny: dowódca wroga z rasy rywala")
+	_check(hard.players[1].ability_order.has(Cfg.RACIAL["mole"]), "dowódca wroga ma umiejętność rasy")
 	_check(Sim.new(2, 7, 0).hero(1) == null, "bez rasy rywala — bez dowódcy wroga")
 
 	var a := Sim.new(2, 99, 1, "", "battle", [], "wolf")
@@ -1377,7 +1386,7 @@ func _test_enemy_commander() -> void:
 	for i in int(90.0 / DT):
 		a.step(DT)
 		b.step(DT)
-	_check(a.rival_commander == b.rival_commander and a.hero(1).pos == b.hero(1).pos and a.units.size() == b.units.size(),
+	_check(a.players[1].commander == b.players[1].commander and a.hero(1).pos == b.hero(1).pos and a.units.size() == b.units.size(),
 		"AI powtarzalne: to samo ziarno — ten sam przebieg")
 
 	var sim := Sim.new(2, 3, 0, "", "battle", [], "bear")
@@ -1397,9 +1406,8 @@ func _test_enemy_commander() -> void:
 			continue
 		var s := _fx_sim(1)
 		var h := s._make_hero(1, id)
-		s.heroes[1] = h
-		s.units.append(h)
-		s.ability_order[1] = Cfg.commander_abilities(id)
+		s.players[1].hero = h  # _make_hero sam dodaje go do units
+		s.players[1].ability_order = Cfg.commander_abilities(id)
 		s.ai = EnemyCommander.new(1)
 		var ln: Sim.Lane = s.lanes[1]
 		h.pos = ln.point_at(ln.length * 0.6)
@@ -1415,15 +1423,164 @@ func _test_enemy_commander() -> void:
 		s.ai.think(s)
 		var used := false
 		for ab in Cfg.COMMANDERS[id]["abilities"]:
-			used = used or s.ability_cd[1][ab] > 0.0
+			used = used or s.players[1].ability_cd[ab] > 0.0
 		if not used:
 			silent.append(id)
 	_check(silent.is_empty(), "każdy dowódca wroga rzuca umiejętności w walce (milczą: %s)" % ", ".join(silent))
 
 	sim = Sim.new(2, 5, 0, "", "battle", [], "otter")
-	var gold := sim.gold
+	var gold := sim.players[0].gold
 	sim._damage_unit(sim.hero(1), 1e6, "melee")
-	_check(sim.hero(1).state == "dead" and is_equal_approx(sim.gold - gold, Cfg.COMMANDER_KILL_BOUNTY), "zabicie dowódcy wroga daje złoto")
+	_check(sim.hero(1).state == "dead" and is_equal_approx(sim.players[0].gold - gold, Cfg.COMMANDER_KILL_BOUNTY), "zabicie dowódcy wroga daje złoto")
+
+
+## Multiplayer T1 (docs/designs/multiplayer.md): gracz jako właściciel — osobne złoto, budynki, dochód,
+## produkcja, postawa i dowódca na gracza; cudzego budynku nie da się ulepszyć, sprzedać ani przekierować.
+## `n` graczy w drużynie 0 (kod pod N, lobby w v1 na 2).
+func _test_players(n: int) -> void:
+	var who := "%d graczy" % n
+	var sim := _empty_sim(0, "sapper")
+	var ids: Array[int] = [0]
+	for i in n - 1:
+		ids.append(sim.add_player("iron_grip" if i % 2 == 0 else ""))
+	_check(sim.players.size() == n + 1 and sim.players[1].team == 1, "gracze: %d w drużynie 0 + strona wroga (%s)" % [n, who])
+	_check(sim.team_players(0).size() == n, "team_players liczy graczy drużyny (%s)" % who)
+	var last := ids[-1]
+	for id in ids:
+		sim.players[id].gold = 1000.0
+	_check(sim.hero(ids[1]) != null and sim.hero(ids[1]).owner == ids[1] and sim.hero(ids[1]).team == 0,
+		"dowódca kolejnego gracza należy do niego (%s)" % who)
+
+	# budowa za własne złoto
+	var cell := sim.free_cell_near(sim.p_base + Vector2(160, 0), 300.0)
+	_check(sim.build("barracks", cell, last), "gracz %d buduje koszary (%s)" % [last, who])
+	var b := sim.building_at(cell, 0)
+	_check(b.owner == last and is_equal_approx(sim.players[last].gold, 1000.0 - Cfg.BUILDINGS["barracks"]["cost"])
+		and is_equal_approx(sim.players[0].gold, 1000.0), "budowa płaci tylko budujący (%s)" % who)
+	_check(not sim.upgrade(b, 0) and not sim.sell(b, 0) and not sim.set_lane(b, 2, 0), "cudzego budynku nie ruszysz (%s)" % who)
+	_check(sim.set_lane(b, 2, last) and sim.upgrade(b, last), "właściciel przekierowuje i ulepsza (%s)" % who)
+	var before := sim.players[last].gold
+	_check(sim.sell(b, last) and sim.players[last].gold > before, "sprzedaż zwraca złoto właścicielowi (%s)" % who)
+
+	# dochód: wydobywacz liczy się właścicielowi
+	var node := 0
+	_check(sim.build_extractor(node, ids[1]), "wydobywacz gracza %d (%s)" % [ids[1], who])
+	_check(sim.income(ids[1]) > sim.income(0) and is_equal_approx(sim.income(0), Cfg.PASSIVE_INCOME),
+		"wydobywacz zwiększa dochód tylko właściciela (%s)" % who)
+	var gold0 := sim.players[0].gold
+	var gold1 := sim.players[ids[1]].gold
+	sim.step(DT)
+	_check(is_equal_approx(sim.players[0].gold - gold0, sim.income(0) * DT)
+		and is_equal_approx(sim.players[ids[1]].gold - gold1, sim.income(ids[1]) * DT), "każdy gracz zarabia swój dochód (%s)" % who)
+
+	# produkcja należy do właściciela budynku; postawa per gracz (R3)
+	cell = sim.free_cell_near(sim.p_base + Vector2(200, 80), 300.0)
+	sim.build("barracks", cell, last)
+	var prod := sim.building_at(cell, 0)
+	prod.timer = 1e6
+	sim.step(DT)
+	var made: Sim.Unit = null
+	for u in sim.units:
+		if u.team == 0 and not u.is_hero and u.kind == "soldier":
+			made = u
+	_check(made != null and made.owner == last, "jednostka z koszar należy do właściciela koszar (%s)" % who)
+	sim.set_stance("defend", last)
+	_check(sim.players[last].stance == "defend" and sim.players[0].stance == "attack", "postawa jest per gracz (%s)" % who)
+
+	# umiejętność dowódcy gracza zużywa jego odnowienie, nie cudze
+	var sapper_ab: String = Cfg.COMMANDERS["sapper"]["abilities"][0]
+	sim.players[0].ability_cd[sapper_ab] = 0.0
+	var grip_ab: String = Cfg.COMMANDERS["iron_grip"]["abilities"][2]  # uderzenie o ziemię — bez celu
+	sim.players[ids[1]].ability_cd[grip_ab] = 0.0
+	_check(sim.use_ability(grip_ab, Vector2.ZERO, ids[1]) and sim.players[ids[1]].ability_cd[grip_ab] > 0.0
+		and not sim.players[0].ability_cd.has(grip_ab), "odnowienie liczy się graczowi, który rzucił (%s)" % who)
+
+
+var cmd_ok := 0  ## udane komendy w `_test_commands`
+
+
+## Multiplayer T2: komenda (`Sim.apply`) robi dokładnie to samo co bezpośrednie wywołanie rozkazu — dwa
+## Sim, jeden przez metody, drugi przez komendy, po każdym rozkazie ten sam wynik i stan. Śmieci (jak
+## z sieci: zły gracz, brak pól, złe typy, cudza umiejętność) → false bez zmian stanu.
+func _test_commands() -> void:
+	cmd_ok = 0
+	var a := _empty_sim(0, "sapper")
+	var b := _empty_sim(0, "sapper")
+	for s in [a, b]:
+		s.players[0].gold = 5000.0
+		for ab in s.players[0].ability_order:
+			s.players[0].ability_cd[ab] = 0.0
+	var cell := a.free_cell_near(a.p_base + Vector2(160, 0), 300.0)
+	_same_cmd(a, b, a.build("tower", cell), {"type": "build", "kind": "tower", "cell": cell})
+	_same_cmd(a, b, a.build("tower", cell), {"type": "build", "kind": "tower", "cell": cell})  # zajęte
+	var cell2 := a.free_cell_near(a.p_base + Vector2(160, 120), 300.0)
+	_same_cmd(a, b, a.build("barracks", cell2), {"type": "build", "kind": "barracks", "cell": cell2})
+	_same_cmd(a, b, a.build_extractor(0), {"type": "build_extractor", "node": 0})
+	_same_cmd(a, b, a.upgrade(a.building_at(cell, 0)), {"type": "upgrade", "at": cell})
+	_same_cmd(a, b, a.set_lane(a.building_at(cell2, 0), 2), {"type": "set_lane", "at": cell2, "lane": 2})
+	_same_cmd(a, b, a.set_lane(a.building_at(cell2, 0), 9), {"type": "set_lane", "at": cell2, "lane": 9})
+	a.set_stance("defend")
+	_same_cmd(a, b, true, {"type": "set_stance", "stance": "defend"})
+	var goal := a.p_base + Vector2(300, 60)
+	_same_cmd(a, b, a.order_hero(goal), {"type": "order_hero", "at": goal})
+	var ab0: String = a.players[0].ability_order[0]
+	var spot := a.hero().pos + Vector2(100, 0)
+	_same_cmd(a, b, a.use_ability(ab0, spot), {"type": "use_ability", "ability": ab0, "at": spot})
+	_same_cmd(a, b, a.use_ability(ab0, spot), {"type": "use_ability", "ability": ab0, "at": spot})  # odnowienie
+	for s in [a, b]:
+		s.players[0].hero_offers = [[{"ability": ab0, "kind": "cooldown", "label": "a"}, {"ability": ab0, "kind": "power", "label": "b"}]]
+	_same_cmd(a, b, a.choose_upgrade(1), {"type": "choose_upgrade", "i": 1})
+	_same_cmd(a, b, a.sell(a.building_at(cell, 0)), {"type": "sell", "at": cell})
+	for i in 90:
+		a.step(DT)
+		b.step(DT)
+	_check(cmd_ok == 10, "komendy: udanych rozkazów %d/10" % cmd_ok)
+	_check(_state_print(a) == _state_print(b), "komendy: ten sam stan także po krokach")
+
+	# śmieci i cudze rozkazy
+	var other := b.add_player()
+	b.players[other].gold = 5000.0
+	var before := _state_print(b)
+	var bad: Array[Dictionary] = [
+		{}, {"type": "build", "kind": "tower", "cell": cell},  # bez gracza
+		{"player": 9, "type": "build", "kind": "tower", "cell": cell}, {"player": "0", "type": "set_stance", "stance": "attack"},
+		{"player": 0, "type": "nope"}, {"player": 0, "type": "build", "kind": "basegun", "cell": cell},
+		{"player": 0, "type": "build", "kind": 5, "cell": cell}, {"player": 0, "type": "build", "kind": "tower", "cell": "x"},
+		{"player": 0, "type": "build_extractor", "node": 99}, {"player": 0, "type": "build_extractor", "node": "1"},
+		{"player": 0, "type": "upgrade", "at": Vector2(-500, -500)}, {"player": 0, "type": "upgrade", "at": "x"},
+		{"player": other, "type": "upgrade", "at": cell2}, {"player": other, "type": "sell", "at": cell2},
+		{"player": other, "type": "set_lane", "at": cell2, "lane": 0}, {"player": 0, "type": "set_lane", "at": cell2, "lane": "0"},
+		{"player": 0, "type": "set_stance", "stance": "fly"}, {"player": 0, "type": "set_stance", "stance": 3},
+		{"player": 0, "type": "use_ability", "ability": "railshot", "at": spot}, {"player": 0, "type": "use_ability", "ability": 7},
+		{"player": 0, "type": "choose_upgrade", "i": "1"}, {"player": 0, "type": "choose_upgrade", "i": 0},
+		{"player": other, "type": "order_hero", "at": goal}, {"player": 1, "type": "build", "kind": "tower", "cell": cell},
+	]
+	var rejected := 0
+	for cmd in bad:
+		if not b.apply(cmd):
+			rejected += 1
+	_check(rejected == bad.size() and _state_print(b) == before, "komendy: śmieci i cudze rozkazy odrzucone bez zmian stanu (%d/%d)" % [rejected, bad.size()])
+
+
+## Ten sam rozkaz: `direct` = wynik wywołania na `a`, `cmd` idzie komendą do `b` (gracz 0).
+func _same_cmd(a: Sim, b: Sim, direct: bool, cmd: Dictionary) -> void:
+	cmd["player"] = 0
+	var via := b.apply(cmd)
+	if via:
+		cmd_ok += 1
+	_check(via == direct and _state_print(a) == _state_print(b), "komenda %s = wywołanie (%s)" % [cmd["type"], "tak" if direct else "odrzucona"])
+
+
+## Odcisk stanu do porównań w teście komend (pełna suma kontrolna to T3).
+func _state_print(sim: Sim) -> String:
+	var parts: Array = [sim.units.size(), sim.rng.state, sim.strikes.size()]
+	for p in sim.players:
+		parts.append([p.gold, p.stance, p.ability_cd, p.ability_cfg, p.hero_offers.size(), p.hero.post if p.hero != null else null])
+	for bl in sim.buildings:
+		parts.append([bl.kind, bl.pos, bl.level, bl.lane, bl.owner, bl.hp])
+	for u in sim.units:
+		parts.append([u.kind, u.pos, u.hp, u.owner])
+	return str(parts)
 
 
 ## Awans dowódcy (T14): doświadczenie w pobliżu i za zabicie osobiste, progi, statystyki,
@@ -1431,7 +1588,7 @@ func _test_enemy_commander() -> void:
 func _test_hero_level() -> void:
 	var sim := _fx_sim()
 	var h := sim._make_hero(0, "sapper")
-	sim.heroes[0] = h
+	sim.players[0].hero = h
 	h.pos = sim.lanes[1].point_at(700)
 	var bounty: float = Cfg.UNITS["grunt"]["bounty"]
 	sim._spawn_unit(1, "grunt", 1, 1.0, 1, 760)
@@ -1463,32 +1620,32 @@ func _test_hero_level() -> void:
 	var hp0 := h.max_hp
 	sim._gain_xp(h, Cfg.HERO_XP[0])
 	_check(h.hero_level == 2 and is_equal_approx(h.max_hp, hp0 * (1.0 + Cfg.HERO_STAT_PER_LEVEL)), "próg → poziom 2, więcej HP")
-	_check(sim.hero_offers[0].size() == 1 and sim.hero_offers[0][0].size() == 2, "awans daje ofertę 2 ulepszeń")
-	var offer: Array = sim.hero_offers[0][0]
+	_check(sim.players[0].hero_offers.size() == 1 and sim.players[0].hero_offers[0].size() == 2, "awans daje ofertę 2 ulepszeń")
+	var offer: Array = sim.players[0].hero_offers[0]
 	_check(offer[0]["label"] != offer[1]["label"], "opcje oferty są różne")
 	_check(sim.choose_upgrade(1), "wybór ulepszenia")
-	_check(sim.hero_offers[0].is_empty() and not sim.choose_upgrade(0), "po wyborze oferta znika")
+	_check(sim.players[0].hero_offers.is_empty() and not sim.choose_upgrade(0), "po wyborze oferta znika")
 	sim._gain_xp(h, 1e6)
-	_check(h.hero_level == Cfg.HERO_MAX_LEVEL and sim.hero_offers[0].size() == 1, "poziom maksymalny = %d" % Cfg.HERO_MAX_LEVEL)
+	_check(h.hero_level == Cfg.HERO_MAX_LEVEL and sim.players[0].hero_offers.size() == 1, "poziom maksymalny = %d" % Cfg.HERO_MAX_LEVEL)
 
 	# ulepszenia ogólne działają na konfigurację drużyny, Cfg zostaje
 	sim = _fx_sim()
 	h = sim._make_hero(0, "sapper")
-	sim.heroes[0] = h
+	sim.players[0].hero = h
 	var base_cd: float = Cfg.ABILITIES["minefield"]["cooldown"]
 	var base_dmg: float = Cfg.ABILITIES["minefield"]["dmg"]
-	sim.hero_offers[0] = [[{"ability": "minefield", "kind": "cooldown", "label": "a"}, {"ability": "minefield", "kind": "power", "label": "b"}]]
+	sim.players[0].hero_offers = [[{"ability": "minefield", "kind": "cooldown", "label": "a"}, {"ability": "minefield", "kind": "power", "label": "b"}]]
 	sim.choose_upgrade(0)
 	_check(is_equal_approx(sim.ability_config("minefield", 0)["cooldown"], base_cd * Cfg.UPGRADE_COOLDOWN), "odnowienie −25%")
 	_check(Cfg.ABILITIES["minefield"]["cooldown"] == base_cd and sim.ability_config("minefield", 1)["cooldown"] == base_cd,
 		"ulepszenie nie rusza Cfg ani drugiej drużyny")
-	sim.hero_offers[0] = [[{"ability": "minefield", "kind": "power", "label": "a"}, {"ability": "minefield", "kind": "reach", "label": "b"}]]
+	sim.players[0].hero_offers = [[{"ability": "minefield", "kind": "power", "label": "a"}, {"ability": "minefield", "kind": "reach", "label": "b"}]]
 	sim.choose_upgrade(0)
 	_check(is_equal_approx(sim.ability_config("minefield", 0)["dmg"], base_dmg * Cfg.UPGRADE_POWER), "moc +30%")
 	h.pos = sim.lanes[1].point_at(700)
 	sim.use_ability("minefield", h.pos + Vector2(60, 0))
-	_check(is_equal_approx(sim.ability_cd[0]["minefield"], base_cd * Cfg.UPGRADE_COOLDOWN), "rzucenie używa ulepszonej konfiguracji")
-	sim.hero_offers[0] = [[{"ability": "demo_charge", "kind": "manual", "label": "a", "set": {"building_dmg": 999.0}}, {}]]
+	_check(is_equal_approx(sim.players[0].ability_cd["minefield"], base_cd * Cfg.UPGRADE_COOLDOWN), "rzucenie używa ulepszonej konfiguracji")
+	sim.players[0].hero_offers = [[{"ability": "demo_charge", "kind": "manual", "label": "a", "set": {"building_dmg": 999.0}}, {}]]
 	sim.choose_upgrade(0)
 	_check(sim.ability_config("demo_charge", 0)["building_dmg"] == 999.0, "ulepszenie ręczne (Cfg.UPGRADES) nadpisuje wartości")
 
@@ -1498,7 +1655,7 @@ func _test_hero_level() -> void:
 	sim._damage_unit(h, 1e6, "melee")
 	_check(h.state == "dead" and h.xp == xp, "doświadczenie zostaje po śmierci")
 	var foe_h := sim._make_hero(1, "iron_grip")
-	sim.heroes[1] = foe_h
+	sim.players[1].hero = foe_h
 	foe_h.pos = sim.lanes[1].point_at(900)
 	sim._spawn_unit(0, "soldier", 1, 1.0, 1, 900)
 	sim._damage_unit(sim.units[-1], 1e6, "arrow")
@@ -1550,7 +1707,7 @@ func _test_daily() -> void:
 		var sim := Sim.new(a["difficulty"], a["seed"], a["map"], a["commander"], a["mode"], a["mods"])
 		for i in 30 * 90:
 			sim.step(DT)
-		runs.append("%d %d %.2f %s" % [sim.wave, sim.units.size(), sim.gold, sim.next_wave_lanes])
+		runs.append("%d %d %.2f %s" % [sim.wave, sim.units.size(), sim.players[0].gold, sim.next_wave_lanes])
 	_check(runs[0] == runs[1], "partia z ziarnem dnia jest powtarzalna (%s)" % runs[0])
 
 	# modyfikatory
@@ -1562,9 +1719,9 @@ func _test_daily() -> void:
 	_check(is_equal_approx(rich.hero().max_hp, plain.hero().max_hp * 1.5), "Bohater: dowódca ×1,5")
 	rich.hero().pos = rich.lanes[1].point_at(500)
 	rich.use_ability("minefield", rich.hero().pos + Vector2(40, 0))
-	_check(is_equal_approx(rich.ability_cd[0]["minefield"], Cfg.ABILITIES["minefield"]["cooldown"] * 0.6), "Szał umiejętności: odnowienia ×0,6")
+	_check(is_equal_approx(rich.players[0].ability_cd["minefield"], Cfg.ABILITIES["minefield"]["cooldown"] * 0.6), "Szał umiejętności: odnowienia ×0,6")
 	var hard := Sim.new(1, 7, 0, "sapper", "battle", ["poor", "hordes", "tough", "rush"])
-	_check(is_equal_approx(hard.gold, plain.gold * 0.5) and is_equal_approx(hard.income(), plain.income() * 0.5), "Bieda: złoto i dochód ×0,5")
+	_check(is_equal_approx(hard.players[0].gold, plain.players[0].gold * 0.5) and is_equal_approx(hard.income(), plain.income() * 0.5), "Bieda: złoto i dochód ×0,5")
 	_check(hard.wave_timer < plain.wave_timer, "Pośpiech: fale szybciej")
 	hard.wave_timer = 0.0
 	plain.wave_timer = 0.0
@@ -1592,7 +1749,7 @@ func _fx_sim(lv := 0) -> Sim:
 	var sim := _empty_sim(lv)
 	for team in 2:
 		for a in Cfg.ABILITIES:
-			sim.ability_cd[team][a] = 0.0
+			sim.players[team].ability_cd[a] = 0.0
 	return sim
 
 
@@ -1610,7 +1767,7 @@ func _test_progress() -> void:
 ## Limity populacji: bez nich w długiej partii jednostek przybywało bez końca.
 func _test_population_caps() -> void:
 	var sim := _empty_sim()
-	sim.gold = 1e6
+	sim.players[0].gold = 1e6
 	for i in 8:
 		sim.build("barracks", sim.free_cell_near(Vector2(170, 330), 400))
 	sim.base_hp = [1e9, 1e9]

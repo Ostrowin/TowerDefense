@@ -72,6 +72,8 @@ class FloatText:
 
 
 var sim: Sim
+## Gracz na tym telefonie (indeks w `sim.players`) — w grze solo 0; w sieci ustawia go lobby.
+var me := 0
 var state := State.MENU
 var overlay := ""  ## "" / "settings" / "help" — nakładka nad bieżącym stanem
 var level_index := 0
@@ -197,8 +199,8 @@ func start(d: int) -> void:
 	tutorial_timer = 0.0
 	camera_used = false
 	var rival_name: String = Races.ALL[rival_index]["name"]
-	if sim.rival_commander != "":
-		rival_name += " (dowódca: %s)" % Cfg.COMMANDERS[sim.rival_commander]["name"]
+	if sim.players[1].commander != "":
+		rival_name += " (dowódca: %s)" % Cfg.COMMANDERS[sim.players[1].commander]["name"]
 	banner("Przygotuj się!", "Przeciwnik: %s · pierwsza fala za %d s: %s" % [
 		rival_name, int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
 	if not daily.is_empty():
@@ -290,6 +292,13 @@ func _clear_view_state() -> void:
 	banner_life = 0.0
 	tutorial_step = -1
 	reset_camera()
+
+
+## Rozkaz gracza z tego telefonu jako komenda Sim (multiplayer T2) — widok nie woła rozkazów Sim wprost.
+## Solo: wykonuje się od razu (między krokami). W sieci pójdzie przez NetSession (T4).
+func send(cmd: Dictionary) -> bool:
+	cmd["player"] = me
+	return sim.apply(cmd)
 
 
 func set_paused(p: bool) -> void:
@@ -406,7 +415,7 @@ func _on_game_end() -> void:
 	if not daily.is_empty():  # modyfikatory zmieniają grę — tylko rekord dnia, zwykłe zostają
 		new_record = (survival or won) and Progress.record_daily(daily["date"], sim.mode, sim.wave if survival else sim.elapsed)
 	elif survival:
-		new_record = Progress.record_survival(map_id, difficulty, sim.commander, sim.wave)
+		new_record = Progress.record_survival(map_id, difficulty, sim.players[me].commander, sim.wave)
 	else:
 		new_record = won and Progress.record_win(map_id, difficulty, sim.elapsed)
 	var loser_base := sim.base_pos(1 if won else 0)
@@ -433,7 +442,7 @@ func _on_game_end() -> void:
 		var best_text := "—" if best < 0 else ("%d fal" % best if survival else hud.fmt_time(best))
 		lines.append("Wyzwanie dnia %s · %s" % [daily["date"], "NOWY REKORD DNIA!" if new_record else "rekord dnia: " + best_text])
 	elif survival:
-		lines.append("Nowy rekord przetrwania!" if new_record else "Rekord: %d fal" % Progress.best_survival(map_id, difficulty, sim.commander))
+		lines.append("Nowy rekord przetrwania!" if new_record else "Rekord: %d fal" % Progress.best_survival(map_id, difficulty, sim.players[me].commander))
 	elif new_record:
 		lines.append("Nowy rekord!  Gwiazdki mapy: %s" % hud.stars_text(Progress.stars(map_id)))
 	hud.over_stats.text = "\n".join(lines)
@@ -733,7 +742,7 @@ func _update_tutorial(delta: float) -> void:
 		"camera":
 			done = camera_used
 		"hero":
-			done = hero_ordered or sim.hero() == null
+			done = hero_ordered or sim.hero(me) == null
 		"ability":
 			done = sim.stats["abilities_used"] > 0
 		"timer":

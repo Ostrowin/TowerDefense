@@ -91,7 +91,7 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 - [x] **Etap 2 — reszta dowódców:** ~~T10 Snajper, Magma~~ ✅ · ~~T11 gibony~~ ✅ · ~~T11b hieny i dziki~~ ✅
 - [x] **Etap 3 — domknięcie:** ~~T12 boss rywala~~ (usunięte, D5) · ~~T13 balans całości, kontrakt regresji, perf, dokumentacja~~ ✅ (telefon: p95 20,3 ms w późnej grze z Saperem, 2026-09-26)
 - [x] **Seria wydajności wszystkich dowódców na telefonie:** `perf_test --series all` (27 dowódców po kolei, tabela `[seria]`), `android.ps1 -BenchTimeout`. Przy okazji: `perf_test` nie wołał bota dowódcy (`_hero`), więc wcześniejsze pomiary „z dowódcą” miały go stojącego pod bazą. **Wynik (realme 8i, 2026-09-28, Serpentyna, Trudny x3, 4 min gry na dowódcę, --stress, z dowódcą wroga): wszyscy 27 — mediana 16,7 ms (limit 60 FPS), p95 19,3–19,9 ms, p99 ≤ 21,4 ms, maks 27–46 ms; do ~155 jednostek.** Argumenty podawać przez `pwsh -Command` — `pwsh -File` skleja listę `-BenchArgs` w jeden napis.
-- [ ] **Etap 4 — rozbudowa (CEO review):** ~~T14 awans dowódcy w partii~~ ✅ · ~~T15 tryb przetrwania~~ ✅ · ~~T16 wyzwanie dnia z modyfikatorami~~ ✅ · T17 pojedynek 2 graczy — zmiana (2026-09-27): nie na jednym telefonie, tylko multiplayer na osobnych telefonach; szczegóły do ustalenia
+- [ ] **Etap 4 — rozbudowa (CEO review):** ~~T14 awans dowódcy w partii~~ ✅ · ~~T15 tryb przetrwania~~ ✅ · ~~T16 wyzwanie dnia z modyfikatorami~~ ✅ · T17 multiplayer na osobnych telefonach — projekt: [docs/designs/multiplayer.md](docs/designs/multiplayer.md) (2026-09-28): coop w Wi-Fi, lockstep, osobne złoto/budynki/dowódca; PvP etap 2. Następny krok: /plan-eng-review
 
 ## Lore i rasy (do przemyślenia)
 
@@ -103,6 +103,11 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 ## Backlog (świadomie odroczone)
 
 - AI dowódcy wroga na Łatwym/Normalnym — dziś tylko Trudny (D33); decyzja po graniu na telefonie
+- **Balans coop (multiplayer):** fale przy 2 graczach, dochód pasywny na gracza, podział nagród. v1 startuje od
+  fal ×1,6, dochodu pasywnego per gracz i nagrody dla właściciela zabójcy (Cfg); stroić po pierwszych partiach na dwóch
+  telefonach. Zależy od: działającego coopa (docs/designs/multiplayer.md, eng review D7).
+- **Przetrwanie i wyzwanie dnia w coop:** tryby dla 2 graczy z rekordami drużynowymi w Progress. W v1 lobby oferuje
+  tylko bitwę. Zależy od: coopa w bitwie (eng review D8).
 
 - Multiplayer / netcode
 - Asymetryczne rasy (różne jednostki i mechaniki — wybór ras w menu już jest, patrz „Lore i rasy”)

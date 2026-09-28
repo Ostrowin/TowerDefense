@@ -13,7 +13,7 @@ extends RefCounted
 
 const TAP_SLOP := 12.0
 const KEY_PAN_SPEED := 700.0
-## Skróty pól paska umiejętności: Q/E/R — dowódca, T — rasa (kolejność z `sim.ability_order[0]`).
+## Skróty pól paska umiejętności: Q/E/R — dowódca, T — rasa (kolejność z paska lokalnego gracza).
 const ABILITY_KEYS := {KEY_Q: 0, KEY_E: 1, KEY_R: 2, KEY_T: 3}
 ## Promień trafienia w dowódcę — w pikselach ekranu, niezależnie od przybliżenia (R6).
 const HERO_PICK := 28.0
@@ -152,8 +152,9 @@ func on_key(key: int) -> void:
 		return
 	if ABILITY_KEYS.has(key):
 		var slot: int = ABILITY_KEYS[key]
-		if slot < m.sim.ability_order[0].size():
-			select_ability(m.sim.ability_order[0][slot])
+		var order: Array[String] = m.sim.players[m.me].ability_order
+		if slot < order.size():
+			select_ability(order[slot])
 		return
 	match key:
 		KEY_H:
@@ -204,7 +205,7 @@ func tap(p: Vector2) -> void:
 		if ex != null:
 			m.selected = ex
 			m.mode = ""
-		elif not m.sim.build_extractor(node):
+		elif not m.send({"type": "build_extractor", "node": node}):
 			deny(p)
 		return
 	var own := m.sim.building_at(p, 0)
@@ -222,15 +223,15 @@ func tap(p: Vector2) -> void:
 
 ## Czy punkt świata trafia w żywego dowódcę gracza (HERO_PICK px ekranu).
 func hero_at(p: Vector2) -> bool:
-	return m.sim.hero_alive() and m.sim.hero().pos.distance_to(p) <= maxf(HERO_PICK / m.camera.zoom.x, m.sim.hero().radius + 4.0)
+	return m.sim.hero_alive(m.me) and m.sim.hero(m.me).pos.distance_to(p) <= maxf(HERO_PICK / m.camera.zoom.x, m.sim.hero(m.me).radius + 4.0)
 
 
 ## Zaznacza dowódcę (klik, portret, H); `center` — kamera na niego (portret i H, przy przybliżeniu).
 func pick_hero(center: bool) -> void:
-	var h := m.sim.hero()
+	var h := m.sim.hero(m.me)
 	if h == null:
 		return
-	if not m.sim.hero_alive():
+	if not m.sim.hero_alive(m.me):
 		m.float_text(m.sim.p_base + Vector2(0, -70), "Dowódca wróci za %d s" % ceili(h.respawn), Main.WARN_COLOR)
 		m.sfx.play("error", 0.1)
 		return
@@ -246,7 +247,7 @@ func pick_hero(center: bool) -> void:
 
 
 func order_hero(p: Vector2) -> void:
-	if m.sim.order_hero(p):
+	if m.send({"type": "order_hero", "at": p}):
 		m.hero_ordered = true
 		m.sfx.play("build", 0.1)
 	else:
@@ -258,22 +259,22 @@ func place(p: Vector2) -> void:
 	if not m.sim.can_place(cell):
 		m.sfx.play("error", 0.1)
 		return
-	if not m.sim.build(m.mode, cell):
+	if not m.send({"type": "build", "kind": m.mode, "cell": cell}):
 		deny(cell)
 		return
-	if m.sim.gold < m.sim.build_cost(m.mode):
+	if m.sim.players[m.me].gold < m.sim.build_cost(m.mode):
 		m.mode = ""
 
 
 func select_ability(ability: String) -> void:
-	if not m.sim.ability_ready(ability):
-		if m.sim.ability_cd[0].get(ability, 0.0) <= 0.0 and not m.sim.hero_alive():
+	if not m.sim.ability_ready(ability, m.me):
+		if m.sim.players[m.me].ability_cd.get(ability, 0.0) <= 0.0 and not m.sim.hero_alive(m.me):
 			m.float_text(m.sim.p_base + Vector2(0, -70), "Dowódca poległ", Main.WARN_COLOR)
 		m.sfx.play("error", 0.1)
 		return
 	m.hero_selected = false
-	if not m.sim.ability_config(ability)["target"]:
-		m.sim.use_ability(ability)
+	if not m.sim.ability_config(ability, m.me)["target"]:
+		m.send({"type": "use_ability", "ability": ability})
 		m.mode = ""
 		return
 	m.mode = "" if m.mode == "ab:" + ability else "ab:" + ability
@@ -281,18 +282,19 @@ func select_ability(ability: String) -> void:
 
 
 func choose_upgrade(i: int) -> void:
-	if m.sim.choose_upgrade(i):
+	if m.send({"type": "choose_upgrade", "i": i}):
 		m.sfx.play("upgrade", 0.0)
 
 
 func select_ability_slot(i: int) -> void:
-	if i < m.sim.ability_order[0].size():
-		select_ability(m.sim.ability_order[0][i])
+	var order: Array[String] = m.sim.players[m.me].ability_order
+	if i < order.size():
+		select_ability(order[i])
 
 
 func use_targeted(p: Vector2) -> void:
 	var ability := ability_mode()
-	if m.sim.use_ability(ability, p):
+	if m.send({"type": "use_ability", "ability": ability, "at": p}):
 		m.mode = ""
 	else:
 		m.float_text(p, deny_reason(ability, p), Main.WARN_COLOR)
@@ -301,8 +303,8 @@ func use_targeted(p: Vector2) -> void:
 
 ## Dlaczego umiejętności nie da się rzucić w `p` (komunikat pod palcem).
 func deny_reason(ability: String, p: Vector2) -> String:
-	var cfg: Dictionary = m.sim.ability_config(ability)
-	var h := m.sim.hero()
+	var cfg: Dictionary = m.sim.ability_config(ability, m.me)
+	var h := m.sim.hero(m.me)
 	if cfg.get("cast_range", 0.0) > 0.0 and h != null and h.pos.distance_to(p) > cfg["cast_range"]:
 		return "Poza zasięgiem dowódcy"
 	match cfg["kind"]:
@@ -342,8 +344,9 @@ func select_mode(key: String) -> void:
 
 
 func toggle_stance() -> void:
-	m.sim.set_stance("defend" if m.sim.stance == "attack" else "attack")
-	m.banner("Atak!" if m.sim.stance == "attack" else "Obrona", "")
+	var me := m.sim.players[m.me]
+	m.send({"type": "set_stance", "stance": "defend" if me.stance == "attack" else "attack"})
+	m.banner("Atak!" if me.stance == "attack" else "Obrona", "")
 	m.banner_life = 1.2
 
 
@@ -358,15 +361,15 @@ func toggle_mute() -> void:
 func upgrade_selected() -> void:
 	if m.selected == null or m.selected.team != 0:
 		return
-	if not m.sim.upgrade(m.selected) and m.sim.upgrade_cost(m.selected) > 0:
+	if not m.send({"type": "upgrade", "at": m.selected.pos}) and m.sim.upgrade_cost(m.selected) > 0:
 		deny(m.selected.pos)
 
 
 func sell_selected() -> void:
-	if m.selected != null and m.selected.team == 0 and m.sim.sell(m.selected):
+	if m.selected != null and m.selected.team == 0 and m.send({"type": "sell", "at": m.selected.pos}):
 		m.selected = null
 
 
 func set_selected_lane(lane: int) -> void:
-	if m.selected != null and m.sim.set_lane(m.selected, lane):
+	if m.selected != null and m.send({"type": "set_lane", "at": m.selected.pos, "lane": lane}):
 		m.float_text(m.selected.pos + Vector2(0, -26), "→ %s" % m.sim.lanes[lane].name, Main.LANE_COLORS[lane])

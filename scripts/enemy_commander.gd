@@ -1,7 +1,7 @@
 class_name EnemyCommander
 extends RefCounted
-## AI dowódcy wroga (drużyna 1). Wydaje te same rozkazy co gracz (`order_hero`, `use_ability`,
-## `choose_upgrade`), co THINK sekund z `Sim.step`, bez losowania — w grze sieciowej drugi gracz
+## AI dowódcy wroga (drużyna 1). Wydaje te same komendy co gracz (`Sim.apply`: order_hero, use_ability,
+## choose_upgrade), co THINK sekund z `Sim.step`, bez losowania — w grze sieciowej drugi gracz
 ## po prostu zajmie jego miejsce.
 ##
 ## Gdzie stoi (punkt postoju; sam dowódca walczy z tym, co podejdzie — smycz COMMANDER_LEASH):
@@ -19,26 +19,27 @@ const REORDER := 60.0  ## nowy rozkaz, gdy punkt postoju zmienia się o więcej
 
 ## Sim przychodzi w każdym wywołaniu, nie jest polem: Sim trzyma AI, a cykl referencji między
 ## dwoma RefCounted nigdy by się nie zwolnił (każda partia zostawałaby w pamięci).
-var team := 1
+var player := 1  ## gracz, którym steruje (drużyna z `sim.players[player].team`)
 
 
-func _init(team_ := 1) -> void:
-	team = team_
+func _init(player_ := 1) -> void:
+	player = player_
 
 
 func think(sim: Sim) -> void:
-	AbilityRules.pick_upgrade(sim, team)
-	AbilityRules.cast_racial(sim, team)
-	if not sim.hero_alive(team):
+	AbilityRules.pick_upgrade(sim, player)
+	AbilityRules.cast_racial(sim, player)
+	if not sim.hero_alive(player):
 		return
-	var h := sim.hero(team)
+	var h := sim.hero(player)
 	var post := _desired_post(sim, h)
 	if h.post.distance_to(post) > REORDER and h.state != "march":
-		sim.order_hero(post, team)
-	AbilityRules.cast_hero_abilities(sim, team)
+		sim.apply({"player": player, "type": "order_hero", "at": post})
+	AbilityRules.cast_hero_abilities(sim, player)
 
 
 func _desired_post(sim: Sim, h: Sim.Hero) -> Vector2:
+	var team := h.team
 	if h.hp < h.max_hp * RETREAT_HP:
 		return sim._hero_spawn_pos(team)
 	# odległość wzdłuż ścieżki mierzona od bazy gracza (s), nasza baza na końcu (length)

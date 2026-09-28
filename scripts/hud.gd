@@ -397,10 +397,11 @@ func update_hud() -> void:
 		scale_button.text = Settings.UI_SCALE_NAMES[Settings.ui_scale_index]
 		perf_button.text = "wł." if Settings.show_perf else "wył."
 
-	gold_label.text = "%d zł" % int(m.sim.gold)
-	income_label.text = "+%.1f zł/s · armia %d/%d" % [m.sim.income(), m.sim.army_size(0), Cfg.MAX_ARMY]
-	if m.sim.elapsed < m.sim.bounty_until[0]:
-		income_label.text += " · łupy ×%.1f (%d s)" % [m.sim.bounty_mult[0], ceili(m.sim.bounty_until[0] - m.sim.elapsed)]
+	var me := m.sim.players[m.me]
+	gold_label.text = "%d zł" % int(me.gold)
+	income_label.text = "+%.1f zł/s · armia %d/%d" % [m.sim.income(m.me), m.sim.army_size(0), Cfg.MAX_ARMY]
+	if m.sim.elapsed < me.bounty_until:
+		income_label.text += " · łupy ×%.1f (%d s)" % [me.bounty_mult, ceili(me.bounty_until - m.sim.elapsed)]
 	perf_label.visible = Settings.show_perf
 	if perf_label.visible:
 		perf_label.text = "FPS %d · sim %.1f ms (%d kr.) · rys. %.1f ms · HUD %.1f ms · jedn. %d · efekty %d" % [
@@ -419,8 +420,8 @@ func update_hud() -> void:
 	if daily_label.visible:
 		daily_label.text = "Wyzwanie dnia: " + m.mods_text(m.sim.mods)
 
-	stance_button.text = "Postawa: Atak" if m.sim.stance == "attack" else "Postawa: Obrona"
-	stance_button.self_modulate = Color(1, 0.75, 0.7) if m.sim.stance == "attack" else Color(0.7, 0.85, 1)
+	stance_button.text = "Postawa: Atak" if me.stance == "attack" else "Postawa: Obrona"
+	stance_button.self_modulate = Color(1, 0.75, 0.7) if me.stance == "attack" else Color(0.7, 0.85, 1)
 	speed_button.text = "x%d" % m.speed_mult
 	mute_button.text = "Dźwięk" if not m.sfx.muted else "Cisza"
 	minimap.visible = m.is_zoomed_in() and (m.state == Main.State.PLAY or m.state == Main.State.PAUSED)
@@ -430,8 +431,8 @@ func update_hud() -> void:
 		var cost := m.sim.build_cost(key)  # z modyfikatorem dnia („Tanie wieże”)
 		b.text = "%s\n%d" % [Cfg.BUILDINGS[key]["name"], cost]
 		b.button_pressed = m.mode == key
-		b.disabled = m.sim.gold < cost and m.mode != key
-	var order: Array = m.sim.ability_order[0]
+		b.disabled = me.gold < cost and m.mode != key
+	var order: Array = me.ability_order
 	ability_buttons.clear()
 	for i in ability_slots.size():
 		var b := ability_slots[i]
@@ -440,25 +441,25 @@ func update_hud() -> void:
 			continue
 		var a: String = order[i]
 		ability_buttons[a] = b
-		var cd: float = m.sim.ability_cd[0][a]
+		var cd: float = me.ability_cd[a]
 		var status := "gotowe" if cd <= 0 else "%d s" % ceili(cd)
-		if cd <= 0 and not m.sim.ability_ready(a):
+		if cd <= 0 and not m.sim.ability_ready(a, m.me):
 			status = "poległ"
 		b.text = "%s %s\n%s" % [ABILITY_KEY_NAMES[i], Cfg.ABILITIES[a]["short"], status]
 		b.button_pressed = m.mode == "ab:" + a
-		b.disabled = not m.sim.ability_ready(a)
-	var h := m.sim.hero()
+		b.disabled = not m.sim.ability_ready(a, m.me)
+	var h := m.sim.hero(m.me)
 	portrait_button.visible = h != null and m.state == Main.State.PLAY
 	if portrait_button.visible:
 		var hero_name: String = "%s  poz. %d" % [Cfg.COMMANDERS[h.commander]["name"], h.hero_level]
 		var xp := "max" if h.hero_level >= Cfg.HERO_MAX_LEVEL else "XP %d/%d" % [int(h.xp), int(Cfg.HERO_XP[h.hero_level - 1])]
-		if m.sim.hero_alive():
+		if m.sim.hero_alive(m.me):
 			portrait_button.text = "%s  (H)\nHP %d/%d · %s" % [hero_name, ceili(h.hp), int(h.max_hp), xp]
 		else:
 			portrait_button.text = "%s\npowrót za %d s · %s" % [hero_name, ceili(h.respawn), xp]
 		portrait_button.button_pressed = m.hero_selected
-		portrait_button.disabled = not m.sim.hero_alive()
-	var offers: Array = m.sim.hero_offers[0]
+		portrait_button.disabled = not m.sim.hero_alive(m.me)
+	var offers: Array = me.hero_offers
 	upgrade_panel.visible = not offers.is_empty() and m.state == Main.State.PLAY
 	if upgrade_panel.visible:
 		upgrade_title.text = "Awans! Wybierz ulepszenie%s" % (" (+%d)" % (offers.size() - 1) if offers.size() > 1 else "")
@@ -554,7 +555,7 @@ func fill_selection_panel(b: Sim.Building) -> void:
 	upgrade_button.get_parent().visible = b.team == 0
 	var up := m.sim.upgrade_cost(b)
 	upgrade_button.text = "Maks. poziom" if up < 0 else "Ulepsz  %d" % up
-	upgrade_button.disabled = up < 0 or m.sim.gold < up
+	upgrade_button.disabled = up < 0 or m.sim.players[m.me].gold < up
 	sell_button.text = "Sprzedaj  +%d" % m.sim.sell_value(b)
 
 
@@ -693,8 +694,8 @@ func draw_minimap() -> void:
 			c.draw_rect(Rect2(b.pos * k - Vector2(2, 2), Vector2(4, 4)), Main.TEAM_COLORS[b.team].lightened(0.3))
 	for u in m.sim.units:
 		c.draw_rect(Rect2(u.pos * k - Vector2(1, 1), Vector2(2, 2)), Main.TEAM_COLORS[u.team])
-	if m.sim.hero_alive():
-		c.draw_circle(m.sim.hero().pos * k, 4.0, Main.HERO_COLOR)
+	if m.sim.hero_alive(m.me):
+		c.draw_circle(m.sim.hero(m.me).pos * k, 4.0, Main.HERO_COLOR)
 	if m.sim.hero_alive(1):
 		c.draw_circle(m.sim.hero(1).pos * k, 4.0, Main.TEAM_COLORS[1].lightened(0.4))
 	var view := Rect2(m.to_world(Vector2.ZERO) * k, m.view_size / m.camera.zoom.x * k)
