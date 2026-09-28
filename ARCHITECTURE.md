@@ -67,6 +67,12 @@ Widok pokazuje gracza `Main.me`. Gra solo to gracze 0 i 1 — tabela botów bez 
 przez `apply`. Metody rozkazów (`build`, `upgrade`, `use_ability`…) zostają implementacją komend; testy mechanik
 wołają je wprost. Komenda z błędnym graczem, brakującym polem czy złym typem = false bez zmian stanu.
 
+**Determinizm.** `Sim.checksum()` — suma stanu z jawnej listy pól czytanych przez symulację (liczby
+zaokrąglone do 0,01; pola tylko dla renderu jak `face`/`flash`/`aim` poza nią). W lockstepie telefony porównują
+ją co 30 kroków. Nowe pole stanu w Sim = dopisz je do `checksum()`. `bot_test` gra całą partię na dwóch Sim
+z tym samym strumieniem komend i porównuje sumy (`_test_checksum`). `Main.lossless` = pętla nie porzuca
+zaległych kroków (gra sieciowa); w solo porzucanie zostaje.
+
 ```
  input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
               ▲                        │

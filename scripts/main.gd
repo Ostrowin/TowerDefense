@@ -74,6 +74,8 @@ class FloatText:
 var sim: Sim
 ## Gracz na tym telefonie (indeks w `sim.players`) — w grze solo 0; w sieci ustawia go lobby.
 var me := 0
+## Gra sieciowa: pętla nie porzuca zaległych kroków sima (lockstep — każdy telefon liczy każdy krok).
+var lossless := false
 var state := State.MENU
 var overlay := ""  ## "" / "settings" / "help" — nakładka nad bieżącym stanem
 var level_index := 0
@@ -369,7 +371,9 @@ func _process(delta: float) -> void:
 				# Zadyszka: porzuć zaległe kroki. Gra chwilowo zwalnia, ale klatka ma
 				# ograniczony czas — bez tego wolna klatka wymuszała jeszcze więcej kroków
 				# w następnej i gra się „zawieszała" (spiral of death).
-				accum = minf(accum, STEP)
+				# W grze sieciowej (`lossless`) kroków nie wolno gubić — zaległe dogoni następna klatka.
+				if not lossless:
+					accum = minf(accum, STEP)
 				break
 		perf_sample("sim", t0)
 		perf["steps"] = steps

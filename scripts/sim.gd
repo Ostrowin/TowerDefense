@@ -861,6 +861,44 @@ func unit_cap(team: int) -> int:
 	return Cfg.MAX_ARMY if team == 0 else Cfg.MAX_ENEMIES
 
 
+# ================================================================ suma kontrolna
+
+## Suma kontrolna stanu (multiplayer T3, R2): w lockstepie telefony porównują ją co 30 kroków — różna =
+## rozjazd. Jawna lista pól, które czyta symulacja; pola tylko dla renderu (`face`, `flash`, `aim`,
+## `prev_pos`) i pisane przez widok są poza nią. Liczby zaokrąglone do 0,01 (float → int), napisy
+## przez `hash()` — ta sama wartość na każdym procesorze. Nowe pole stanu w Sim = dopisz je tutaj.
+func checksum() -> int:
+	var n := PackedInt64Array([_q(elapsed), wave, _q(wave_timer), _q(spawn_cd), _q(trickle_timer), spawn_queue.size(),
+		_q(base_hp[0]), _q(base_hp[1]), result, rng.state, _next_id, units.size(), buildings.size(), shots.size(),
+		strikes.size(), zones.size(), raises.size(), team_count[0], team_count[1]])
+	for p in players:
+		n.append_array([p.id, p.team, _q(p.gold), p.stance.hash(), p.hero_offers.size(), _q(p.bounty_mult)])
+		var keys: Array = p.ability_cd.keys()
+		keys.sort()
+		for a in keys:
+			n.append_array([String(a).hash(), _q(p.ability_cd[a])])
+		if p.hero != null:
+			var h := p.hero
+			n.append_array([h.state.hash(), _q(h.xp), h.hero_level, _q(h.respawn), _q(h.post.x), _q(h.post.y), h.path_i])
+	for u in units:
+		n.append_array([u.id, u.team, u.owner, u.kind.hash(), u.level, u.lane, _q(u.s), _q(u.pos.x), _q(u.pos.y),
+			_q(u.hp), _q(u.max_hp), _q(u.cd_left), _q(u.stun), _q(u.burrow), _q(u.slow_timer), u.buffs.size()])
+	for b in buildings:
+		n.append_array([b.id, b.team, b.owner, b.kind.hash(), b.level, _q(b.pos.x), _q(b.pos.y), _q(b.hp), _q(b.timer),
+			_q(b.cd_left), b.lane, b.invested, _q(b.life)])
+	for s in shots:
+		n.append_array([s.kind.hash(), _q(s.pos.x), _q(s.pos.y), _q(s.dmg)])
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_MD5)
+	ctx.update(n.to_byte_array())
+	return ctx.finish().decode_s64(0)
+
+
+## Liczba stanu do sumy kontrolnej: setne części jako int (INF → duża stała, żeby nie było NaN).
+static func _q(x: float) -> int:
+	return roundi(clampf(x, -1e12, 1e12) * 100.0)
+
+
 # ================================================================ rozkazy gracza
 
 ## Warstwa komend (multiplayer T2): jedyne wejście rozkazów — widok, boty i AI nie wołają metod

@@ -93,6 +93,7 @@ func _init() -> void:
 	for n in [2, 3, 4]:
 		_test_players(n)
 	_test_commands()
+	_test_checksum()
 	_test_hero_level()
 	_test_survival()
 	_test_daily()
@@ -185,13 +186,23 @@ func _report(lv: int, d: int, strategy: String, commander := "") -> void:
 
 # ================================================================ bot
 
-func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
-	var sim := Sim.new(difficulty, 1234, lv, commander, game_mode, [], _bot_rival(lv, difficulty))
+func _play(lv: int, difficulty: int, strategy: String, commander := "", mirrored := false) -> Sim:
+	var sim: Sim
+	var mirror: Sim = null
+	if mirrored:
+		sim = RecSim.new(difficulty, 1234, lv, commander, game_mode, [], _bot_rival(lv, difficulty))
+		mirror = Sim.new(difficulty, 1234, lv, commander, game_mode, [], _bot_rival(lv, difficulty))
+	else:
+		sim = Sim.new(difficulty, 1234, lv, commander, game_mode, [], _bot_rival(lv, difficulty))
+	var steps := 0
 	var plan: Array = TURTLE_PLAN if strategy == "turtle" else BALANCED_PLAN
 	var plan_i := 0
 	var think := 0.0
 	var node_cooldown := {}  # złoże → czas, do którego bot go nie odbudowuje
 	while sim.result == 0 and sim.elapsed < MAX_TIME:
+		if mirror != null:
+			_mirror(sim, mirror, steps)
+		steps += 1
 		sim.step(DT)
 		for e in sim.events:
 			if e["type"] == "building_destroyed" and e["kind"] == "extractor":
@@ -219,7 +230,48 @@ func _play(lv: int, difficulty: int, strategy: String, commander := "") -> Sim:
 		else:
 			_use_abilities(sim)
 		_set_stance(sim, strategy)
+	if mirror != null:
+		_mirror(sim, mirror, steps)
+		mirror_steps = steps
+		_check(mirror.result == sim.result, "lustro: ten sam wynik partii")
 	return sim
+
+
+## Sim, który zapisuje komendy wydane spoza kroku (bot gracza) — test lockstepu je powtarza na lustrze.
+## Komendy AI dowódcy wroga idą w trakcie `step` i nie są zapisywane: lustro liczy własne AI.
+class RecSim extends Sim:
+	var log: Array[Dictionary] = []
+	var stepping := false
+
+	func _init(d: int, seed_: int, lv: int, commander := "", mode_ := "battle", mods_: Array = [], rival := "") -> void:
+		super(d, seed_, lv, commander, mode_, mods_, rival)
+
+	func step(dt: float) -> void:
+		stepping = true
+		super(dt)
+		stepping = false
+
+	func apply(cmd: Dictionary) -> bool:
+		var ok := super(cmd)
+		if not stepping:
+			log.append({"cmd": cmd.duplicate(), "ok": ok})
+		return ok
+
+
+## Lustro dogania oryginał: kroki, potem te same komendy (z tym samym wynikiem); co 30 kroków suma kontrolna.
+func _mirror(sim: RecSim, mirror: Sim, steps: int) -> void:
+	while mirror_at < steps:
+		mirror.step(DT)
+		mirror.events.clear()
+		mirror_at += 1
+	for rec in sim.log:
+		if mirror.apply(rec["cmd"]) != rec["ok"] and mirror_desync < 0:
+			mirror_desync = steps
+	sim.log.clear()
+	if steps % 30 == 0:
+		mirror_checks += 1
+		if mirror.checksum() != sim.checksum() and mirror_desync < 0:
+			mirror_desync = steps
 
 
 ## Rozkaz bota gracza 0 jako komenda Sim (multiplayer T2) — ta sama droga co dotyk w grze.
@@ -1581,6 +1633,49 @@ func _state_print(sim: Sim) -> String:
 	for u in sim.units:
 		parts.append([u.kind, u.pos, u.hp, u.owner])
 	return str(parts)
+
+
+var mirror_at := 0  ## kroki lustra w teście lockstepu
+var mirror_checks := 0
+var mirror_desync := -1  ## pierwszy krok z różną sumą albo innym wynikiem komendy (-1 = zgodne)
+var mirror_steps := 0
+
+
+## Multiplayer T3: suma kontrolna. Pola tylko dla renderu (face, flash, aim, prev_pos) jej nie zmieniają,
+## pola stanu tak. Lockstep w jednym procesie: bot z dowódcą na Trudnym (z AI dowódcy wroga) gra całą
+## partię, drugi Sim dostaje ten sam strumień komend — sumy zgodne co 30 kroków do końca.
+func _test_checksum() -> void:
+	var sim := _empty_sim(0, "sapper")
+	for i in 60:
+		sim.step(DT)
+	sim._spawn_unit(0, "soldier", 1, 1.0, 1, 300.0)
+	var tower := sim._add_building(0, "tower", sim.free_cell_near(sim.p_base + Vector2(160, 0), 300.0))
+	var sum := sim.checksum()
+	_check(sum == sim.checksum(), "suma: ta sama dla tego samego stanu")
+	for u in sim.units:
+		u.face = -u.face
+		u.flash = 0.7
+		u.prev_pos += Vector2(3, 3)
+	tower.aim = 1.2
+	tower.flash = 0.5
+	_check(sim.checksum() == sum, "suma: pola renderu (face, flash, aim, prev_pos) poza sumą (R2)")
+	sim.units[-1].hp -= 1.0
+	_check(sim.checksum() != sum, "suma: zmiana HP jednostki zmienia sumę")
+	sim.units[-1].hp += 1.0
+	sim.players[0].gold += 0.5
+	_check(sim.checksum() != sum, "suma: zmiana złota zmienia sumę")
+	sim.players[0].gold -= 0.5
+	sim.rng.randi()
+	_check(sim.checksum() != sum, "suma: stan rng w sumie")
+
+	mirror_at = 0
+	mirror_checks = 0
+	mirror_desync = -1
+	var t0 := Time.get_ticks_msec()
+	var played := _play(1, 2, "balanced", "sapper", true)
+	_check(played.players[1].commander != "" and mirror_desync < 0 and mirror_checks > 100,
+		"lockstep: 2 Sim na tym samym strumieniu komend — sumy zgodne przez całą partię (%d porównań, rozjazd: %d)" % [mirror_checks, mirror_desync])
+	print("  lockstep: %d kroków, %d porównań sum, wynik %d, %d ms" % [mirror_steps, mirror_checks, played.result, Time.get_ticks_msec() - t0])
 
 
 ## Awans dowódcy (T14): doświadczenie w pobliżu i za zabicie osobiste, progi, statystyki,
