@@ -7,7 +7,7 @@
 - [x] **P2 — Android smoke test**: szablony eksportu (tylko Android), preset, `tools/android.ps1` (build / instalacja / log / benchmark na telefonie), realme 8i (Helio G96, Mali-G57): pełny ekran 20:9, dotyk i HUD ×1,3 sprawdzone graniem, „Wstecz” jak Esc, ★/●/→/— z fontu OK, **duża bitwa: mediana 17,6 ms, p95 22,9 ms** (Trudny x3, do ~240 jednostek; wcześniej 60 ms). APK krąży też poza projektem (sideload).
 - [x] **P3 — głębia**: ulepszenia i sprzedaż, armata, mróz, warsztat + katapulta, postawa, umiejętności, nietoperze i tarczownicy, sprytny wybór ścieżek.
 - [x] **P4 — treść**: 3 mapy (Trzy drogi, Przesmyk, Serpentyna) jako dane w `Levels`, wybór w menu, rekordy i gwiazdki.
-- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren, **grafika (D30)**: sprite'y SVG z brudem — 9 ras × 6 jednostek, 27 dowódców, budynki i budowle tymczasowe, forteca, teren z kafli, dekoracje, pociski w stylu ras. ✘ ikona aplikacji (teraz domyślna Godota), portrety dowódców i ras w menu/HUD, pomiar na telefonie.
+- [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren, **grafika (D30)**: sprite'y SVG z brudem — 9 ras × 6 jednostek, 27 dowódców, budynki i budowle tymczasowe, forteca, teren z kafli, dekoracje, pociski w stylu ras. ✔ ikona aplikacji (kret w kasku, ikona adaptacyjna Androida). ✘ portrety dowódców (próba SVG odrzucona 2026-09-28 — tylko malowane).
 
 ## Sesja 8 (2026-09-27) — podział widoku, zające, wydry, niedźwiedzie, wilki, jeże
 
@@ -90,7 +90,7 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 - [x] **Etap 1 — dowódca gracza:** ~~T4 dane dowódców~~ ✅ · ~~T5 bohater w `Sim`~~ ✅ · ~~T6 nowe typy efektów~~ ✅ · ~~T7 widok, dotyk, samouczek~~ ✅ · ~~T8 menu~~ ✅ · ~~T9 Saper + Podkop + bot + balans~~ ✅ → **gra na telefonie**
 - [x] **Etap 2 — reszta dowódców:** ~~T10 Snajper, Magma~~ ✅ · ~~T11 gibony~~ ✅ · ~~T11b hieny i dziki~~ ✅
 - [x] **Etap 3 — domknięcie:** ~~T12 boss rywala~~ (usunięte, D5) · ~~T13 balans całości, kontrakt regresji, perf, dokumentacja~~ ✅ (telefon: p95 20,3 ms w późnej grze z Saperem, 2026-09-26)
-- [ ] **Seria wydajności wszystkich dowódców na telefonie (~1 h):** jedno uruchomienie `-Bench`, które samo przechodzi przez 12 dowódców z `--stress` (dziś każdy = osobny eksport). Argumenty podawać przez `pwsh -Command "& ./tools/android.ps1 -Bench -BenchArgs ..."` — `pwsh -File` skleja listę `-BenchArgs` w jeden napis i benchmark rusza z domyślnymi.
+- [x] **Seria wydajności wszystkich dowódców na telefonie:** `perf_test --series all` (27 dowódców po kolei, tabela `[seria]`), `android.ps1 -BenchTimeout`. Przy okazji: `perf_test` nie wołał bota dowódcy (`_hero`), więc wcześniejsze pomiary „z dowódcą” miały go stojącego pod bazą. **Wynik (realme 8i, 2026-09-28, Serpentyna, Trudny x3, 4 min gry na dowódcę, --stress, z dowódcą wroga): wszyscy 27 — mediana 16,7 ms (limit 60 FPS), p95 19,3–19,9 ms, p99 ≤ 21,4 ms, maks 27–46 ms; do ~155 jednostek.** Argumenty podawać przez `pwsh -Command` — `pwsh -File` skleja listę `-BenchArgs` w jeden napis.
 - [ ] **Etap 4 — rozbudowa (CEO review):** ~~T14 awans dowódcy w partii~~ ✅ · ~~T15 tryb przetrwania~~ ✅ · ~~T16 wyzwanie dnia z modyfikatorami~~ ✅ · T17 pojedynek 2 graczy — zmiana (2026-09-27): nie na jednym telefonie, tylko multiplayer na osobnych telefonach; szczegóły do ustalenia
 
 ## Lore i rasy (do przemyślenia)

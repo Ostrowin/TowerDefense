@@ -42,6 +42,7 @@ tests/screenshot.gd      zrzuty prawdziwej sceny (cała mapa, zbliżenia) do oce
 tools/android.ps1        eksport APK + adb install + start / log / benchmark na telefonie
 tools/bake_art.gd        wypalanie: art/svg → atlas z brudem i nakładką drużyny + kafle terenu
 tools/art_sheet.gd       arkusz podglądu sprite'ów z atlasu (obie drużyny)
+tools/make_icon.gd       ikona aplikacji: art/icon/*.svg (z tools/svg_gen/icon.py) → PNG dla projektu i Androida
 tools/svg_gen/*.py       generator SVG ras, budynków, dekoracji i dowódców (wspólne części = spójne rasy)
 ```
 

@@ -9,6 +9,8 @@ Eksport APK na Androida i (opcjonalnie) wgranie na telefon przez adb (debugowani
   .\tools\android.ps1 -Bench       # zamiast gry benchmark tests/perf_test.gd na telefonie (wynik w logu)
   .\tools\android.ps1 -Bench -BenchArgs '--map','0','--minutes','5'
   .\tools\android.ps1 -Bench -BenchScript res://tests/render_probe.gd   # koszt warstw renderu
+  .\tools\android.ps1 -Bench -BenchArgs '--series','all','--minutes','4','--stress' -BenchTimeout 60
+                                   # seria wszystkich dowódców (~40 min); limit czekania w minutach
 
 APK jest podpisany kluczem debug (%APPDATA%\Godot\keystores\debug.keystore, tworzonym przy
 pierwszym uruchomieniu) — wystarczy do wgrywania na własny telefon, nie do Google Play.
@@ -21,6 +23,7 @@ param(
     [switch]$Bench,
     [string[]]$BenchArgs = @('--map', '2', '--minutes', '10'),
     [string]$BenchScript = 'res://tests/perf_test.gd',
+    [int]$BenchTimeout = 30,
     [switch]$SkipExport
 )
 $ErrorActionPreference = 'Stop'
@@ -118,8 +121,8 @@ if ($Bench) {
     Start-Game
     Write-Host "Benchmark $BenchScript trwa — nie dotykaj telefonu (ekran musi być włączony)."
     # skrypt sam kończy grę; czekamy na koniec i wypisujemy jego log
-    # (skrypty wypisują na końcu „[bench] koniec"; limit 30 min na wypadek zawieszenia)
-    $deadline = (Get-Date).AddMinutes(30)
+    # (skrypty wypisują na końcu „[bench] koniec"; limit -BenchTimeout min na wypadek zawieszenia)
+    $deadline = (Get-Date).AddMinutes($BenchTimeout)
     do {
         Start-Sleep -Seconds 3
         $done = & $adb logcat -d -s godot:I | Select-String '\[bench\] koniec' -Quiet

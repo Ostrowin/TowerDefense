@@ -22,13 +22,14 @@ Godot z wingeta (nie ma go w PATH):
 - same mecze botów (strojenie): `--headless --path . --script res://tests/bot_test.gd -- --balance` (`--commander sapper` = bot gra dowódcą według R9; pełny bot_test puszcza macierz R11: każdy grywalny dowódca na Normalnym)
 - grafika po zmianie SVG: `--headless --path . --script res://tools/bake_art.gd`, potem **koniecznie** `--headless --import --path .` (inaczej gra czyta stary atlas i sprite'y są przesunięte/niewidoczne)
 - podgląd sprite'ów: `--headless --path . --script res://tools/art_sheet.gd -- <plik.png> [prefiks...] [--scale 2]`; zrzuty prawdziwej sceny (okno, nie headless): `--path . -- --bench res://tests/screenshot.gd --out <folder> [--race hyena --rival gibbon --map N]`
+- ikona aplikacji po zmianie `tools/svg_gen/icon.py`: `python tools/svg_gen/icon.py`, potem `--headless --path . --script res://tools/make_icon.gd` (PNG w `art/icon/`: projekt + ikona adaptacyjna Androida)
 - smoke widoku: `--headless --path . --fixed-fps 60 --script res://tests/ui_smoke_test.gd` (szukaj `SCRIPT ERROR`)
 - wydajność późnej gry: `--headless --path . -- --bench res://tests/perf_test.gd --map 2 --minutes 10` (bez `--fixed-fps` — mierzy prawdziwy czas klatki; pusta scena headless to ~7 ms, to narzut silnika)
 - benchmarki (`perf_test`, `render_probe`) to węzły uruchamiane przez grę parametrem `-- --bench <skrypt>` — eksportowany Godot ignoruje `--script`
 - w grze: F3 = licznik FPS i czasów (sim / rysowanie / HUD); włączony licznik co 5 s trafia też do logu (`[perf]`)
 
 Android (`tools/android.ps1`, PowerShell): eksport APK (release, podpis kluczem debug) → `adb install` → start gry.
-`-NoInstall` sam eksport do `export/`, `-Log` log gry z telefonu, `-Bench` odpala `tests/perf_test.gd` NA TELEFONIE (wynik w logu; `-BenchScript res://tests/render_probe.gd` = koszt warstw renderu), `-DebugBuild` szablon debug.
+`-NoInstall` sam eksport do `export/`, `-Log` log gry z telefonu, `-Bench` odpala `tests/perf_test.gd` NA TELEFONIE (wynik w logu; `-BenchScript res://tests/render_probe.gd` = koszt warstw renderu), `-DebugBuild` szablon debug. Seria wszystkich dowódców na telefonie: `-Bench -BenchArgs '--series','all','--minutes','4','--stress' -BenchTimeout 60` (~40 min, ekran telefonu musi być cały czas włączony; na końcu tabela `[seria]` w logu).
 Szablony eksportu: tylko pliki Androida w `%APPDATA%\Godot\export_templates\4.7.2.stable\`. SDK: `C:\Program Files (x86)\Android\android-sdk`, JDK 21: `C:\Program Files\Android\openjdk\jdk-21.0.8` (oba z Visual Studio).
 Uwaga: powłoka Bash w Claude Code jest w piaskownicy — zapisy poza projektem (np. `%APPDATA%`) rób przez PowerShell.
 

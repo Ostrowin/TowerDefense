@@ -9,6 +9,8 @@ extends Node
 ##                                          (scenariusz z kryteriów sukcesu: strefy, budowle, wzmocnienia)
 ##   tools/android.ps1 -Bench                       (na telefonie, z prawdziwym GPU)
 ##   tools/android.ps1 -Bench -BenchArgs '--map','2','--minutes','10','--commander','magma','--stress'
+##   --series all | --series sapper,magma — po kolei każdy dowódca (all = wszyscy grywalni), --minutes gry
+##       każdy, na końcu tabela [seria]: jedno uruchomienie zamiast eksportu na dowódcę
 ##
 ## Uruchamia go main.gd (`--bench`) jako węzeł-dziecko sceny gry; `main` ustawia main.gd.
 ## Headless nie rysuje na GPU, ale cały koszt GDScript (_draw, HUD, sim) jest mierzony.
@@ -31,6 +33,8 @@ var window_steps := 0
 var next_log := 5.0
 var worst_frame_ms := 0.0
 var frame_times: Array[float] = []
+var series: Array[String] = []  ## kolejka dowódców w trybie serii (pusta = jeden pomiar)
+var series_rows: Array[String] = []
 
 ## Plan jak w bot_test („balanced"), żeby partia doszła do późnej fazy z dużą armią.
 const PLAN := [
@@ -51,6 +55,15 @@ func _ready() -> void:
 		elif args[i] == "--commander":
 			commander = args[i + 1]
 	stress = args.has("--stress")
+	var si := args.find("--series")
+	if si >= 0 and si + 1 < args.size():
+		if args[si + 1] == "all":
+			for c in Cfg.COMMANDER_ORDER:
+				if c != "veteran" and Cfg.commander_ready(c):
+					series.append(c)
+		else:
+			series.assign(args[si + 1].split(","))
+		commander = series.pop_front()
 	Progress.path = "user://perf_progress.cfg"
 	Settings.path = "user://perf_settings.cfg"
 	Progress.reset_cache()
@@ -61,18 +74,7 @@ func _process(_delta: float) -> void:
 	frame += 1
 	var now := Time.get_ticks_usec()
 	if frame == 3:
-		main.level_index = map_index
-		if commander != "":
-			main.race_index = Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == Cfg.COMMANDERS[commander]["race"])
-			main.commander_id = commander
-		main.start(2)
-		main.speed_mult = 3
-		# baza gracza nie do zdobycia — mierzymy późną grę, nie przegraną
-		main.sim.base_hp[0] = 1e9
-		print("mapa %s, Trudny, x3, %d min gry, dowódca: %s%s" % [main.sim.level["name"], minutes,
-			main.sim.commander if main.sim.commander != "" else "brak", " (stress)" if stress else ""])
-		print("%6s %5s %6s %6s %6s %6s %8s %8s %6s %6s %6s %6s %6s %7s" % ["gra", "fala", "jedn.", "pocis.", "iskry", "napisy",
-			"klatka", "maks", "sim", "kroki", "zdarz", "hud", "rys.", "pamięć"])
+		_begin()
 	if frame > 3:
 		var sim: Sim = main.sim
 		var ms := (now - last_us)
@@ -81,6 +83,7 @@ func _process(_delta: float) -> void:
 		window_max = maxi(window_max, ms)
 		frame_times.append(ms / 1000.0)
 		_bot(sim)
+		_hero(sim)
 		if sim.elapsed >= next_log:
 			next_log += 5.0
 			var p: Dictionary = main.perf
@@ -96,6 +99,19 @@ func _process(_delta: float) -> void:
 			var n := frame_times.size()
 			print("klatki: %d, mediana %.1f ms, p95 %.1f ms, p99 %.1f ms, maks %.1f ms, wynik %d" % [
 				n, frame_times[n / 2], frame_times[int(n * 0.95)], frame_times[int(n * 0.99)], frame_times[n - 1], sim.result])
+			series_rows.append("%-16s %-16s %7.1f %7.1f %7.1f %7.1f %6d" % [commander if commander != "" else "-",
+				sim.rival_commander if sim.rival_commander != "" else "-", frame_times[n / 2], frame_times[int(n * 0.95)],
+				frame_times[int(n * 0.99)], frame_times[n - 1], sim.units.size()])
+			if not series.is_empty():
+				commander = series.pop_front()
+				_reset_measure()
+				_begin()
+				last_us = Time.get_ticks_usec()
+				return
+			if series_rows.size() > 1:
+				print("\n[seria] %-16s %-16s %7s %7s %7s %7s %6s" % ["dowódca", "dowódca wroga", "mediana", "p95", "p99", "maks", "jedn."])
+				for row in series_rows:
+					print("[seria] " + row)
 			print("obiekty: %d, węzły: %d" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
 			var steps: int = sim.prof_data.get("kroki", 0)
 			if steps > 0:
@@ -111,6 +127,33 @@ func _process(_delta: float) -> void:
 			get_tree().quit()
 			return
 	last_us = now
+
+
+## Start pomiaru (i każdego kolejnego w serii): nowa partia na Trudnym, x3, baza gracza nie do zdobycia.
+func _begin() -> void:
+	main.level_index = map_index
+	if commander != "":
+		main.race_index = Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == Cfg.COMMANDERS[commander]["race"])
+		main.commander_id = commander
+	main.start(2)
+	main.speed_mult = 3
+	# baza gracza nie do zdobycia — mierzymy późną grę, nie przegraną
+	main.sim.base_hp[0] = 1e9
+	print("mapa %s, Trudny, x3, %d min gry, dowódca: %s%s, dowódca wroga: %s" % [main.sim.level["name"], minutes,
+		main.sim.commander if main.sim.commander != "" else "brak", " (stress)" if stress else "",
+		main.sim.rival_commander if main.sim.rival_commander != "" else "brak"])
+	print("%6s %5s %6s %6s %6s %6s %8s %8s %6s %6s %6s %6s %6s %7s" % ["gra", "fala", "jedn.", "pocis.", "iskry", "napisy",
+		"klatka", "maks", "sim", "kroki", "zdarz", "hud", "rys.", "pamięć"])
+
+
+func _reset_measure() -> void:
+	frame_times.clear()
+	window_frames = 0
+	window_us = 0
+	window_max = 0
+	next_log = 5.0
+	plan_i = 0
+	think = 0.0
 
 
 func _bot(sim: Sim) -> void:
