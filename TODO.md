@@ -103,7 +103,9 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 ## Backlog (świadomie odroczone)
 
 - AI dowódcy wroga na Łatwym/Normalnym — dziś tylko Trudny (D33); decyzja po graniu na telefonie
-- **Balans coop (multiplayer):** fale przy 2 graczach, dochód pasywny na gracza, podział nagród. v1 startuje od
+- **Balans coop (multiplayer):** strojenie po graniu — punkt startowy: osobne bazy, fala ×1,6, nagrody po równo
+  (`bot_test.gd -- --coop`: Łatwy/Normalny wygrane, Trudny 2/3). Jednostki partnera rysowane są grafiką mojej rasy
+  (sprite'y wg drużyny, nie gracza) — do poprawy. Dawny opis: fale przy 2 graczach, dochód pasywny na gracza, podział nagród. v1 startuje od
   fal ×1,6, dochodu pasywnego per gracz i nagrody dla właściciela zabójcy (Cfg); stroić po pierwszych partiach na dwóch
   telefonach. Zależy od: działającego coopa (docs/designs/multiplayer.md, eng review D7).
 - **Przetrwanie i wyzwanie dnia w coop:** tryby dla 2 graczy z rekordami drużynowymi w Progress. W v1 lobby oferuje

@@ -232,7 +232,7 @@ func pick_hero(center: bool) -> void:
 	if h == null:
 		return
 	if not m.sim.hero_alive(m.me):
-		m.float_text(m.sim.p_base + Vector2(0, -70), "Dowódca wróci za %d s" % ceili(h.respawn), Main.WARN_COLOR)
+		m.float_text(m.sim.base_pos(m.sim.base_of(m.me)) + Vector2(0, -70), "Dowódca wróci za %d s" % ceili(h.respawn), Main.WARN_COLOR)
 		m.sfx.play("error", 0.1)
 		return
 	if m.hero_selected and not center:
@@ -269,7 +269,7 @@ func place(p: Vector2) -> void:
 func select_ability(ability: String) -> void:
 	if not m.sim.ability_ready(ability, m.me):
 		if m.sim.players[m.me].ability_cd.get(ability, 0.0) <= 0.0 and not m.sim.hero_alive(m.me):
-			m.float_text(m.sim.p_base + Vector2(0, -70), "Dowódca poległ", Main.WARN_COLOR)
+			m.float_text(m.sim.base_pos(m.sim.base_of(m.me)) + Vector2(0, -70), "Dowódca poległ", Main.WARN_COLOR)
 		m.sfx.play("error", 0.1)
 		return
 	m.hero_selected = false

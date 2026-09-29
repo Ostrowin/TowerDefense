@@ -151,7 +151,8 @@ static func cast(sim: Sim, player: int, a: String) -> void:
 			if near != null:
 				_use(sim, player, a, near.pos)
 		"global":
-			if sim.base_hp[team] < Cfg.BASE_HP[team] * 0.6:
+			var bi := sim.base_of(player)
+			if sim.base_hp[bi] > 0 and sim.base_hp[bi] < Cfg.BASE_HP[team] * 0.6:
 				_use(sim, player, a, Vector2.ZERO)
 		"heal":
 			if not cfg["target"] and h.hp < h.max_hp * 0.5:  # leczenie wokół siebie — ratuje dowódcę

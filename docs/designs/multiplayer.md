@@ -373,7 +373,13 @@ Legend: ★★★ zachowanie + krawędzie + błędy | [GAP] brak testu | [→E2E
   - Surfaced by: przesłanki 1, 4; R4
   - Files: scripts/lobby.gd, scripts/hud.gd, scripts/world_view.gd, scripts/main.gd
   - Verify: smoke; ręcznie na 2 telefonach
-- [ ] **T7 (P2, human: ~2 h / CC: ~15 min)** — coop — punkt startowy balansu (fale ×1,6, dochód per gracz, nagroda właściciela)
+- [x] **T7 (P2, human: ~2 h / CC: ~15 min)** — coop — punkt startowy balansu (fale ×1,6, dochód per gracz, nagroda właściciela)
+  - Po teście na 2 telefonach (2026-09-29) zakres zmieniony przez użytkownika: **osobne bazy**. Mapy coop (`Levels.COOP`,
+    3 szt., lustrzane góra–dół): każdy gracz ma bazę, strefę budowy i 2 ścieżki do wspólnej fortecy wroga; łącznik
+    między bazami. Upadek bazy = gracz tylko ogląda (budynki, armia i dowódca znikają), wrogowie z jego ścieżek idą
+    łącznikiem do partnera; przegrana, gdy padną obie. Fala ×1,6 (`Cfg.COOP_WAVE_PER_PLAYER`), planowana osobno na
+    ścieżki każdej bazy. Nagrody za zabicia po równo dla żywych graczy (zamiast „właściciel zabójcy”).
+  - Verify: `bot_test.gd -- --mechanics` (`_test_coop`), `bot_test.gd -- --coop` (tabela 2 botów), net_ui_test
   - Surfaced by: D7
   - Files: scripts/cfg.gd, scripts/sim.gd
   - Verify: partia na 2 telefonach

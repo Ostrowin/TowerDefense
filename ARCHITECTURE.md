@@ -88,6 +88,12 @@ pauza wspólna (pakiet poza turami), zerwanie = ekran końca z komunikatem. Wido
 wysłaniem rozkazu (wynik z Sim przychodzi po DELAY krokach); budynki i dowódca partnera mają błękitny znacznik.
 Test od menu do końca: `tests/net_ui_test.gd`.
 
+**Bazy (coop).** `Sim.bases` — pozycje baz po indeksie: 0 = gracz 0, 1 = forteca wroga, 2+ = bazy graczy coop
+(indeks bazy = numer gracza; `base_hp` ma te same indeksy, więc solo dalej używa `base_hp[0]`/`[1]`). Ścieżka ma
+`base` (baza przy s = 0); wróg idzie do bazy swojej ścieżki, a gdy ta padła — `_reroute` na łącznik (`Lane.connector`,
+`entry` = baza wejścia) do żywej. `base_of(player)`, `lane_of_player`, strefy `build_zones` per baza. Upadek bazy
+coop (`_fall_base`): gracz `out` — bez budynków, armii, dowódcy i rozkazów. Przegrana, gdy nie ma żywej bazy gracza.
+
 ```
  input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
               ▲                        │

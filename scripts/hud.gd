@@ -266,6 +266,7 @@ func menu_back() -> void:
 
 func open_net() -> void:
 	menu_go("net")
+	m.solo_map()
 	m.lobby.browse()
 
 
@@ -274,6 +275,7 @@ func host_net() -> void:
 	if m.lobby.active():
 		if m.game_mode != "battle":
 			m.toggle_mode()  # v1: w sieci tylko Bitwa
+		m.select_level(Levels.coop_indices()[0])  # gra ze znajomym = mapy coop (osobne bazy)
 		menu_go("army")
 
 
@@ -293,6 +295,7 @@ func pick_difficulty(d: int) -> void:
 
 
 func pick_mode(mode: String) -> void:
+	m.solo_map()
 	if m.game_mode != mode:
 		m.toggle_mode()
 	menu_go("army")
@@ -402,7 +405,7 @@ func build_menu(ui: Control) -> void:
 	maps.alignment = BoxContainer.ALIGNMENT_CENTER
 	maps.add_theme_constant_override("separation", 10)
 	map.add_child(maps)
-	for i in Levels.ALL.size():
+	for i in Levels.count():  # solo i coop — widoczne tylko pasujące do trybu (update_menu)
 		var b := button("", Vector2(230, 62), m.select_level.bind(i), maps)
 		b.toggle_mode = true
 		map_buttons.append(b)
@@ -652,11 +655,13 @@ func update_menu() -> void:
 		"Umiejętność rasy: %s · " % Cfg.ABILITIES[racial]["name"] if racial != "" else ""]
 	for id in commander_buttons:
 		commander_buttons[id].button_pressed = id == m.commander_id
+	var coop := m.lobby.role == "host"
 	for i in map_buttons.size():
-		var lv: Dictionary = Levels.ALL[i]
-		map_buttons[i].text = "%s\n%s" % [lv["name"], stars_text(Progress.stars(lv["id"]))]
+		var lv: Dictionary = Levels.level(i)
+		map_buttons[i].visible = lv.get("coop", false) == coop
+		map_buttons[i].text = lv["name"] if coop else "%s\n%s" % [lv["name"], stars_text(Progress.stars(lv["id"]))]
 		map_buttons[i].button_pressed = i == m.level_index
-	var cur: Dictionary = Levels.ALL[m.level_index]
+	var cur: Dictionary = Levels.level(m.level_index)
 	map_desc.text = cur["desc"]
 	for d in diff_buttons.size():
 		var record := "—"
@@ -746,9 +751,10 @@ func fill_selection_panel(b: Sim.Building) -> void:
 		sel_title.text = "%s — poz. %d/%d" % [cfg["name"], b.level, Cfg.MAX_LEVEL]
 	sel_body.text = "\n".join(lines)
 
-	lane_row.visible = b.team == 0 and Cfg.is_production(b.kind)
+	lane_row.visible = b.team == 0 and Cfg.is_production(b.kind) and b.owner == m.me
 	for i in lane_buttons.size():
 		lane_buttons[i].button_pressed = b.lane == i
+		lane_buttons[i].visible = m.sim.lane_of_player(i, m.me)
 	upgrade_button.get_parent().visible = b.team == 0
 	var up := m.sim.upgrade_cost(b)
 	upgrade_button.text = "Maks. poziom" if up < 0 else "Ulepsz  %d" % up
@@ -884,8 +890,9 @@ func draw_minimap() -> void:
 		c.draw_polyline(xf * m.view.lane_points[i], Color(0.55, 0.47, 0.34), 3.0)
 	for i in m.view.warn_lanes():
 		c.draw_polyline(xf * m.view.lane_points[i], Color(Main.WARN_COLOR, 0.7), 3.0)
-	for team in 2:
-		c.draw_rect(Rect2(m.sim.base_pos(team) * k - Vector2(5, 5), Vector2(10, 10)), Main.TEAM_COLORS[team])
+	for bi in m.sim.bases.size():
+		if m.sim.has_base(bi):
+			c.draw_rect(Rect2(m.sim.base_pos(bi) * k - Vector2(5, 5), Vector2(10, 10)), Main.TEAM_COLORS[m.sim.base_team(bi)])
 	for b in m.sim.buildings:
 		if b.kind != "basegun":
 			c.draw_rect(Rect2(b.pos * k - Vector2(2, 2), Vector2(4, 4)), Main.TEAM_COLORS[b.team].lightened(0.3))

@@ -126,12 +126,12 @@ func make_terrain() -> void:
 	var slots: Array[Vector2] = []
 	for i in m.sim.enemy_slot_count():
 		slots.append(m.sim.enemy_slot_pos(i))
-	var zone := m.sim.build_rect.grow(30.0)
+	var zones: Array = m.sim.build_zones.values()
 	var tries := 0
 	while trees.size() < 70 and tries < 5000:
 		tries += 1
 		var p := Vector2(rnd.randf_range(0, m.sim.size.x), rnd.randf_range(0, m.sim.size.y))
-		if zone.has_point(p) or not clear_of_paths(p, Cfg.PATH_HALF + 26.0):
+		if zones.any(func(z: Rect2) -> bool: return z.grow(30.0).has_point(p)) or not clear_of_paths(p, Cfg.PATH_HALF + 26.0):
 			continue
 		if p.distance_to(m.sim.e_base) < 110 or near_any(p, m.sim.nodes, 50.0) or near_any(p, slots, 50.0):
 			continue
@@ -273,8 +273,9 @@ func draw() -> void:
 	draw_zones()
 	for n in m.sim.nodes:
 		draw_resource_node(n)
-	for team in 2:
-		draw_base(team)
+	for i in m.sim.bases.size():
+		if m.sim.has_base(i):
+			draw_base(i)
 	for b in sorted_buildings():
 		if b.kind != "basegun" and view.has_point(b.pos):
 			draw_building(b)
@@ -342,6 +343,8 @@ func draw_terrain() -> void:
 	# nazwy ścieżek przy bazie gracza
 	for i in m.sim.lanes.size():
 		var lane := m.sim.lanes[i]
+		if lane.connector:
+			continue
 		var at := lane.slot_at(180.0, -(Cfg.PATH_HALF + 16.0))
 		c.draw_string_outline(m.font, at - Vector2(50, -5), lane.name, HORIZONTAL_ALIGNMENT_CENTER, 100, 14, 4, Color(0, 0, 0, 0.6))
 		c.draw_string(m.font, at - Vector2(50, -5), lane.name, HORIZONTAL_ALIGNMENT_CENTER, 100, 14, Main.LANE_COLORS[i])
@@ -376,11 +379,12 @@ func draw_overlays() -> void:
 		if _build_cells_version != m.sim.layout_version:
 			_build_cells_version = m.sim.layout_version
 			_build_cells.clear()
+			var zone: Rect2 = m.sim.build_zones.get(m.sim.base_of(m.me), m.sim.build_rect)
 			var y := Cfg.GRID / 2
-			while y <= m.sim.build_rect.end.y:
+			while y <= zone.end.y:
 				var x := Cfg.GRID / 2
-				while x <= m.sim.build_rect.end.x:
-					if m.sim.can_place(Vector2(x, y)):
+				while x <= zone.end.x:
+					if m.sim.can_place(Vector2(x, y), m.me):
 						_build_cells.append(Vector2(x, y))
 					x += Cfg.GRID
 				y += Cfg.GRID
@@ -389,7 +393,10 @@ func draw_overlays() -> void:
 
 	# linie zbiórki — po jednej na każdej ścieżce
 	if m.sim.players[m.me].stance == "defend" and m.state != Main.State.MENU:
-		for lane in m.sim.lanes:
+		for li in m.sim.lanes.size():
+			if not m.sim.lane_of_player(li, m.me):
+				continue
+			var lane := m.sim.lanes[li]
 			var s := m.sim.rally_s + 14.0
 			var n := lane.normal_at(s)
 			var p := lane.point_at(s)
@@ -443,9 +450,15 @@ func draw_deposit_shape(n: Vector2, rich: bool) -> void:
 	pen.circle(n + Vector2(-3, -8), 3, Color(1, 1, 0.8, 0.8))
 
 
-func draw_base(team: int) -> void:
-	var p := m.sim.base_pos(team)
+## Baza o indeksie `bi` (0 = gracz, 1 = wróg, 2+ = gracze coop). Poległa baza coop — ciemna ruina.
+func draw_base(bi: int) -> void:
+	var team := m.sim.base_team(bi)
+	var p := m.sim.base_pos(bi)
 	var c := Main.TEAM_COLORS[team]
+	if team == 0 and m.sim.base_hp[bi] <= 0:
+		c = Color(0.25, 0.25, 0.25)
+	elif team == 0 and bi != m.sim.base_of(m.me):
+		c = Main.ALLY_COLOR.darkened(0.2)  # baza partnera
 	var r := Cfg.BASE_R
 	var body := Rect2(p - Vector2(r, r * 0.8), Vector2(r * 2, r * 1.8))
 	if Art.has("b_base"):
@@ -453,7 +466,7 @@ func draw_base(team: int) -> void:
 		pen.ellipse(feet + Vector2(4, 0), Vector2(r * 1.4, r * 0.4), Color(0, 0, 0, 0.35))
 		var f := 1.0 + m.base_flash[team] * 12.0
 		Art.draw(pen, "b_base", feet, 1.0, team == 1, Color(f, f, f), c)
-		draw_base_labels(team, feet + Vector2(0, -Art.height("b_base") - 6))
+		draw_base_labels(bi, feet + Vector2(0, -Art.height("b_base") - 6))
 		return
 	pen.rect(Rect2(body.position + Vector2(4, 6), body.size), Color(0, 0, 0, 0.25))
 	pen.rect(body, c.darkened(0.45))
@@ -467,22 +480,29 @@ func draw_base(team: int) -> void:
 	pen.polygon(PackedVector2Array([pole + Vector2(0, -30), pole + Vector2(22 * (1 - 2 * team), -24 + flutter), pole + Vector2(0, -18)]), c)
 	if m.base_flash[team] > 0:
 		pen.rect(body, Color(1, 1, 1, m.base_flash[team] * 4.0))
-	draw_base_labels(team, pole + Vector2(0, -30))
+	draw_base_labels(bi, pole + Vector2(0, -30))
 
 
 ## Nazwa rasy nad fortecą (`top` = wierzch budowli), pasek HP i liczba pod nią.
-func draw_base_labels(team: int, top: Vector2) -> void:
-	var p := m.sim.base_pos(team)
+func draw_base_labels(bi: int, top: Vector2) -> void:
+	var team := m.sim.base_team(bi)
+	var p := m.sim.base_pos(bi)
 	var c := Main.TEAM_COLORS[team]
 	var r := Cfg.BASE_R
 	var race_i := m.race_index if team == 0 else m.rival_index
+	if team == 0 and bi < m.sim.players.size() and m.sim.players[bi].commander != "":  # coop: rasa właściciela bazy
+		var rid: String = Cfg.COMMANDERS[m.sim.players[bi].commander]["race"]
+		race_i = Races.ALL.find_custom(func(x: Dictionary) -> bool: return x["id"] == rid)
 	if race_i >= 0:  # przeciwnik nieznany w menu — losujemy go przy starcie
 		var race: String = Races.ALL[race_i]["name"]
 		pen.text_outline(m.font, top + Vector2(-70, -4), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, 5, Color(0, 0, 0, 0.7))
 		pen.text(m.font, top + Vector2(-70, -4), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, c.lightened(0.35))
-	var frac := m.sim.base_hp[team] / Cfg.BASE_HP[team]
+	var frac := m.sim.base_hp[bi] / Cfg.BASE_HP[team]
 	hp_bar(p + Vector2(0, r + 18), 100, frac, 8)
-	var hp_text := "nie do zburzenia" if team == 1 and m.sim.mode == "survival" else "%d" % int(m.sim.base_hp[team])
+	var hp_text := "nie do zburzenia" if team == 1 and m.sim.mode == "survival" else "%d" % int(m.sim.base_hp[bi])
+	if team == 0 and m.sim.base_hp[bi] <= 0:
+		hp_text = "zburzona"
+
 	pen.text(m.font, p + Vector2(-80, r + 42), hp_text, HORIZONTAL_ALIGNMENT_CENTER, 160, 14, Color(1, 1, 1, 0.8))
 
 

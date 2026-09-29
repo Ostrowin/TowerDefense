@@ -23,7 +23,9 @@ const STEP := 1.0 / 30.0
 const SIM_BUDGET_MS := 10.0
 const TEAM_COLORS: Array[Color] = [Color(0.35, 0.62, 1.0), Color(1.0, 0.36, 0.3)]
 ## Kolory rozróżniające ścieżki (plakietki budynków, przyciski, podświetlenie).
-const LANE_COLORS: Array[Color] = [Color(1.0, 0.78, 0.3), Color(0.55, 0.92, 0.5), Color(0.8, 0.6, 1.0)]
+## Kolory ścieżek (indeks jak w `sim.lanes`): solo 3; coop 2 + 2 ścieżki graczy i łącznik w dwie strony.
+const LANE_COLORS: Array[Color] = [Color(1.0, 0.78, 0.3), Color(0.55, 0.92, 0.5), Color(0.8, 0.6, 1.0),
+	Color(0.45, 0.85, 1.0), Color(0.75, 0.75, 0.75), Color(0.75, 0.75, 0.75)]
 const GOLD_COLOR := Color(1.0, 0.84, 0.3)
 const WARN_COLOR := Color(1.0, 0.25, 0.2)
 const FROST_COLOR := Color(0.6, 0.85, 1.0)
@@ -208,7 +210,10 @@ func start(d: int) -> void:
 ## Gra ze znajomym (T6): obaj budują ten sam Sim z ustawień hosta (`cfg` z lobby / pakietu „start”).
 ## Host = gracz 0, goście 2, 3… (`add_player` po kolei). Pętla kroków idzie przez `net` (lockstep).
 func start_net(session: NetSession, cfg: Dictionary) -> void:
-	var ok: bool = cfg.get("seed") is int and cfg.get("level") is int and cfg.get("difficulty") is int 		and cfg.get("host") is String and cfg.get("guests") is Dictionary and cfg.get("rival") is String 		and Cfg.COMMANDERS.has(cfg["host"]) and cfg["level"] >= 0 and cfg["level"] < Levels.ALL.size() 		and cfg["difficulty"] >= 0 and cfg["difficulty"] < Cfg.DIFFICULTIES.size()
+	var ok: bool = cfg.get("seed") is int and cfg.get("level") is int and cfg.get("difficulty") is int \
+		and cfg.get("host") is String and cfg.get("guests") is Dictionary and cfg.get("rival") is String \
+		and Cfg.COMMANDERS.has(cfg["host"]) and Levels.coop_indices().has(cfg["level"]) \
+		and cfg["difficulty"] >= 0 and cfg["difficulty"] < Cfg.DIFFICULTIES.size()
 	for p: Variant in cfg.get("guests", {}):
 		ok = ok and p is int and cfg["guests"][p] is String and Cfg.COMMANDERS.has(cfg["guests"][p])
 	lobby.detach()
@@ -312,6 +317,12 @@ func _menu_preview() -> void:
 	sim = Sim.new(difficulty, -1, level_index)
 	view.make_terrain()
 	_clear_view_state()
+
+
+## Wraca na mapę solo, jeśli wybrana była mapa coop (menu solo nie pokazuje map coop).
+func solo_map() -> void:
+	if Levels.level(level_index).get("coop", false):
+		select_level(0)
 
 
 func select_level(i: int) -> void:
@@ -613,9 +624,19 @@ func _consume_events() -> void:
 						for b in sim.buildings:
 							if b.team == 0 and b.kind != "basegun":
 								burst(b.pos, 6, HEAL_COLOR, 60.0, 0.6)
-						burst(sim.p_base, 20, HEAL_COLOR, 90.0, 0.8)
-						float_text(sim.p_base + Vector2(0, -60), "Naprawa!", HEAL_COLOR)
+						var home := sim.base_pos(sim.base_of(e.get("player", me)))
+						burst(home, 20, HEAL_COLOR, 90.0, 0.8)
+						float_text(home + Vector2(0, -60), "Naprawa!", HEAL_COLOR)
 						sfx.play("repair", 0.0)
+			"base_fallen":
+				burst(e["pos"], 40, Color(1, 0.6, 0.2), 220.0)
+				shake = 14.0
+				sfx.play("explosion", 0.0)
+				if e["base"] == sim.base_of(me):
+					banner("Twoja baza padła", "Oglądasz grę partnera — wrogowie idą łącznikiem do jego bazy")
+				else:
+					banner("Baza partnera padła!", "Wrogowie z jego ścieżek idą łącznikiem do Twojej bazy")
+				banner_life = 4.0
 			"base_hit":
 				base_flash[e["team"]] = 0.15
 				if e["team"] == 0:

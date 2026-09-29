@@ -193,7 +193,8 @@ func _receive(from: int, msg: Array) -> void:
 					start_cfg = msg[2]
 				started = true
 		"pick":
-			if is_host and not started and _peer_player.has(from) and msg.size() == 2 and msg[1] is String 					and Cfg.COMMANDERS.has(msg[1]) and Cfg.commander_ready(msg[1]):
+			if is_host and not started and _peer_player.has(from) and msg.size() == 2 and msg[1] is String \
+					and Cfg.COMMANDERS.has(msg[1]) and Cfg.commander_ready(msg[1]):
 				picks[_peer_player[from]] = msg[1]
 		"turn":
 			if msg.size() == 3 and msg[1] is int and msg[2] is Array:

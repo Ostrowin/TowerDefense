@@ -45,6 +45,18 @@ func _init() -> void:
 	Progress.path = "user://test_progress.cfg"
 	Progress.reset_cache()
 	var args := OS.get_cmdline_user_args()
+	if args.has("--coop"):
+		# coop (gra ze znajomym): dwa boty z dowódcami na mapach coop — strojenie fal ×1,6
+		var diffs := _int_list(args, "--diffs", Cfg.DIFFICULTIES.size())
+		print("%-20s %-9s %-9s %6s %5s %6s %8s %s" % ["mapa coop", "trudność", "wynik", "czas", "fala", "zabici", "stracone", "bazy (A/B)"])
+		for lv in Levels.coop_indices():
+			for d in diffs:
+				var r := _play_coop(lv, d)
+				print("%-20s %-9s %-9s %5ds %5d %6d %8d %s" % [Levels.level(lv)["name"], Cfg.DIFFICULTIES[d]["name"],
+					["przegrana", "remis", "WYGRANA"][r.result + 1], int(r.elapsed), r.wave, r.stats["kills"], r.stats["buildings_lost"],
+					"%d/%d" % [int(r.base_hp[0]), int(r.base_hp[2])]])
+		quit()
+		return
 	if args.has("--balance"):
 		# opcjonalnie: --maps 0,2 --diffs 1,2 --bot mass (np. żeby puścić kilka procesów równolegle)
 		var maps := _int_list(args, "--maps", Levels.ALL.size())
@@ -60,7 +72,7 @@ func _init() -> void:
 		return
 
 	print("== testy mechanik ==")
-	for lv in Levels.ALL.size():
+	for lv in Levels.count():  # także mapy coop
 		_test_map_layout(lv)
 		_test_bridges(lv)
 		_test_navigation(lv)
@@ -94,6 +106,7 @@ func _init() -> void:
 		_test_players(n)
 	_test_commands()
 	_test_checksum()
+	_test_coop()
 	_test_hero_level()
 	_test_survival()
 	_test_daily()
@@ -280,6 +293,72 @@ func _cmd(sim: Sim, cmd: Dictionary) -> bool:
 	return sim.apply(cmd)
 
 
+# ---------------------------------------------------------------- coop: dwa boty
+
+## Partia coop: gracz 0 (Saper) i gracz 2 (Żelazny Chwyt), każdy gra planem „balanced” w swojej strefie i na
+## swoich ścieżkach; złoża bierze tylko bliższe swojej bazie. Dowódcy: umiejętności według R9, postój na linii
+## zbiórki własnej ścieżki następnej fali. Rozkazy przez komendy, jak w grze.
+func _play_coop(lv: int, difficulty: int) -> Sim:
+	var sim := Sim.new(difficulty, 1234, lv, "sapper", "battle", [], _bot_rival(lv, difficulty))
+	sim.add_player("iron_grip")
+	var plan_i := {0: 0, 2: 0}
+	var think := 0.0
+	while sim.result == 0 and sim.elapsed < MAX_TIME:
+		sim.step(DT)
+		sim.events.clear()
+		think -= DT
+		if think > 0:
+			continue
+		think = BOT_THINK
+		for p: int in [0, 2]:
+			if sim.players[p].out:
+				continue
+			var home := sim.base_pos(p)
+			for i in sim.nodes.size():
+				var other := sim.base_pos(2 - p)
+				if sim.nodes[i].distance_to(home) < sim.nodes[i].distance_to(other):
+					sim.apply({"player": p, "type": "build_extractor", "node": i})
+			var own: Array[int] = []
+			for i in sim.lanes.size():
+				if sim.lane_of_player(i, p):
+					own.append(i)
+			if plan_i[p] < BALANCED_PLAN.size():
+				var cell := _coop_cell(sim, p, BALANCED_PLAN[plan_i[p]][1])
+				if cell == Vector2.INF:
+					plan_i[p] += 1
+				elif sim.apply({"player": p, "type": "build", "kind": BALANCED_PLAN[plan_i[p]][0], "cell": cell}):
+					sim.apply({"player": p, "type": "set_lane", "at": cell, "lane": own[plan_i[p] % own.size()]})
+					plan_i[p] += 1
+			else:
+				var best: Sim.Building = null
+				for b in sim.buildings:
+					if b.owner == p and b.kind != "basegun" and sim.upgrade_cost(b) > 0:
+						if best == null or sim.upgrade_cost(b) < sim.upgrade_cost(best):
+							best = b
+				if best != null:
+					sim.apply({"player": p, "type": "upgrade", "at": best.pos})
+			var army := 0
+			for u in sim.units:
+				if u.owner == p and u.hp > 0 and not u.is_hero:
+					army += 1
+			if army >= 10:
+				sim.apply({"player": p, "type": "set_stance", "stance": "attack"})
+			elif army <= 3:
+				sim.apply({"player": p, "type": "set_stance", "stance": "defend"})
+			if sim.hero_alive(p):
+				var lane := sim.lanes[own[0]]
+				for li in sim.next_wave_lanes:
+					if own.has(li):
+						lane = sim.lanes[li]
+				var post := lane.point_at(sim.rally_s)
+				if sim.hero(p).post.distance_to(post) > 40.0 and sim.hero(p).state != "march":
+					sim.apply({"player": p, "type": "order_hero", "at": post})
+				AbilityRules.cast_hero_abilities(sim, p)
+			AbilityRules.cast_racial(sim, p, sim.players[p].stance == "attack")
+			AbilityRules.pick_upgrade(sim, p)
+	return sim
+
+
 # ---------------------------------------------------------------- bot dowódcy (R9)
 
 ## Rasa rywala w meczu botów — stała dla mapy i trudności, żeby tabela była powtarzalna.
@@ -339,6 +418,25 @@ func _set_stance(sim: Sim, strategy: String) -> void:
 				_cmd(sim, {"type": "set_stance", "stance": "attack"})
 			elif army <= (3 if early else 30):
 				_cmd(sim, {"type": "set_stance", "stance": "defend"})
+
+
+## Kotwica planu bota dla gracza coop: Vector3 (ścieżka, s, bok) na jego ścieżce o tym numerze,
+## Vector2 przesunięte do jego bazy (dla dolnej bazy odbite w pionie).
+func _coop_cell(sim: Sim, player: int, anchor: Variant) -> Vector2:
+	var own: Array[int] = []
+	for i in sim.lanes.size():
+		if sim.lane_of_player(i, player):
+			own.append(i)
+	var base := sim.base_pos(sim.base_of(player))
+	var flip := -1.0 if base.y > sim.size.y / 2.0 else 1.0
+	var p: Vector2
+	if anchor is Vector2:
+		var off: Vector2 = anchor - Vector2(90, 450)  # plany botów są pisane względem bazy map solo
+		p = base + Vector2(off.x, off.y * flip)
+	else:
+		var lane := sim.lanes[own[int(anchor.x) % own.size()]]
+		p = lane.slot_at(anchor.y, anchor.z * flip)
+	return sim.free_cell_near(p, 160.0, player)
 
 
 func _resolve(sim: Sim, anchor: Variant) -> Vector2:
@@ -401,7 +499,7 @@ func _use_abilities(sim: Sim) -> void:
 
 func _test_map_layout(lv: int) -> void:
 	var sim := Sim.new(1, 1, lv)
-	var name: String = Levels.ALL[lv]["name"]
+	var name: String = Levels.level(lv)["name"]
 	for i in sim.nodes.size():
 		for lane in sim.lanes:
 			_check(lane.distance_to(sim.nodes[i]) >= Cfg.PATH_HALF + 30, "%s: złoże %d nie leży na ścieżce %s" % [name, i, lane.name])
@@ -411,9 +509,12 @@ func _test_map_layout(lv: int) -> void:
 			_check(lane.distance_to(p) >= Cfg.PATH_HALF + 30, "%s: slot wieży wroga %d nie leży na ścieżce %s" % [name, i, lane.name])
 		_check(Rect2(Vector2.ZERO, sim.size).has_point(p), "%s: slot wieży wroga %d na mapie" % [name, i])
 	for lane in sim.lanes:
-		_check(lane.point_at(0).distance_to(sim.p_base) < 1.0, "%s: ścieżka %s zaczyna się w bazie gracza" % [name, lane.name])
-		_check(lane.point_at(lane.length).distance_to(sim.e_base) < 1.0, "%s: ścieżka %s kończy się w bazie wroga" % [name, lane.name])
-		_check(lane.length > 1400.0, "%s: ścieżka %s jest kręta i długa" % [name, lane.name])
+		_check(lane.point_at(0).distance_to(sim.base_pos(lane.base)) < 1.0, "%s: ścieżka %s zaczyna się w bazie gracza" % [name, lane.name])
+		if lane.connector:  # łącznik: od bazy wejścia do bazy docelowej
+			_check(lane.point_at(lane.length).distance_to(sim.base_pos(lane.entry)) < 1.0, "%s: łącznik kończy się w drugiej bazie" % name)
+		else:
+			_check(lane.point_at(lane.length).distance_to(sim.e_base) < 1.0, "%s: ścieżka %s kończy się w bazie wroga" % [name, lane.name])
+			_check(lane.length > 1400.0, "%s: ścieżka %s jest kręta i długa" % [name, lane.name])
 		# zakręty tej samej ścieżki nie mogą na siebie nachodzić
 		var pts := lane.curve.get_baked_points()
 		var worst := INF
@@ -421,6 +522,14 @@ func _test_map_layout(lv: int) -> void:
 			for b in range(a + 60, pts.size(), 3):
 				worst = minf(worst, pts[a].distance_to(pts[b]))
 		_check(worst >= Cfg.PATH_HALF * 2 + 10, "%s: pętle ścieżki %s nie nachodzą na siebie (%.0f px)" % [name, lane.name, worst])
+	if Levels.level(lv).get("coop", false):
+		for pl in [0, 2]:  # strefa budowy każdego gracza ma miejsce na plan bota
+			var free := 0
+			for p in BALANCED_PLAN:
+				if _coop_cell(sim, pl, p[1]) != Vector2.INF:
+					free += 1
+			_check(free == BALANCED_PLAN.size(), "%s: plan bota gracza %d mieści się w jego strefie (%d/%d)" % [name, pl, free, BALANCED_PLAN.size()])
+		return
 	for p in BALANCED_PLAN + TURTLE_PLAN:
 		_check(_resolve(sim, p[1]) != Vector2.INF, "%s: kotwica planu bota %s ma wolne pole" % [name, str(p[1])])
 
@@ -428,11 +537,13 @@ func _test_map_layout(lv: int) -> void:
 ## Mosty liczy Sim (widok z nich rysuje, nawigacja dowódcy z nich korzysta).
 func _test_bridges(lv: int) -> void:
 	var sim := Sim.new(1, 1, lv)
-	var name: String = Levels.ALL[lv]["name"]
+	var name: String = Levels.level(lv)["name"]
 	if sim.river == null:
 		_check(sim.bridges.is_empty(), "%s: bez rzeki nie ma mostów" % name)
 		return
 	for li in sim.lanes.size():
+		if sim.lanes[li].connector:
+			continue
 		var own := sim.bridges.filter(func(br: Dictionary) -> bool: return br["lane"] == li)
 		_check(not own.is_empty(), "%s: ścieżka %s przechodzi przez rzekę po moście" % [name, sim.lanes[li].name])
 	for br in sim.bridges:
@@ -446,7 +557,7 @@ func _test_bridges(lv: int) -> void:
 ## mapa bez rzeki → prosto.
 func _test_navigation(lv: int) -> void:
 	var sim := Sim.new(1, 1, lv)
-	var name: String = Levels.ALL[lv]["name"]
+	var name: String = Levels.level(lv)["name"]
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 11 + lv
 	var leaks := 0
@@ -1676,6 +1787,74 @@ func _test_checksum() -> void:
 	_check(played.players[1].commander != "" and mirror_desync < 0 and mirror_checks > 100,
 		"lockstep: 2 Sim na tym samym strumieniu komend — sumy zgodne przez całą partię (%d porównań, rozjazd: %d)" % [mirror_checks, mirror_desync])
 	print("  lockstep: %d kroków, %d porównań sum, wynik %d, %d ms" % [mirror_steps, mirror_checks, played.result, Time.get_ticks_msec() - t0])
+
+
+## Coop z osobnymi bazami: każdy gracz ma bazę, strefę budowy i 2 ścieżki; fala ×1,6; upadek bazy =
+## gracz tylko ogląda, a wrogowie z jego ścieżek idą łącznikiem do partnera; przegrana, gdy padną obie.
+func _test_coop() -> void:
+	for lv in Levels.coop_indices():
+		var sim := Sim.new(1, 5, lv, "sapper")
+		var who: String = sim.level["name"]
+		var p2 := sim.add_player("iron_grip")
+		sim.wave_timer = INF
+		_check(p2 == 2 and sim.has_base(2) and sim.base_of(2) == 2 and sim.base_of(0) == 0, "coop: gracz 2 ma własną bazę (%s)" % who)
+		_check(sim.hero(2).pos.distance_to(sim.base_pos(2)) < 80.0 and sim.hero(0).pos.distance_to(sim.base_pos(0)) < 80.0,
+			"coop: dowódca startuje przy swojej bazie (%s)" % who)
+		var guns := sim.buildings.filter(func(b: Sim.Building) -> bool: return b.kind == "basegun")
+		_check(guns.size() == 3, "coop: działko w każdej bazie (%s)" % who)
+		for p in [0, 2]:
+			sim.players[p].gold = 5000.0
+		var cell_b := sim.free_cell_near(sim.base_pos(2) + Vector2(160, 0), 200.0, 2)
+		_check(cell_b != Vector2.INF and not sim.can_place(cell_b, 0) and sim.can_place(cell_b, 2), "coop: strefa budowy per gracz (%s)" % who)
+		_check(sim.apply({"player": 2, "type": "build", "kind": "barracks", "cell": cell_b}), "coop: gracz 2 buduje u siebie (%s)" % who)
+		var bar := sim.building_at(cell_b, 0)
+		_check(sim.lane_of_player(bar.lane, 2), "coop: produkcja idzie ścieżką gracza (%s)" % who)
+		var foreign := -1
+		for i in sim.lanes.size():
+			if sim.lane_of_player(i, 0):
+				foreign = i
+		_check(not sim.set_lane(bar, foreign, 2), "coop: nie da się kierować produkcji na ścieżkę partnera (%s)" % who)
+		_check(sim.wave_lane_count() == 4 and sim.lanes.size() == 6, "coop: 4 ścieżki + łącznik w dwie strony (%s)" % who)
+		var planned := sim._plan_lanes(Cfg.WAVE_SPLIT_2)
+		var bases_hit := {}
+		for li in planned:
+			bases_hit[sim.lanes[li].base] = true
+		_check(bases_hit.size() == 2, "coop: fala planowana na ścieżki obu graczy (%s)" % who)
+
+		# upadek bazy B: gracz 2 tylko ogląda, gra trwa
+		sim._damage_base(2, 1e9)
+		sim.step(DT)
+		var left := sim.buildings.filter(func(b: Sim.Building) -> bool: return b.owner == 2)
+		_check(sim.players[2].out and left.is_empty() and not sim.hero_alive(2) and sim.result == 0,
+			"coop: upadek bazy — gracz ogląda, jego budynki i dowódca znikają, gra trwa (%s)" % who)
+		_check(not sim.apply({"player": 2, "type": "set_stance", "stance": "defend"}) and sim.income(2) == 0.0,
+			"coop: poległy gracz nie wydaje rozkazów i nie zarabia (%s)" % who)
+		# wróg ze ścieżki poległej bazy idzie łącznikiem do bazy A
+		var lane_b := -1
+		for i in sim.lanes.size():
+			if not sim.lanes[i].connector and sim.lanes[i].base == 2:
+				lane_b = i
+		sim._spawn_unit(1, "grunt", 1, 100.0, lane_b, 60.0)
+		var g: Sim.Unit = sim.units[-1]
+		var hp_a := sim.base_hp[0]
+		var t := 0
+		while t < 30 * 90 and sim.base_hp[0] >= hp_a and g.hp > 0:
+			sim.step(DT)
+			t += 1
+		_check(sim.lanes[g.lane].connector and sim.base_hp[0] < hp_a, "coop: wróg z poległej bazy idzie łącznikiem i bije bazę partnera (%s)" % who)
+		sim._damage_base(0, 1e9)
+		sim.step(DT)
+		_check(sim.result == -1, "coop: przegrana, gdy padną obie bazy (%s)" % who)
+
+	# fala ×1,6 przy dwóch graczach
+	var solo := Sim.new(1, 9, Levels.coop_indices()[0])
+	var duo := Sim.new(1, 9, Levels.coop_indices()[0])
+	duo.add_player()
+	for s in [solo, duo]:
+		s.wave_timer = 0.0
+		s.step(DT)
+	_check(duo.spawn_queue.size() + duo.team_count[1] >= int((solo.spawn_queue.size() + solo.team_count[1]) * 1.5),
+		"coop: fala większa przy 2 graczach (%d vs %d)" % [duo.spawn_queue.size() + duo.team_count[1], solo.spawn_queue.size() + solo.team_count[1]])
 
 
 ## Awans dowódcy (T14): doświadczenie w pobliżu i za zabicie osobiste, progi, statystyki,

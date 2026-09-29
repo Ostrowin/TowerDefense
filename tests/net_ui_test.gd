@@ -57,7 +57,7 @@ func _process(_delta: float) -> bool:
 				host.hud.host_net()
 				_check(host.lobby.role == "host" and host.hud.menu_page == "army", "host: utworzona gra → rasa i dowódca")
 				host.hud.menu_go("map")
-				host.select_level(1)
+				host.select_level(Levels.coop_indices()[1])
 				guest.hud.open_net()
 				guest.select_race(Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon"))
 				guest.select_commander("warbeat")
@@ -80,6 +80,8 @@ func _process(_delta: float) -> bool:
 				_check(guest.sim.level["id"] == host.sim.level["id"] and guest.sim.players.size() == 3
 					and guest.sim.players[2].commander == "warbeat" and host.sim.players[0].commander == guest.sim.players[0].commander,
 					"obaj mają tę samą mapę i dowódców")
+				_check(guest.sim.level.get("coop", false) and guest.sim.has_base(2) and guest.sim.base_of(guest.me) == 2,
+					"mapa coop: gość ma własną bazę")
 				_check(not host.hud.speed_button.visible and not guest.hud.speed_button.visible, "prędkość ukryta w sieci (R4)")
 				host.controls.cycle_speed()
 				_check(host.speed_mult == 1, "prędkości nie da się zmienić w sieci")
