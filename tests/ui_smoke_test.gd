@@ -44,6 +44,13 @@ func _process(_delta: float) -> bool:
 		2:
 			_check(main.state == main.State.MENU, "start w menu")
 			_check(main.hud.menu_layer.visible, "menu widoczne")
+			_check(main.hud.menu_page == "start" and main.hud.menu_pages["start"].visible and not main.hud.menu_pages["army"].visible,
+				"menu zaczyna od ekranu startowego (reszta ukryta)")
+			main.hud.menu_go("mode")
+			_check(main.back() and main.hud.menu_page == "start" and not main.back(), "Wstecz w menu cofa o krok, na starcie nie ma dokąd")
+			main.hud.menu_go("mode")
+			main.hud.mode_buttons["survival"].emit_signal("pressed")
+			_check(main.hud.menu_page == "army" and main.game_mode == "survival", "wybór trybu prowadzi do rasy i dowódcy")
 			var playable: Array = main.hud.race_buttons.filter(func(b: Button) -> bool: return not b.disabled)
 			_check(main.hud.race_buttons.size() == 12 and playable.size() == 9, "12 ras w menu, grywalnych dziewięć")
 			var cards: Dictionary = main.hud.commander_buttons
@@ -52,8 +59,8 @@ func _process(_delta: float) -> bool:
 			main.hud.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "fox")].emit_signal("pressed")  # lisy — „Wkrótce"
 			_check(Races.ALL[main.race_index]["id"] == "mole", "zablokowanej rasy nie da się wybrać")
 			main.hud.race_buttons[Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == "gibbon")].emit_signal("pressed")
+			main.hud.menu_go("map")
 			main.hud.map_buttons[2].emit_signal("pressed")
-			main.hud.mode_button.emit_signal("pressed")
 		3:
 			_check(Races.ALL[main.race_index]["id"] == "gibbon", "wybór rasy w menu")
 			_check(main.hud.race_desc.text.contains("Przeciwnik: losowy"), "menu zapowiada losowego przeciwnika")
@@ -65,9 +72,13 @@ func _process(_delta: float) -> bool:
 			cards["warbeat"].emit_signal("pressed")
 			_check(main.commander_id == "warbeat", "karta wybiera dowódcę")
 			_check(main.level_index == 2 and sim.level["id"] == "serpentyna", "wybór mapy w menu")
-			_check(main.game_mode == "survival" and main.hud.mode_button.text.contains("Przetrwanie"), "przełącznik trybu w menu")
-			main.hud.mode_button.emit_signal("pressed")
-			_check(main.game_mode == "battle", "powrót do bitwy")
+			main.hud.update_menu()
+			_check(main.hud.menu_crumbs["map"].text == "Przetrwanie › Gibony › %s" % Cfg.COMMANDERS["warbeat"]["name"], "ścieżka wyboru na stronie mapy")
+			main.hud.menu_back()
+			main.hud.menu_back()
+			main.hud.mode_buttons["battle"].emit_signal("pressed")
+			_check(main.game_mode == "battle" and main.hud.menu_page == "army", "powrót do bitwy")
+			main.hud.menu_go("map")
 			main.hud.diff_buttons[1].emit_signal("pressed")
 		4:
 			var rival: int = main.rival_index

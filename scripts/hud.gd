@@ -6,7 +6,10 @@ extends RefCounted
 
 const ABILITY_KEY_NAMES: Array[String] = ["Q", "E", "R", "T"]
 
-var mode_button: Button
+var mode_buttons := {}  ## tryb → przycisk na stronie „mode” menu
+var menu_page := "start"  ## bieżąca strona menu (MENU_PAGES) — przeżywa przebudowę HUD
+var menu_pages := {}  ## strona → VBoxContainer
+var menu_crumbs := {}  ## strona → etykieta ścieżki wyboru
 var daily_label: Label  ## indeks rasy → ostatnio wybrany dowódca (w obrębie sesji)
 var ui_layer: CanvasLayer
 var screen := Cfg.VIEW  ## rozmiar HUD w jego własnych jednostkach (ekran / skala UI)
@@ -205,18 +208,92 @@ func build_ui() -> void:
 	build_help(ui)
 
 
+## Menu krok po kroku (jeden wybór na ekran): start → tryb → rasa i dowódca → mapa i trudność (klik = gra).
+## Każdy krok ma „Wstecz” (też Esc / wstecz na telefonie) i ścieżkę wyboru u góry.
+const MENU_PAGES: Array[String] = ["start", "mode", "army", "map"]
+
+
+## Strona menu: VBox wyśrodkowany; `back` = przycisk Wstecz i ścieżka wyboru u góry.
+func menu_page_box(box: VBoxContainer, page: String, back := true) -> VBoxContainer:
+	var p := VBoxContainer.new()
+	p.add_theme_constant_override("separation", 12)
+	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(p)
+	menu_pages[page] = p
+	if back:
+		var top := HBoxContainer.new()
+		top.add_theme_constant_override("separation", 16)
+		p.add_child(top)
+		button("← Wstecz", Vector2(150, 44), menu_back, top)
+		var crumb := label("", 18, top, Color(1, 1, 1, 0.75))
+		crumb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		menu_crumbs[page] = crumb
+	return p
+
+
+func centered(l: Label) -> Label:
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+func menu_go(page: String) -> void:
+	menu_page = page
+
+
+func menu_back() -> void:
+	var i := MENU_PAGES.find(menu_page)
+	menu_page = MENU_PAGES[maxi(i - 1, 0)]
+
+
+func pick_mode(mode: String) -> void:
+	if m.game_mode != mode:
+		m.toggle_mode()
+	menu_go("army")
+
+
 func build_menu(ui: Control) -> void:
 	menu_layer = overlay(ui, 0.55)
 	var box: VBoxContainer = menu_layer.get_child(0).get_child(0)
-	label("TOWER DEFENSE", 52, box, Main.GOLD_COLOR)
-	label("Rozbuduj ekonomię. Wyślij armię. Zburz fortecę wroga.", 18, box)
+	menu_pages.clear()
+	menu_crumbs.clear()
+
+	# 1. start
+	var start := menu_page_box(box, "start", false)
+	centered(label("TOWER DEFENSE", 64, start, Main.GOLD_COLOR))
+	centered(label("Rozbuduj ekonomię. Wyślij armię. Zburz fortecę wroga.", 18, start))
+	for entry in [["Nowa gra", menu_go.bind("mode")], ["Wyzwanie dnia", m.start_daily]]:
+		var b := button(entry[0], Vector2(340, 66), entry[1], start)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		b.add_theme_font_size_override("font_size", 24)
+		if entry[0] == "Wyzwanie dnia":
+			b.add_theme_color_override("font_color", Main.GOLD_COLOR)
+	var extra := HBoxContainer.new()
+	extra.alignment = BoxContainer.ALIGNMENT_CENTER
+	extra.add_theme_constant_override("separation", 10)
+	start.add_child(extra)
+	button("Jak grać", Vector2(160, 46), m.open_overlay.bind("help"), extra)
+	button("Ustawienia", Vector2(160, 46), m.open_overlay.bind("settings"), extra)
+
+	# 2. tryb
+	var modes := menu_page_box(box, "mode")
+	centered(label("Wybierz tryb", 36, modes))
+	for entry in [["battle", "Bitwa", "Zburz fortecę wroga"], ["survival", "Przetrwanie", "Forteca wroga nie pada — ile fal wytrzymasz?"]]:
+		var b := button("%s\n%s" % [entry[1], entry[2]], Vector2(460, 84), pick_mode.bind(entry[0]), modes)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		b.add_theme_font_size_override("font_size", 20)
+		b.toggle_mode = true
+		mode_buttons[entry[0]] = b
+
+	# 3. rasa i dowódca
+	var army := menu_page_box(box, "army")
+	centered(label("Rasa i dowódca", 36, army))
 	# rasy: wszystkie z Races.ALL, grywalne z ramką w kolorze rasy, reszta „Wkrótce"
 	var races := GridContainer.new()
 	races.columns = 6
 	races.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	races.add_theme_constant_override("h_separation", 8)
 	races.add_theme_constant_override("v_separation", 8)
-	box.add_child(races)
+	army.add_child(races)
 	for i in Races.ALL.size():
 		var r: Dictionary = Races.ALL[i]
 		var b := button(r["name"] if r["playable"] else "%s\nWkrótce" % r["name"], Vector2(140, 50), m.select_race.bind(i), races)
@@ -230,37 +307,36 @@ func build_menu(ui: Control) -> void:
 				sb.border_width_bottom = 5
 				b.add_theme_stylebox_override(look, sb)
 		race_buttons.append(b)
-	race_desc = label("", 15, box, Color(1, 1, 1, 0.8))
+	race_desc = centered(label("", 15, army, Color(1, 1, 1, 0.8)))
 	# dowódcy wybranej rasy — karty budowane od nowa przy zmianie rasy
 	commander_row = HBoxContainer.new()
 	commander_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	commander_row.add_theme_constant_override("separation", 10)
-	box.add_child(commander_row)
+	army.add_child(commander_row)
 	fill_commander_row()
+	var next := button("Dalej →", Vector2(260, 56), menu_go.bind("map"), army)
+	next.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	next.add_theme_font_size_override("font_size", 22)
+
+	# 4. mapa i trudność — klik w trudność startuje grę
+	var map := menu_page_box(box, "map")
+	centered(label("Mapa i trudność", 36, map))
 	var maps := HBoxContainer.new()
 	maps.alignment = BoxContainer.ALIGNMENT_CENTER
 	maps.add_theme_constant_override("separation", 10)
-	box.add_child(maps)
+	map.add_child(maps)
 	for i in Levels.ALL.size():
 		var b := button("", Vector2(230, 62), m.select_level.bind(i), maps)
 		b.toggle_mode = true
 		map_buttons.append(b)
-	map_desc = label("", 15, box, Color(1, 1, 1, 0.8))
+	map_desc = centered(label("", 15, map, Color(1, 1, 1, 0.8)))
+	centered(label("Start — wybierz trudność:", 18, map))
 	var diffs := HBoxContainer.new()
 	diffs.alignment = BoxContainer.ALIGNMENT_CENTER
 	diffs.add_theme_constant_override("separation", 10)
-	box.add_child(diffs)
+	map.add_child(diffs)
 	for d in Cfg.DIFFICULTIES.size():
 		diff_buttons.append(button("", Vector2(210, 62), m.start.bind(d), diffs))
-	var extra := HBoxContainer.new()
-	extra.alignment = BoxContainer.ALIGNMENT_CENTER
-	extra.add_theme_constant_override("separation", 10)
-	box.add_child(extra)
-	mode_button = button("", Vector2(250, 46), m.toggle_mode, extra)
-	var daily_button := button("Wyzwanie dnia", Vector2(200, 46), m.start_daily, extra)
-	daily_button.add_theme_color_override("font_color", Main.GOLD_COLOR)
-	button("Jak grać", Vector2(160, 46), m.open_overlay.bind("help"), extra)
-	button("Ustawienia", Vector2(160, 46), m.open_overlay.bind("settings"), extra)
 
 
 ## Karty dowódców rasy: nazwa, rola, umiejętności (Q/E/R); niegotowi — „Wkrótce”.
@@ -359,7 +435,7 @@ func build_help(ui: Control) -> void:
 		+ "w budynek albo złoże zdejmuje zaznaczenie. Po śmierci wraca do bazy po chwili.\n"
 		+ "Umiejętności dowódcy (Q/E/R) rzucasz w zasięgu od niego — okrąg pokazuje, dokąd sięga;\n"
 		+ "gdy dowódca nie żyje, czekają. Umiejętność rasy (T) działa zawsze.\n"
-		+ "Tryb Przetrwanie (przycisk w menu): forteca wroga nie pada — liczy się, ile fal wytrzymasz.\n"
+		+ "Tryb Przetrwanie (Nowa gra → tryb): forteca wroga nie pada — liczy się, ile fal wytrzymasz.\n"
 		+ "Wyzwanie dnia: codziennie inna mapa, tryb, rasa i dowódca oraz dwa modyfikatory — taki sam dzień dla wszystkich.\n\n"
 		+ "Mapę przesuwasz przeciągając, przybliżasz kółkiem albo dwoma palcami.\n"
 		+ "Skróty: 1–6 budowa · Q/E/R/T umiejętności · H dowódca · Spacja postawa · U ulepsz · Del sprzedaj\n"
@@ -381,6 +457,7 @@ func rebuild_ui() -> void:
 	commander_buttons.clear()
 	map_buttons.clear()
 	diff_buttons.clear()
+	mode_buttons.clear()
 	build_ui()
 
 
@@ -505,7 +582,15 @@ func update_menu() -> void:
 			var best := Progress.best(cur["id"], d)
 			record = "rekord %s" % fmt_time(best) if best >= 0 else "—"
 		diff_buttons[d].text = "%s\n%s" % [Cfg.DIFFICULTIES[d]["name"], record]
-	mode_button.text = "Tryb: Bitwa" if m.game_mode == "battle" else "Tryb: Przetrwanie"
+	for page in menu_pages:
+		menu_pages[page].visible = page == menu_page
+	for k in mode_buttons:
+		mode_buttons[k].button_pressed = k == m.game_mode
+	var mode_name := "Bitwa" if m.game_mode == "battle" else "Przetrwanie"
+	var crumbs := {"mode": "Nowa gra", "army": mode_name,
+		"map": "%s › %s › %s" % [mode_name, race["name"], Cfg.COMMANDERS[m.commander_id]["name"] if m.commander_id != "" else "—"]}
+	for page in menu_crumbs:
+		menu_crumbs[page].text = crumbs[page]
 
 
 func fill_selection_panel(b: Sim.Building) -> void:

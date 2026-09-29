@@ -216,6 +216,7 @@ func start(d: int) -> void:
 
 func show_menu() -> void:
 	state = State.MENU
+	hud.menu_go("start")
 	overlay = ""
 	rival_index = -1
 	if not daily.is_empty():  # po wyzwaniu dnia wracają wybory gracza z menu
@@ -342,6 +343,8 @@ func back() -> bool:
 		set_paused(state == State.PLAY)
 	elif state == State.OVER:
 		show_menu()
+	elif state == State.MENU and hud.menu_page != "start":
+		hud.menu_back()
 	else:
 		return false
 	return true
