@@ -315,8 +315,10 @@ class Discovery:
 			return
 		_next_ad = now + 1000
 		udp.set_broadcast_enabled(true)
-		udp.set_dest_address(dest, PORT)
-		udp.put_packet(("%s|%d|%s" % [MAGIC, game_port, name]).to_utf8_buffer())
+		var packet := ("%s|%d|%s" % [MAGIC, game_port, name]).to_utf8_buffer()
+		for d in [dest, "255.255.255.255"] if dest != "255.255.255.255" and dest != "127.0.0.1" else [dest]:
+			udp.set_dest_address(d, PORT)
+			udp.put_packet(packet)
 
 	func poll() -> void:
 		while udp.get_available_packet_count() > 0:

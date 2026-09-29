@@ -278,7 +278,7 @@ func host_net() -> void:
 
 
 func join_net(ip: String, port := NetSession.PORT) -> void:
-	m.lobby.join(ip.strip_edges(), port)
+	m.lobby.join(ip.strip_edges().replace(",", "."), port)
 	if m.lobby.active():
 		menu_go("army")
 
@@ -341,7 +341,7 @@ func build_menu(ui: Control) -> void:
 	ip_edit = LineEdit.new()
 	ip_edit.placeholder_text = "IP hosta, np. 192.168.1.20"
 	ip_edit.custom_minimum_size = Vector2(300, 48)
-	ip_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER_DECIMAL
+	ip_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_URL  # z kropką (numeryczna na części telefonów jej nie ma)
 	ip_row.add_child(ip_edit)
 	button("Połącz", Vector2(140, 48), func() -> void: join_net(ip_edit.text), ip_row)
 	net_status = centered(label("", 16, net, Main.WARN_COLOR))
