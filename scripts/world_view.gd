@@ -500,6 +500,9 @@ func draw_building(b: Sim.Building) -> void:
 		var name := "b_" + b.kind
 		var top := BUILDING_FEET.y - Art.height(name) - 4.0 if Art.has(name) else -26.0
 		hp_bar(b.pos + Vector2(0, top), 36, b.hp / b.max_hp, 5)
+	if b.team == 0 and b.owner != m.me:  # budynek partnera (gra ze znajomym)
+		pen.circle(b.pos + Vector2(-16, -16), 6.0, Color(0, 0, 0, 0.6))
+		pen.circle(b.pos + Vector2(-16, -16), 4.5, Main.ALLY_COLOR)
 	if b.temporary:
 		progress(b.pos + Vector2(0, 24), b.life / b.life_max)
 		return
@@ -779,12 +782,19 @@ func hero_sprite(h: Sim.Hero) -> Array:
 
 
 ## Dowódca: większy, ze złotą obwódką i inicjałem — zawsze w pełnej szczegółowości (jest jeden).
+## Pierścień dowódcy: mój — złoty, partnera — błękitny, wroga — czerwony.
+func hero_ring(h: Sim.Hero) -> Color:
+	if h.team != 0:
+		return Main.TEAM_COLORS[1].lightened(0.4)
+	return Main.HERO_COLOR if h.owner == m.me else Main.ALLY_COLOR
+
+
 func draw_hero(h: Sim.Hero) -> void:
 	var r := h.radius
 	var at := h.prev_pos.lerp(h.pos, m.render_alpha)
 	var art := hero_sprite(h)
 	if not art.is_empty():
-		var ring := Main.HERO_COLOR if h.team == 0 else Main.TEAM_COLORS[1].lightened(0.4)
+		var ring := hero_ring(h)
 		pen.ellipse(at + Vector2(0, r * 0.9), Vector2(r * 1.5, r * 0.6), Color(ring, 0.35))
 		pen.ellipse(at + Vector2(0, r * 0.9), Vector2(r * 1.2, r * 0.45), Color(0, 0, 0, 0.3))
 		if h.invulnerable > 0.0:
@@ -800,7 +810,7 @@ func draw_hero(h: Sim.Hero) -> void:
 	pen.circle(at + Vector2(2, r * 0.7), r, Color(0, 0, 0, 0.25))
 	if h.invulnerable > 0.0:
 		pen.circle(p, r + 7, Color(1, 1, 1, 0.25 + 0.2 * sin(m.time * 20.0)))
-	pen.circle(p, r + 2.5, Main.HERO_COLOR if h.team == 0 else Main.TEAM_COLORS[1].lightened(0.4))
+	pen.circle(p, r + 2.5, hero_ring(h))
 	pen.circle(p, r, c.darkened(0.2))
 	var initial: String = Cfg.COMMANDERS[h.commander]["name"].left(1)
 	pen.text(m.font, p + Vector2(-r, r * 0.45), initial, HORIZONTAL_ALIGNMENT_CENTER, r * 2, int(r * 1.3), Color.WHITE)

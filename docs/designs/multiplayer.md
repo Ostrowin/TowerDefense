@@ -369,7 +369,7 @@ Legend: ★★★ zachowanie + krawędzie + błędy | [GAP] brak testu | [→E2E
   - Surfaced by: S1 / R1
   - Files: export_presets.cfg
   - Verify: eksport + odkrywanie na 2 telefonach
-- [ ] **T6 (P2, human: ~1 dzień / CC: ~40 min)** — widok — lobby (lista gier, ręczny IP, rasy/dowódcy, start), znaczniki właściciela, prędkość ukryta w sieci
+- [x] **T6 (P2, human: ~1 dzień / CC: ~40 min)** — widok — lobby (lista gier, ręczny IP, rasy/dowódcy, start), znaczniki właściciela, prędkość ukryta w sieci
   - Surfaced by: przesłanki 1, 4; R4
   - Files: scripts/lobby.gd, scripts/hud.gd, scripts/world_view.gd, scripts/main.gd
   - Verify: smoke; ręcznie na 2 telefonach

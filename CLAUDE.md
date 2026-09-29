@@ -9,6 +9,7 @@ Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** 
 - `scripts/progress.gd`, `scripts/settings.gd` — zapis w `user://`; testy podmieniają `path`, żeby nie ruszać danych gracza.
 - `scripts/sim.gd` (`Sim`) — logika gry, **bez węzłów i rysowania**. Nowa mechanika trafia tu, z testem. Dowódcą wroga (Trudny) steruje `EnemyCommander`, umiejętności obu stron rzuca `AbilityRules` (reguły po typie efektu — nowy typ efektu = nowa reguła tam). AI bez losowania i bez własnego stanu gry — to warunek lockstepu w multiplayerze. Nowe pole stanu gry = dopisz je do `Sim.checksum()` (suma porównywana między telefonami). Zna też rzekę i mosty (`river`, `bridges`) oraz trasę po mapie dla dowódcy (`path_to`, A* omijający wodę).
 - `scripts/main.gd` (`Main`) — widok: przebieg gry, pętla sima, efekty, samouczek, kamera. Części widoku: `world_view.gd` (`WorldView`, render świata), `hud.gd` (`Hud`, HUD/menu/nakładki z Control w kodzie), `controls.gd` (`Controls`, input i dowódca). Nie wkładaj tu reguł gry.
+- `scripts/net_session.gd` (`NetSession`) — gra sieciowa w lockstepie (ENet, tury, suma kontrolna, odkrywanie UDP); `scripts/lobby.gd` (`Lobby`) — tworzenie gry / dołączanie i start partii ze znajomym (`Main.start_net`).
 - `scripts/sfx.gd` (`Sfx`) — dźwięki syntezowane.
 - `scripts/art.gd` (`Art`) — sprite'y z atlasu (`Art.draw` przez `Painter`) i kafle terenu. Źródła: `art/svg/*.svg` (D30), część generuje `tools/svg_gen/*.py`.
 
@@ -23,7 +24,7 @@ Godot z wingeta (nie ma go w PATH):
 - grafika po zmianie SVG: `--headless --path . --script res://tools/bake_art.gd`, potem **koniecznie** `--headless --import --path .` (inaczej gra czyta stary atlas i sprite'y są przesunięte/niewidoczne)
 - podgląd sprite'ów: `--headless --path . --script res://tools/art_sheet.gd -- <plik.png> [prefiks...] [--scale 2]`; zrzuty prawdziwej sceny (okno, nie headless): `--path . -- --bench res://tests/screenshot.gd --out <folder> [--race hyena --rival gibbon --map N]`
 - ikona aplikacji po zmianie `tools/svg_gen/icon.py`: `python tools/svg_gen/icon.py`, potem `--headless --path . --script res://tools/make_icon.gd` (PNG w `art/icon/`: projekt + ikona adaptacyjna Androida)
-- gra sieciowa (host + gość na localhost, ~2 s): `--headless --path . --script res://tests/net_test.gd`
+- gra sieciowa (host + gość na localhost, ~2 s): `--headless --path . --script res://tests/net_test.gd`; od menu do końca partii (dwie sceny gry, ~15 s): `--headless --path . --fixed-fps 60 --script res://tests/net_ui_test.gd`
 - smoke widoku: `--headless --path . --fixed-fps 60 --script res://tests/ui_smoke_test.gd` (szukaj `SCRIPT ERROR`)
 - wydajność późnej gry: `--headless --path . -- --bench res://tests/perf_test.gd --map 2 --minutes 10` (bez `--fixed-fps` — mierzy prawdziwy czas klatki; pusta scena headless to ~7 ms, to narzut silnika)
 - benchmarki (`perf_test`, `render_probe`) to węzły uruchamiane przez grę parametrem `-- --bench <skrypt>` — eksportowany Godot ignoruje `--script`

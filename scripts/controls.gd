@@ -205,7 +205,7 @@ func tap(p: Vector2) -> void:
 		if ex != null:
 			m.selected = ex
 			m.mode = ""
-		elif not m.send({"type": "build_extractor", "node": node}):
+		elif m.sim.players[m.me].gold < Cfg.BUILDINGS["extractor"]["cost"] or not m.send({"type": "build_extractor", "node": node}):
 			deny(p)
 		return
 	var own := m.sim.building_at(p, 0)
@@ -259,7 +259,7 @@ func place(p: Vector2) -> void:
 	if not m.sim.can_place(cell):
 		m.sfx.play("error", 0.1)
 		return
-	if not m.send({"type": "build", "kind": m.mode, "cell": cell}):
+	if m.sim.players[m.me].gold < m.sim.build_cost(m.mode) or not m.send({"type": "build", "kind": m.mode, "cell": cell}):
 		deny(cell)
 		return
 	if m.sim.players[m.me].gold < m.sim.build_cost(m.mode):
@@ -294,7 +294,7 @@ func select_ability_slot(i: int) -> void:
 
 func use_targeted(p: Vector2) -> void:
 	var ability := ability_mode()
-	if m.send({"type": "use_ability", "ability": ability, "at": p}):
+	if m.sim.ability_target_ok(ability, p, m.me) and m.send({"type": "use_ability", "ability": ability, "at": p}):
 		m.mode = ""
 	else:
 		m.float_text(p, deny_reason(ability, p), Main.WARN_COLOR)
@@ -351,6 +351,8 @@ func toggle_stance() -> void:
 
 
 func cycle_speed() -> void:
+	if m.net != null:
+		return  # R4: w sieci zawsze x1
 	m.speed_mult = m.speed_mult % 3 + 1
 
 
@@ -359,17 +361,21 @@ func toggle_mute() -> void:
 
 
 func upgrade_selected() -> void:
-	if m.selected == null or m.selected.team != 0:
+	if m.selected == null or m.selected.team != 0 or m.selected.owner != m.me:
+		return  # budynek partnera: tylko podgląd
+	var cost := m.sim.upgrade_cost(m.selected)
+	if cost > 0 and m.sim.players[m.me].gold < cost:
+		deny(m.selected.pos)
 		return
 	if not m.send({"type": "upgrade", "at": m.selected.pos}) and m.sim.upgrade_cost(m.selected) > 0:
 		deny(m.selected.pos)
 
 
 func sell_selected() -> void:
-	if m.selected != null and m.selected.team == 0 and m.send({"type": "sell", "at": m.selected.pos}):
+	if m.selected != null and m.selected.team == 0 and m.selected.owner == m.me and m.send({"type": "sell", "at": m.selected.pos}):
 		m.selected = null
 
 
 func set_selected_lane(lane: int) -> void:
-	if m.selected != null and m.send({"type": "set_lane", "at": m.selected.pos, "lane": lane}):
+	if m.selected != null and m.selected.owner == m.me and m.send({"type": "set_lane", "at": m.selected.pos, "lane": lane}):
 		m.float_text(m.selected.pos + Vector2(0, -26), "→ %s" % m.sim.lanes[lane].name, Main.LANE_COLORS[lane])

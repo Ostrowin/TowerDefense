@@ -9,8 +9,9 @@ extends RefCounted
 ## Zerwanie połączenia = koniec partii. Bez węzłów: właściciel woła `poll()` i `try_step()` co klatkę.
 ##
 ## Pakiety (`var_to_bytes` tablic prostych wartości, bez obiektów):
-##   gość → host: ["in", tura, [komendy]] · ["sum", krok, suma]
-##   host → gość: ["hello", gracz] · ["start", [gracze]] · ["turn", tura, [komendy]] · ["end", powód]
+##   gość → host: ["in", tura, [komendy]] · ["sum", krok, suma] · ["pick", dowódca] (lobby)
+##   oba: ["pause", bool] (host rozsyła dalej)
+##   host → gość: ["hello", gracz] · ["start", [gracze], ustawienia] · ["turn", tura, [komendy]] · ["end", powód]
 
 signal ended(reason: String)
 signal paused(on: bool)
@@ -31,12 +32,13 @@ var step := 0  ## następny krok do wykonania
 var peer: ENetMultiplayerPeer
 var pending: Array[Dictionary] = []  ## moje komendy czekające na najbliższą paczkę
 var desync_step := -1
+var picks := {}  ## host: gracz → wybrany dowódca (lobby)
+var start_cfg := {}  ## ustawienia partii od hosta (lobby → `Main.start_net`)
 
 var _turns := {}  ## tura → [komendy] (gotowe do wykonania)
 var _inputs := {}  ## host: tura → {gracz: [komendy]}
 var _sums := {}  ## host: krok → {gracz: suma}
 var _peer_player := {}  ## host: id połączenia ENet → gracz
-var _next_player := 2  ## host: kolejni gracze coop (0 = host, 1 = strona wroga)
 var _sent_upto := DELAY - 1  ## ostatnia tura, na którą wysłałem paczkę
 
 
@@ -50,8 +52,19 @@ func host(port := PORT, max_guests := 1) -> Error:
 	me = 0
 	players = [0]
 	peer.peer_connected.connect(_on_connected)
-	peer.peer_disconnected.connect(func(_id: int) -> void: _end("Połączenie przerwane"))
+	peer.peer_disconnected.connect(_on_guest_left)
 	return OK
+
+
+## Host: gość odszedł — w trakcie partii koniec, w lobby tylko zwalnia miejsce.
+func _on_guest_left(id: int) -> void:
+	if started:
+		_end("Połączenie przerwane")
+	elif _peer_player.has(id):
+		var p: int = _peer_player[id]
+		_peer_player.erase(id)
+		players.erase(p)
+		picks.erase(p)
 
 
 func join(ip: String, port := PORT) -> Error:
@@ -69,12 +82,29 @@ func guest_count() -> int:
 	return _peer_player.size()
 
 
-## Host: start partii — `sim` musi już mieć wszystkich graczy (`players`), u gościa tak samo po „start”.
-func start(sim_: Sim) -> void:
+## Host: start partii — `sim` musi już mieć wszystkich graczy (`players`); `cfg` idzie do gości (z niego
+## budują ten sam Sim — `Main.start_net`).
+func start(sim_: Sim, cfg := {}) -> void:
 	sim = sim_
 	if is_host:
 		started = true
-		_broadcast(["start", players])
+		start_cfg = cfg
+		_broadcast(["start", players, cfg])
+
+
+## Pauza u wszystkich — poza turami (w pauzie kroki stoją, więc tura ze wznowieniem by nie doszła).
+## Lockstep i tak trzyma oba telefony w tym samym kroku; pauza to tylko wspólny ekran.
+func send_pause(on: bool) -> void:
+	if is_host:
+		_broadcast(["pause", on])
+		paused.emit(on)
+	else:
+		_send_host(["pause", on])
+
+
+## Gość: wybór dowódcy w lobby (host zbiera w `picks`).
+func send_pick(commander: String) -> void:
+	_send_host(["pick", commander])
 
 
 ## Gość: Sim dostaje po pakiecie „start” (lobby tworzy go z tych samych ustawień).
@@ -119,10 +149,7 @@ func try_step() -> bool:
 	_turns.erase(step)
 	for cmd: Variant in cmds:
 		if cmd is Dictionary:
-			if cmd.get("type") == "pause":
-				paused.emit(cmd.get("on") == true)
-			else:
-				sim.apply(cmd)
+			sim.apply(cmd)
 	sim.step(STEP)
 	step += 1
 	if step % CHECK_EVERY == 0:
@@ -139,8 +166,9 @@ func try_step() -> bool:
 func _on_connected(id: int) -> void:
 	if started:
 		return  # v1: bez dołączania w trakcie
-	var p := _next_player
-	_next_player += 1
+	var p := 2  # najmniejszy wolny numer — Sim nadaje graczy coop kolejno od 2 (`add_player`)
+	while players.has(p):
+		p += 1
 	_peer_player[id] = p
 	players.append(p)
 	_send_to(id, ["hello", p])
@@ -159,12 +187,22 @@ func _receive(from: int, msg: Array) -> void:
 				me = msg[1]
 				_set_timeout(peer.get_peer(1))
 		"start":
-			if msg.size() == 2 and msg[1] is Array:
+			if msg.size() >= 2 and msg[1] is Array:
 				players.assign(msg[1])
+				if msg.size() > 2 and msg[2] is Dictionary:
+					start_cfg = msg[2]
 				started = true
+		"pick":
+			if is_host and not started and _peer_player.has(from) and msg.size() == 2 and msg[1] is String 					and Cfg.COMMANDERS.has(msg[1]) and Cfg.commander_ready(msg[1]):
+				picks[_peer_player[from]] = msg[1]
 		"turn":
 			if msg.size() == 3 and msg[1] is int and msg[2] is Array:
 				_turns[msg[1]] = msg[2]
+		"pause":
+			if msg.size() == 2 and msg[1] is bool:
+				if is_host:
+					_broadcast(["pause", msg[1]])
+				paused.emit(msg[1])
 		"end":
 			_end(str(msg[1]) if msg.size() > 1 else "Koniec", false)
 		"in":  # host: paczka gościa na turę

@@ -80,6 +80,14 @@ goście 2, 3… Co 30 kroków suma kontrolna — różna = koniec „Rozjazd gry
 `net != null` → `send` idzie przez sesję, a pętla kroków przez `net.try_step()`. Odkrywanie gier:
 `NetSession.Discovery` (rozgłaszanie UDP). Test: `tests/net_test.gd`.
 
+**Lobby (`Lobby`, scripts/lobby.gd).** Menu „Ze znajomym”: host tworzy grę (ogłasza ją w Wi-Fi), gość wybiera
+ją z listy albo wpisuje IP; każdy wybiera rasę i dowódcę na tej samej stronie co w solo (gość wysyła wybór
+pakietem „pick”). Host wybiera mapę i trudność — `Lobby.start` składa ustawienia (ziarno, mapa, dowódcy, rasa
+wroga), `Main.start_net` buduje z nich ten sam Sim u obu. W sieci: tylko Bitwa, prędkość x1, bez rekordów solo,
+pauza wspólna (pakiet poza turami), zerwanie = ekran końca z komunikatem. Widok sprawdza złoto i cel przed
+wysłaniem rozkazu (wynik z Sim przychodzi po DELAY krokach); budynki i dowódca partnera mają błękitny znacznik.
+Test od menu do końca: `tests/net_ui_test.gd`.
+
 ```
  input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
               ▲                        │

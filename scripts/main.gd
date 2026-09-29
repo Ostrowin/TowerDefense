@@ -38,6 +38,7 @@ const DEATH_FX_PER_FRAME := 8
 const ZOOM_MAX := 2.0
 const HIT_NOTICE_GAP := 4.0
 const HERO_COLOR := Color(1.0, 0.85, 0.35)
+const ALLY_COLOR := Color(0.45, 0.85, 1.0)  ## gra ze znajomym: znacznik budynków i dowódcy partnera
 const CURSE_COLOR := Color(0.72, 0.45, 1.0)  ## klątwy i wskrzeszenie
 
 ## Samouczek: krok kończy się, gdy spełniony jest warunek `done` (sprawdzany co klatkę).
@@ -78,6 +79,7 @@ var me := 0
 var lossless := false
 ## Gra sieciowa (T4): kroki sima wykonuje `NetSession` (lockstep), komendy z widoku idą przez nią. null = solo.
 var net: NetSession = null
+var lobby: Lobby
 var state := State.MENU
 var overlay := ""  ## "" / "settings" / "help" — nakładka nad bieżącym stanem
 var level_index := 0
@@ -156,6 +158,7 @@ func _ready() -> void:
 	view = WorldView.new(self)
 	controls = Controls.new(self)
 	hud = Hud.new(self)
+	lobby = Lobby.new(self)
 	sim = Sim.new(difficulty, -1, level_index)
 	view.make_terrain()
 	view_size = get_viewport_rect().size
@@ -181,6 +184,7 @@ func _start_bench() -> void:
 # ================================================================ przebieg gry
 
 func start(d: int) -> void:
+	_leave_net()
 	difficulty = d
 	if commander_id == "" or not Races.commanders(race_index).has(commander_id):
 		commander_id = default_commander(race_index)
@@ -192,21 +196,8 @@ func start(d: int) -> void:
 		sim = Sim.new(d, -1, level_index, commander_id, game_mode, [], rival_id)
 	else:
 		sim = Sim.new(d, daily["seed"], level_index, commander_id, game_mode, daily["mods"], rival_id)
-	hero_ordered = false
-	view.make_terrain()
-	_clear_view_state()
-	speed_mult = 1
-	accum = 0.0
-	state = State.PLAY
-	overlay = ""
+	_begin_play()
 	tutorial_step = -1 if Progress.tutorial_done() else 0
-	tutorial_timer = 0.0
-	camera_used = false
-	var rival_name: String = Races.ALL[rival_index]["name"]
-	if sim.players[1].commander != "":
-		rival_name += " (dowódca: %s)" % Cfg.COMMANDERS[sim.players[1].commander]["name"]
-	banner("Przygotuj się!", "Przeciwnik: %s · pierwsza fala za %d s: %s" % [
-		rival_name, int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
 	if not daily.is_empty():
 		banner("Wyzwanie dnia — %s" % daily["date"], "%s — %s · %s · %s · %s" % [Races.ALL[race_index]["name"],
 			Cfg.COMMANDERS[commander_id]["name"], sim.level["name"], "Przetrwanie" if game_mode == "survival" else "Bitwa",
@@ -214,7 +205,94 @@ func start(d: int) -> void:
 		banner_life = 5.0
 
 
+## Gra ze znajomym (T6): obaj budują ten sam Sim z ustawień hosta (`cfg` z lobby / pakietu „start”).
+## Host = gracz 0, goście 2, 3… (`add_player` po kolei). Pętla kroków idzie przez `net` (lockstep).
+func start_net(session: NetSession, cfg: Dictionary) -> void:
+	var ok: bool = cfg.get("seed") is int and cfg.get("level") is int and cfg.get("difficulty") is int 		and cfg.get("host") is String and cfg.get("guests") is Dictionary and cfg.get("rival") is String 		and Cfg.COMMANDERS.has(cfg["host"]) and cfg["level"] >= 0 and cfg["level"] < Levels.ALL.size() 		and cfg["difficulty"] >= 0 and cfg["difficulty"] < Cfg.DIFFICULTIES.size()
+	for p: Variant in cfg.get("guests", {}):
+		ok = ok and p is int and cfg["guests"][p] is String and Cfg.COMMANDERS.has(cfg["guests"][p])
+	lobby.detach()
+	if not ok:
+		session.close()
+		lobby.status = "Błędne ustawienia partii od hosta"
+		return
+	daily = {}
+	game_mode = "battle"
+	level_index = cfg["level"]
+	difficulty = cfg["difficulty"]
+	rival_index = Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == cfg["rival"])
+	sim = Sim.new(difficulty, cfg["seed"], level_index, cfg["host"], "battle", [], cfg["rival"])
+	var ids: Array = cfg["guests"].keys()
+	ids.sort()
+	for p: int in ids:
+		sim.add_player(cfg["guests"][p])
+	net = session
+	me = session.me
+	lossless = true
+	commander_id = sim.players[me].commander
+	race_index = Races.ALL.find_custom(func(r: Dictionary) -> bool: return r["id"] == Cfg.COMMANDERS[commander_id]["race"])
+	net.ended.connect(_on_net_ended)
+	net.paused.connect(_on_net_paused)
+	if session.is_host:
+		session.start(sim, cfg)
+	else:
+		session.attach(sim)
+	_begin_play()
+	tutorial_step = -1
+
+
+## Wspólny początek partii (solo i sieć): widok, kamera, baner z przeciwnikiem.
+func _begin_play() -> void:
+	hero_ordered = false
+	view.make_terrain()
+	_clear_view_state()
+	speed_mult = 1
+	accum = 0.0
+	state = State.PLAY
+	overlay = ""
+	tutorial_timer = 0.0
+	camera_used = false
+	var rival_name: String = Races.ALL[rival_index]["name"]
+	if sim.players[1].commander != "":
+		rival_name += " (dowódca: %s)" % Cfg.COMMANDERS[sim.players[1].commander]["name"]
+	banner("Przygotuj się!", "Przeciwnik: %s · pierwsza fala za %d s: %s" % [
+		rival_name, int(sim.wave_timer), sim.lane_names(sim.next_wave_lanes)])
+
+
+## Koniec gry sieciowej (menu, nowa gra solo): zamyka połączenie, pętla wraca do trybu solo.
+func _leave_net() -> void:
+	if net != null:
+		net.close()
+	net = null
+	lossless = false
+	me = 0
+
+
+func _on_net_ended(reason: String) -> void:
+	if state == State.PLAY or state == State.PAUSED:
+		state = State.OVER
+		over_delay = 0.0
+		mode = ""
+		selected = null
+		hero_selected = false
+		hud.over_title.text = reason
+		hud.over_title.add_theme_color_override("font_color", TEAM_COLORS[1])
+		hud.over_stats.text = "Gra ze znajomym została przerwana."
+		sfx.play("lose", 0.0)
+
+
+func _on_net_paused(on: bool) -> void:
+	if on and state == State.PLAY:
+		state = State.PAUSED
+		controls.dragging = false
+		controls.press_button = -1
+	elif not on and state == State.PAUSED:
+		state = State.PLAY
+		overlay = ""
+
+
 func show_menu() -> void:
+	_leave_net()
 	state = State.MENU
 	hud.menu_go("start")
 	overlay = ""
@@ -226,6 +304,11 @@ func show_menu() -> void:
 		game_mode = daily_prev["mode"]
 		daily = {}
 		hud.fill_commander_row()
+	_menu_preview()
+
+
+## Tło menu: pusta partia na wybranej mapie.
+func _menu_preview() -> void:
 	sim = Sim.new(difficulty, -1, level_index)
 	view.make_terrain()
 	_clear_view_state()
@@ -233,7 +316,7 @@ func show_menu() -> void:
 
 func select_level(i: int) -> void:
 	level_index = i
-	show_menu()
+	_menu_preview()  # bez show_menu — zostajemy na stronie mapy
 
 
 ## Domyślny dowódca rasy: ostatnio wybrany w tej sesji, inaczej pierwszy grywalny.
@@ -311,6 +394,10 @@ func send(cmd: Dictionary) -> bool:
 
 
 func set_paused(p: bool) -> void:
+	if net != null:  # w sieci pauza u obu — przez sesję
+		if (p and state == State.PLAY) or (not p and state == State.PAUSED):
+			net.send_pause(p)
+		return
 	if p and state == State.PLAY:
 		state = State.PAUSED
 		controls.dragging = false
@@ -368,13 +455,17 @@ func _on_view_resized() -> void:
 
 func _process(delta: float) -> void:
 	time += delta
+	if state == State.MENU:
+		lobby.poll()
+	elif net != null and state != State.PLAY:
+		net.poll()  # pauza / koniec: wznowienie i zerwanie przychodzą dalej
 	if state == State.PLAY:
 		accum += delta * speed_mult
 		var t0 := Time.get_ticks_usec()
 		var steps := 0
 		if net != null:
 			net.poll()
-		while accum >= STEP:
+		while accum >= STEP and state == State.PLAY:
 			if net == null:
 				sim.step(STEP)
 			elif not net.try_step():
@@ -432,7 +523,9 @@ func _on_game_end() -> void:
 	var won := sim.result == 1
 	var map_id: String = sim.level["id"]
 	var survival := sim.mode == "survival"
-	if not daily.is_empty():  # modyfikatory zmieniają grę — tylko rekord dnia, zwykłe zostają
+	if net != null:  # gra ze znajomym — bez rekordów solo
+		new_record = false
+	elif not daily.is_empty():  # modyfikatory zmieniają grę — tylko rekord dnia, zwykłe zostają
 		new_record = (survival or won) and Progress.record_daily(daily["date"], sim.mode, sim.wave if survival else sim.elapsed)
 	elif survival:
 		new_record = Progress.record_survival(map_id, difficulty, sim.players[me].commander, sim.wave)

@@ -10,6 +10,15 @@ var mode_buttons := {}  ## tryb → przycisk na stronie „mode” menu
 var menu_page := "start"  ## bieżąca strona menu (MENU_PAGES) — przeżywa przebudowę HUD
 var menu_pages := {}  ## strona → VBoxContainer
 var menu_crumbs := {}  ## strona → etykieta ścieżki wyboru
+var menu_history: Array[String] = []  ## strony przed bieżącą (Wstecz)
+var net_games: VBoxContainer  ## lista gier znalezionych w Wi-Fi
+var net_games_key := ""  ## co jest na liście (przebudowa tylko przy zmianie)
+var net_status: Label
+var ip_edit: LineEdit
+var wait_label: Label
+var lobby_label: Label  ## strona mapy u hosta: IP i stan drugiego gracza
+var again_button: Button
+var restart_button: Button
 var daily_label: Label  ## indeks rasy → ostatnio wybrany dowódca (w obrębie sesji)
 var ui_layer: CanvasLayer
 var screen := Cfg.VIEW  ## rozmiar HUD w jego własnych jednostkach (ekran / skala UI)
@@ -209,8 +218,8 @@ func build_ui() -> void:
 
 
 ## Menu krok po kroku (jeden wybór na ekran): start → tryb → rasa i dowódca → mapa i trudność (klik = gra).
-## Każdy krok ma „Wstecz” (też Esc / wstecz na telefonie) i ścieżkę wyboru u góry.
-const MENU_PAGES: Array[String] = ["start", "mode", "army", "map"]
+## Ze znajomym: start → net (utwórz / lista gier / IP) → rasa i dowódca → host: mapa i trudność, gość: wait.
+## Każdy krok ma „Wstecz” (też Esc / wstecz na telefonie, po historii stron) i ścieżkę wyboru u góry.
 
 
 ## Strona menu: VBox wyśrodkowany; `back` = przycisk Wstecz i ścieżka wyboru u góry.
@@ -237,12 +246,50 @@ func centered(l: Label) -> Label:
 
 
 func menu_go(page: String) -> void:
+	if page == "start":
+		menu_history.clear()
+		m.lobby.leave()
+	elif page != menu_page:
+		menu_history.append(menu_page)
 	menu_page = page
 
 
+## O stronę wstecz; wyjście z lobby (na „net” albo start) zamyka połączenie.
 func menu_back() -> void:
-	var i := MENU_PAGES.find(menu_page)
-	menu_page = MENU_PAGES[maxi(i - 1, 0)]
+	menu_page = menu_history.pop_back() if not menu_history.is_empty() else "start"
+	if menu_page == "start":
+		m.lobby.leave()
+	elif menu_page == "net" and m.lobby.session != null:
+		m.lobby.leave()
+		m.lobby.browse()
+
+
+func open_net() -> void:
+	menu_go("net")
+	m.lobby.browse()
+
+
+func host_net() -> void:
+	m.lobby.host_game()
+	if m.lobby.active():
+		if m.game_mode != "battle":
+			m.toggle_mode()  # v1: w sieci tylko Bitwa
+		menu_go("army")
+
+
+func join_net(ip: String, port := NetSession.PORT) -> void:
+	m.lobby.join(ip.strip_edges(), port)
+	if m.lobby.active():
+		menu_go("army")
+
+
+## Trudność na stronie mapy: solo — start; host w lobby — start, gdy drugi gracz gotowy.
+func pick_difficulty(d: int) -> void:
+	if m.lobby.role == "host":
+		if not m.lobby.start(d):
+			m.sfx.play("error", 0.1)
+		return
+	m.start(d)
 
 
 func pick_mode(mode: String) -> void:
@@ -261,7 +308,7 @@ func build_menu(ui: Control) -> void:
 	var start := menu_page_box(box, "start", false)
 	centered(label("TOWER DEFENSE", 64, start, Main.GOLD_COLOR))
 	centered(label("Rozbuduj ekonomię. Wyślij armię. Zburz fortecę wroga.", 18, start))
-	for entry in [["Nowa gra", menu_go.bind("mode")], ["Wyzwanie dnia", m.start_daily]]:
+	for entry in [["Nowa gra", menu_go.bind("mode")], ["Ze znajomym (Wi-Fi)", open_net], ["Wyzwanie dnia", m.start_daily]]:
 		var b := button(entry[0], Vector2(340, 66), entry[1], start)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		b.add_theme_font_size_override("font_size", 24)
@@ -273,6 +320,36 @@ func build_menu(ui: Control) -> void:
 	start.add_child(extra)
 	button("Jak grać", Vector2(160, 46), m.open_overlay.bind("help"), extra)
 	button("Ustawienia", Vector2(160, 46), m.open_overlay.bind("settings"), extra)
+
+	# ze znajomym: utwórz grę / dołącz z listy / wpisz IP
+	var net := menu_page_box(box, "net")
+	centered(label("Gra ze znajomym", 36, net))
+	centered(label("Oba telefony w tej samej sieci Wi-Fi. Wspólnie bronicie się przed wrogiem.", 16, net, Color(1, 1, 1, 0.8)))
+	var host_b := button("Utwórz grę", Vector2(340, 60), host_net, net)
+	host_b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	host_b.add_theme_font_size_override("font_size", 22)
+	centered(label("Albo dołącz:", 18, net))
+	net_games = VBoxContainer.new()
+	net_games.add_theme_constant_override("separation", 8)
+	net_games.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	net.add_child(net_games)
+	net_games_key = "-"
+	var ip_row := HBoxContainer.new()
+	ip_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	ip_row.add_theme_constant_override("separation", 10)
+	net.add_child(ip_row)
+	ip_edit = LineEdit.new()
+	ip_edit.placeholder_text = "IP hosta, np. 192.168.1.20"
+	ip_edit.custom_minimum_size = Vector2(300, 48)
+	ip_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER_DECIMAL
+	ip_row.add_child(ip_edit)
+	button("Połącz", Vector2(140, 48), func() -> void: join_net(ip_edit.text), ip_row)
+	net_status = centered(label("", 16, net, Main.WARN_COLOR))
+
+	# gość: czeka, aż host wybierze mapę i wystartuje
+	var wait := menu_page_box(box, "wait")
+	centered(label("Czekam na start", 36, wait))
+	wait_label = centered(label("", 18, wait, Color(1, 1, 1, 0.85)))
 
 	# 2. tryb
 	var modes := menu_page_box(box, "mode")
@@ -314,7 +391,7 @@ func build_menu(ui: Control) -> void:
 	commander_row.add_theme_constant_override("separation", 10)
 	army.add_child(commander_row)
 	fill_commander_row()
-	var next := button("Dalej →", Vector2(260, 56), menu_go.bind("map"), army)
+	var next := button("Dalej →", Vector2(260, 56), func() -> void: menu_go("wait" if m.lobby.role == "guest" else "map"), army)
 	next.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	next.add_theme_font_size_override("font_size", 22)
 
@@ -330,13 +407,14 @@ func build_menu(ui: Control) -> void:
 		b.toggle_mode = true
 		map_buttons.append(b)
 	map_desc = centered(label("", 15, map, Color(1, 1, 1, 0.8)))
+	lobby_label = centered(label("", 18, map, Main.GOLD_COLOR))
 	centered(label("Start — wybierz trudność:", 18, map))
 	var diffs := HBoxContainer.new()
 	diffs.alignment = BoxContainer.ALIGNMENT_CENTER
 	diffs.add_theme_constant_override("separation", 10)
 	map.add_child(diffs)
 	for d in Cfg.DIFFICULTIES.size():
-		diff_buttons.append(button("", Vector2(210, 62), m.start.bind(d), diffs))
+		diff_buttons.append(button("", Vector2(210, 62), pick_difficulty.bind(d), diffs))
 
 
 ## Karty dowódców rasy: nazwa, rola, umiejętności (Q/E/R); niegotowi — „Wkrótce”.
@@ -380,6 +458,8 @@ func build_pause(ui: Control) -> void:
 			["Menu główne", m.show_menu]]:
 		var b := button(entry[0], Vector2(300, 54), entry[1], box)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		if entry[0] == "Zacznij od nowa":
+			restart_button = b
 
 
 func build_over(ui: Control) -> void:
@@ -390,6 +470,8 @@ func build_over(ui: Control) -> void:
 	for entry in [["Jeszcze raz", func() -> void: m.start(m.difficulty)], ["Menu główne", m.show_menu]]:
 		var b := button(entry[0], Vector2(300, 58), entry[1], box)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		if entry[0] == "Jeszcze raz":
+			again_button = b
 
 
 func build_settings(ui: Control) -> void:
@@ -500,6 +582,9 @@ func update_hud() -> void:
 	stance_button.text = "Postawa: Atak" if me.stance == "attack" else "Postawa: Obrona"
 	stance_button.self_modulate = Color(1, 0.75, 0.7) if me.stance == "attack" else Color(0.7, 0.85, 1)
 	speed_button.text = "x%d" % m.speed_mult
+	speed_button.visible = m.net == null  # R4: w sieci zawsze x1
+	again_button.visible = m.net == null
+	restart_button.visible = m.net == null
 	mute_button.text = "Dźwięk" if not m.sfx.muted else "Cisza"
 	minimap.visible = m.is_zoomed_in() and (m.state == Main.State.PLAY or m.state == Main.State.PAUSED)
 
@@ -587,10 +672,37 @@ func update_menu() -> void:
 	for k in mode_buttons:
 		mode_buttons[k].button_pressed = k == m.game_mode
 	var mode_name := "Bitwa" if m.game_mode == "battle" else "Przetrwanie"
-	var crumbs := {"mode": "Nowa gra", "army": mode_name,
+	var crumbs := {"mode": "Nowa gra", "army": "Ze znajomym" if m.lobby.active() else mode_name, "net": "", "wait": "Ze znajomym",
 		"map": "%s › %s › %s" % [mode_name, race["name"], Cfg.COMMANDERS[m.commander_id]["name"] if m.commander_id != "" else "—"]}
 	for page in menu_crumbs:
 		menu_crumbs[page].text = crumbs[page]
+	update_lobby()
+
+
+## Strony gry ze znajomym: lista gier, stan połączenia, u hosta IP i drugi gracz.
+func update_lobby() -> void:
+	var lob := m.lobby
+	var games := lob.games()
+	var key := str(games.keys())
+	if key != net_games_key:
+		net_games_key = key
+		for c in net_games.get_children():
+			c.queue_free()
+		if games.is_empty():
+			label("Szukam gier w sieci…", 16, net_games, Color(1, 1, 1, 0.6))
+		for ip: String in games:
+			var g: Dictionary = games[ip]
+			button("Dołącz: %s" % g["name"], Vector2(340, 52), join_net.bind(ip, g["port"]), net_games)
+	net_status.text = lob.status
+	wait_label.text = "%s
+Twój wybór: %s
+Host wybiera mapę i trudność." % [lob.status,
+		Lobby.commander_text(m.commander_id) if m.commander_id != "" else "—"]
+	lobby_label.visible = lob.role == "host"
+	if lob.role == "host":
+		lobby_label.text = "Twoje IP: %s · %s" % [Lobby.local_ip(), lob.guest_text()]
+	for b in diff_buttons:
+		b.disabled = lob.role == "host" and not lob.guest_ready()
 
 
 func fill_selection_panel(b: Sim.Building) -> void:
