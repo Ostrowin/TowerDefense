@@ -357,15 +357,15 @@ Legend: ★★★ zachowanie + krawędzie + błędy | [GAP] brak testu | [→E2E
   - Surfaced by: przesłanka 3, Code quality
   - Files: scripts/sim.gd, scripts/controls.gd, scripts/hud.gd, tests/bot_test.gd, tests/perf_test.gd
   - Verify: test „komenda = bezpośrednie wywołanie”, smoke
-- [ ] **T3 (P1, human: ~4 h / CC: ~15 min)** — sim — `Sim.checksum()` z jawną listą pól + test dwóch Sim
+- [x] **T3 (P1, human: ~4 h / CC: ~15 min)** — sim — `Sim.checksum()` z jawną listą pól + test dwóch Sim
   - Surfaced by: R2, Success Criteria
   - Files: scripts/sim.gd, tests/bot_test.gd
   - Verify: `bot_test.gd -- --mechanics`
-- [ ] **T4 (P1, human: ~2 dni / CC: ~1 h)** — sieć — `NetSession`: ENet, lockstep, host nadaje numer gracza, suma, zerwanie, odkrywanie UDP
+- [x] **T4 (P1, human: ~2 dni / CC: ~1 h)** — sieć — `NetSession`: ENet, lockstep, host nadaje numer gracza, suma, zerwanie, odkrywanie UDP
   - Surfaced by: R5, Failure modes
   - Files: scripts/net_session.gd, scripts/main.gd, tests/net_test.gd
   - Verify: tests/net_test.gd (localhost, headless)
-- [ ] **T5 (P1, human: ~15 min / CC: ~3 min)** — Android — uprawnienia sieci w presecie
+- [x] **T5 (P1, human: ~15 min / CC: ~3 min)** — Android — uprawnienia sieci w presecie
   - Surfaced by: S1 / R1
   - Files: export_presets.cfg
   - Verify: eksport + odkrywanie na 2 telefonach

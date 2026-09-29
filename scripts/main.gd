@@ -76,6 +76,8 @@ var sim: Sim
 var me := 0
 ## Gra sieciowa: pętla nie porzuca zaległych kroków sima (lockstep — każdy telefon liczy każdy krok).
 var lossless := false
+## Gra sieciowa (T4): kroki sima wykonuje `NetSession` (lockstep), komendy z widoku idą przez nią. null = solo.
+var net: NetSession = null
 var state := State.MENU
 var overlay := ""  ## "" / "settings" / "help" — nakładka nad bieżącym stanem
 var level_index := 0
@@ -299,6 +301,10 @@ func _clear_view_state() -> void:
 ## Rozkaz gracza z tego telefonu jako komenda Sim (multiplayer T2) — widok nie woła rozkazów Sim wprost.
 ## Solo: wykonuje się od razu (między krokami). W sieci pójdzie przez NetSession (T4).
 func send(cmd: Dictionary) -> bool:
+	if net != null:
+		# w sieci wynik znany dopiero za DELAY kroków — widok sprawdza warunki sam (złoto, miejsce) przed wysłaniem
+		net.send(cmd)
+		return true
 	cmd["player"] = me
 	return sim.apply(cmd)
 
@@ -363,8 +369,15 @@ func _process(delta: float) -> void:
 		accum += delta * speed_mult
 		var t0 := Time.get_ticks_usec()
 		var steps := 0
+		if net != null:
+			net.poll()
 		while accum >= STEP:
-			sim.step(STEP)
+			if net == null:
+				sim.step(STEP)
+			elif not net.try_step():
+				# tura jeszcze nie przyszła — czekamy (lockstep); zaległość nie rośnie ponad jeden krok
+				accum = minf(accum, STEP)
+				break
 			accum -= STEP
 			steps += 1
 			if Time.get_ticks_usec() - t0 > SIM_BUDGET_MS * 1000.0:

@@ -73,6 +73,13 @@ ją co 30 kroków. Nowe pole stanu w Sim = dopisz je do `checksum()`. `bot_test`
 z tym samym strumieniem komend i porównuje sumy (`_test_checksum`). `Main.lossless` = pętla nie porzuca
 zaległych kroków (gra sieciowa); w solo porzucanie zostaje.
 
+**Sieć (`NetSession`, scripts/net_session.gd).** ENet w Wi-Fi, gwiazda: host zbiera paczki komend wszystkich
+graczy na turę N i rozsyła je jako „turę N”; krok N rusza dopiero, gdy tura jest znana (czeka, nie porzuca).
+Komenda idzie na turę bieżący krok + `DELAY` (3). Host wpisuje numer gracza z połączenia (R5); host = gracz 0,
+goście 2, 3… Co 30 kroków suma kontrolna — różna = koniec „Rozjazd gry (krok N)”; zerwanie = koniec. W `Main`:
+`net != null` → `send` idzie przez sesję, a pętla kroków przez `net.try_step()`. Odkrywanie gier:
+`NetSession.Discovery` (rozgłaszanie UDP). Test: `tests/net_test.gd`.
+
 ```
  input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
               ▲                        │

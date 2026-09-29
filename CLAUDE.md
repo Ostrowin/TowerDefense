@@ -23,6 +23,7 @@ Godot z wingeta (nie ma go w PATH):
 - grafika po zmianie SVG: `--headless --path . --script res://tools/bake_art.gd`, potem **koniecznie** `--headless --import --path .` (inaczej gra czyta stary atlas i sprite'y są przesunięte/niewidoczne)
 - podgląd sprite'ów: `--headless --path . --script res://tools/art_sheet.gd -- <plik.png> [prefiks...] [--scale 2]`; zrzuty prawdziwej sceny (okno, nie headless): `--path . -- --bench res://tests/screenshot.gd --out <folder> [--race hyena --rival gibbon --map N]`
 - ikona aplikacji po zmianie `tools/svg_gen/icon.py`: `python tools/svg_gen/icon.py`, potem `--headless --path . --script res://tools/make_icon.gd` (PNG w `art/icon/`: projekt + ikona adaptacyjna Androida)
+- gra sieciowa (host + gość na localhost, ~2 s): `--headless --path . --script res://tests/net_test.gd`
 - smoke widoku: `--headless --path . --fixed-fps 60 --script res://tests/ui_smoke_test.gd` (szukaj `SCRIPT ERROR`)
 - wydajność późnej gry: `--headless --path . -- --bench res://tests/perf_test.gd --map 2 --minutes 10` (bez `--fixed-fps` — mierzy prawdziwy czas klatki; pusta scena headless to ~7 ms, to narzut silnika)
 - benchmarki (`perf_test`, `render_probe`) to węzły uruchamiane przez grę parametrem `-- --bench <skrypt>` — eksportowany Godot ignoruje `--script`
