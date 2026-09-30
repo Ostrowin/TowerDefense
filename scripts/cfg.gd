@@ -40,7 +40,7 @@ const PASSIVE_INCOME := 3.0
 ## niekończące się posiłki na miejscu i Trudny był nie do wygrania.
 const MAX_ARMY := 200
 const MAX_ENEMIES := 150
-## Coop: fala rośnie o tyle na każdego gracza ponad pierwszego (2 graczy = ×1,6; docs/designs/multiplayer.md).
+## Coop: fala i HP fortecy wroga rosną o tyle na każdego gracza ponad pierwszego (2 graczy = ×1,6; docs/designs/multiplayer.md).
 const COOP_WAVE_PER_PLAYER := 0.6
 const MAX_SPAWN_QUEUE := 40
 const SELL_REFUND := 0.6

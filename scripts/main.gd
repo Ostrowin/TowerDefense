@@ -25,7 +25,12 @@ const TEAM_COLORS: Array[Color] = [Color(0.35, 0.62, 1.0), Color(1.0, 0.36, 0.3)
 ## Kolory rozróżniające ścieżki (plakietki budynków, przyciski, podświetlenie).
 ## Kolory ścieżek (indeks jak w `sim.lanes`): solo 3; coop 2 + 2 ścieżki graczy i łącznik w dwie strony.
 const LANE_COLORS: Array[Color] = [Color(1.0, 0.78, 0.3), Color(0.55, 0.92, 0.5), Color(0.8, 0.6, 1.0),
-	Color(0.45, 0.85, 1.0), Color(0.75, 0.75, 0.75), Color(0.75, 0.75, 0.75)]
+	Color(0.45, 0.85, 1.0), Color(1.0, 0.55, 0.45), Color(0.95, 0.95, 0.6), Color(0.6, 0.8, 0.75), Color(0.9, 0.6, 0.85)]
+
+
+## Kolor ścieżki `i` (mapy na 3–4 graczy mają więcej ścieżek niż kolorów — kolory się powtarzają).
+static func lane_color(i: int) -> Color:
+	return LANE_COLORS[i % LANE_COLORS.size()]
 const GOLD_COLOR := Color(1.0, 0.84, 0.3)
 const WARN_COLOR := Color(1.0, 0.25, 0.2)
 const FROST_COLOR := Color(0.6, 0.85, 1.0)

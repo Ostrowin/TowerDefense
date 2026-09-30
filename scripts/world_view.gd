@@ -179,7 +179,7 @@ func make_terrain() -> void:
 	for i in lane_points.size():
 		warn_lines.append(lane_line(i, Color(1.3, 0.92, 0.8)))
 	for i in lane_points.size():
-		pick_lines.append(lane_line(i, Color(1, 1, 1).lerp(Main.LANE_COLORS[i], 0.5) * 1.35))
+		pick_lines.append(lane_line(i, Color(1, 1, 1).lerp(Main.lane_color(i), 0.5) * 1.35))
 
 
 ## Podświetlenie ścieżki: ten sam pas nawierzchni co w terenie, zabarwiony (nieprzezroczysty —
@@ -347,7 +347,7 @@ func draw_terrain() -> void:
 			continue
 		var at := lane.slot_at(180.0, -(Cfg.PATH_HALF + 16.0))
 		c.draw_string_outline(m.font, at - Vector2(50, -5), lane.name, HORIZONTAL_ALIGNMENT_CENTER, 100, 14, 4, Color(0, 0, 0, 0.6))
-		c.draw_string(m.font, at - Vector2(50, -5), lane.name, HORIZONTAL_ALIGNMENT_CENTER, 100, 14, Main.LANE_COLORS[i])
+		c.draw_string(m.font, at - Vector2(50, -5), lane.name, HORIZONTAL_ALIGNMENT_CENTER, 100, 14, Main.lane_color(i))
 
 	tree_batch.draw_on(c)
 
@@ -366,7 +366,7 @@ func draw_overlays() -> void:
 	if m.selected != null and m.selected.team == 0 and Cfg.is_production(m.selected.kind) and m.sim.is_alive(m.selected):
 		var lane := m.sim.lanes[m.selected.lane]
 		var entry := lane.point_at(lane.offset_of(m.selected.pos))
-		pen.dashed_line(m.selected.pos, entry, Color(Main.LANE_COLORS[m.selected.lane], 0.9), 3.0, 8.0)
+		pen.dashed_line(m.selected.pos, entry, Color(Main.lane_color(m.selected.lane), 0.9), 3.0, 8.0)
 
 	# podświetlenia ścieżek są nieprzezroczyste — mosty dorysowane jeszcze raz na wierzch
 	if not bridge_planks.is_empty():
@@ -497,7 +497,7 @@ func draw_base_labels(bi: int, top: Vector2) -> void:
 		var race: String = Races.ALL[race_i]["name"]
 		pen.text_outline(m.font, top + Vector2(-70, -4), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, 5, Color(0, 0, 0, 0.7))
 		pen.text(m.font, top + Vector2(-70, -4), race, HORIZONTAL_ALIGNMENT_CENTER, 140, 16, c.lightened(0.35))
-	var frac := m.sim.base_hp[bi] / Cfg.BASE_HP[team]
+	var frac := m.sim.base_hp[bi] / m.sim.base_max[bi]
 	hp_bar(p + Vector2(0, r + 18), 100, frac, 8)
 	var hp_text := "nie do zburzenia" if team == 1 and m.sim.mode == "survival" else "%d" % int(m.sim.base_hp[bi])
 	if team == 0 and m.sim.base_hp[bi] <= 0:
@@ -515,7 +515,7 @@ func draw_building(b: Sim.Building) -> void:
 		progress(b.pos + Vector2(0, 24), b.timer / m.sim.production_period(b.kind, b.level))
 		# plakietka ścieżki, którą idą jednostki
 		pen.circle(b.pos + Vector2(16, -16), 6.0, Color(0, 0, 0, 0.6))
-		pen.circle(b.pos + Vector2(16, -16), 4.5, Main.LANE_COLORS[b.lane])
+		pen.circle(b.pos + Vector2(16, -16), 4.5, Main.lane_color(b.lane))
 	if b.hp < b.max_hp:
 		var name := "b_" + b.kind
 		var top := BUILDING_FEET.y - Art.height(name) - 4.0 if Art.has(name) else -26.0

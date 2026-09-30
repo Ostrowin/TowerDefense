@@ -378,4 +378,4 @@ func sell_selected() -> void:
 
 func set_selected_lane(lane: int) -> void:
 	if m.selected != null and m.selected.owner == m.me and m.send({"type": "set_lane", "at": m.selected.pos, "lane": lane}):
-		m.float_text(m.selected.pos + Vector2(0, -26), "→ %s" % m.sim.lanes[lane].name, Main.LANE_COLORS[lane])
+		m.float_text(m.selected.pos + Vector2(0, -26), "→ %s" % m.sim.lanes[lane].name, Main.lane_color(lane))

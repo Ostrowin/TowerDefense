@@ -21,7 +21,7 @@ func _init(main: Main) -> void:
 func host_game() -> void:
 	leave()
 	session = NetSession.new()
-	if session.host() != OK:
+	if session.host(NetSession.PORT, 3) != OK:  # do 4 graczy (mapy coop na 2–4)
 		status = "Nie udało się utworzyć gry (port zajęty?)"
 		session = null
 		return
@@ -82,18 +82,40 @@ func games() -> Dictionary:
 
 
 ## Czy gość jest i wybrał dowódcę (host może startować).
+## Ilu graczy potrzebuje wybrana mapa coop.
+func map_players() -> int:
+	return Levels.level(m.level_index).get("players", 2)
+
+
+## Host może startować: tylu gości, ilu potrzebuje mapa, każdy wybrał dowódcę, numery bez dziur (2, 3…),
+## bo Sim nadaje graczy coop po kolei (`add_player`).
 func guest_ready() -> bool:
-	return role == "host" and session.guest_count() > 0 and session.picks.size() == session.guest_count()
+	if role != "host":
+		return false
+	var need := map_players() - 1
+	var ids := session.players.duplicate()
+	ids.sort()
+	var expected: Array = [0]
+	for k in need:
+		expected.append(k + 2)
+	return session.guest_count() == need and session.picks.size() == need and ids == expected
 
 
 func guest_text() -> String:
 	if role != "host":
 		return ""
-	if session.guest_count() == 0:
-		return "Czekam na drugiego gracza…"
+	var need := map_players() - 1
+	var parts := PackedStringArray()
 	for p: int in session.picks:
-		return "Drugi gracz: %s" % commander_text(session.picks[p])
-	return "Drugi gracz dołączył — wybiera dowódcę…"
+		parts.append(commander_text(session.picks[p]))
+	var head := "Gracze: %d/%d" % [session.guest_count() + 1, need + 1]
+	if session.guest_count() < need:
+		head += " — czekam na %d" % (need - session.guest_count())
+	elif session.guest_count() > need:
+		head += " — za dużo graczy na tę mapę"
+	elif session.picks.size() < need:
+		head += " — wybierają dowódców…"
+	return head if parts.is_empty() else "%s · %s" % [head, ", ".join(parts)]
 
 
 static func commander_text(id: String) -> String:

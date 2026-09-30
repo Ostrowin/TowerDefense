@@ -201,8 +201,8 @@ func build_ui() -> void:
 	for i in m.sim.lanes.size():
 		var lb := button(m.sim.lanes[i].name, Vector2(98, 42), m.controls.set_selected_lane.bind(i), lane_row)
 		lb.toggle_mode = true
-		lb.add_theme_color_override("font_pressed_color", Main.LANE_COLORS[i])
-		lb.add_theme_color_override("font_hover_pressed_color", Main.LANE_COLORS[i])
+		lb.add_theme_color_override("font_pressed_color", Main.lane_color(i))
+		lb.add_theme_color_override("font_hover_pressed_color", Main.lane_color(i))
 		lane_buttons.append(lb)
 	var sel_buttons := HBoxContainer.new()
 	sel_buttons.add_theme_constant_override("separation", 8)
@@ -401,9 +401,11 @@ func build_menu(ui: Control) -> void:
 	# 4. mapa i trudność — klik w trudność startuje grę
 	var map := menu_page_box(box, "map")
 	centered(label("Mapa i trudność", 36, map))
-	var maps := HBoxContainer.new()
-	maps.alignment = BoxContainer.ALIGNMENT_CENTER
-	maps.add_theme_constant_override("separation", 10)
+	var maps := GridContainer.new()  # po 4 w rzędzie (mapy coop: 7); ukryte przyciski nie zajmują miejsca
+	maps.columns = 4
+	maps.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	maps.add_theme_constant_override("h_separation", 10)
+	maps.add_theme_constant_override("v_separation", 10)
 	map.add_child(maps)
 	for i in Levels.count():  # solo i coop — widoczne tylko pasujące do trybu (update_menu)
 		var b := button("", Vector2(230, 62), m.select_level.bind(i), maps)
@@ -659,7 +661,7 @@ func update_menu() -> void:
 	for i in map_buttons.size():
 		var lv: Dictionary = Levels.level(i)
 		map_buttons[i].visible = lv.get("coop", false) == coop
-		map_buttons[i].text = lv["name"] if coop else "%s\n%s" % [lv["name"], stars_text(Progress.stars(lv["id"]))]
+		map_buttons[i].text = "%s\n%d graczy" % [lv["name"], lv.get("players", 1)] if coop else "%s\n%s" % [lv["name"], stars_text(Progress.stars(lv["id"]))]
 		map_buttons[i].button_pressed = i == m.level_index
 	var cur: Dictionary = Levels.level(m.level_index)
 	map_desc.text = cur["desc"]

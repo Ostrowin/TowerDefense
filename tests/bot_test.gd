@@ -48,13 +48,13 @@ func _init() -> void:
 	if args.has("--coop"):
 		# coop (gra ze znajomym): dwa boty z dowódcami na mapach coop — strojenie fal ×1,6
 		var diffs := _int_list(args, "--diffs", Cfg.DIFFICULTIES.size())
-		print("%-20s %-9s %-9s %6s %5s %6s %8s %s" % ["mapa coop", "trudność", "wynik", "czas", "fala", "zabici", "stracone", "bazy (A/B)"])
+		print("%-20s %-9s %-9s %6s %5s %6s %8s %s" % ["mapa coop", "trudność", "wynik", "czas", "fala", "zabici", "stracone", "HP baz graczy"])
 		for lv in Levels.coop_indices():
 			for d in diffs:
 				var r := _play_coop(lv, d)
 				print("%-20s %-9s %-9s %5ds %5d %6d %8d %s" % [Levels.level(lv)["name"], Cfg.DIFFICULTIES[d]["name"],
 					["przegrana", "remis", "WYGRANA"][r.result + 1], int(r.elapsed), r.wave, r.stats["kills"], r.stats["buildings_lost"],
-					"%d/%d" % [int(r.base_hp[0]), int(r.base_hp[2])]])
+					"/".join(_coop_players(r).map(func(p: int) -> String: return str(int(r.base_hp[p]))))])
 		quit()
 		return
 	if args.has("--balance"):
@@ -300,8 +300,13 @@ func _cmd(sim: Sim, cmd: Dictionary) -> bool:
 ## zbiórki własnej ścieżki następnej fali. Rozkazy przez komendy, jak w grze.
 func _play_coop(lv: int, difficulty: int) -> Sim:
 	var sim := Sim.new(difficulty, 1234, lv, "sapper", "battle", [], _bot_rival(lv, difficulty))
-	sim.add_player("iron_grip")
-	var plan_i := {0: 0, 2: 0}
+	var mates := ["iron_grip", "magma", "wrecker"]
+	for k in range(1, sim.level["players"]):
+		sim.add_player(mates[k - 1])
+	var ids := _coop_players(sim)
+	var plan_i := {}
+	for p in ids:
+		plan_i[p] = 0
 	var think := 0.0
 	while sim.result == 0 and sim.elapsed < MAX_TIME:
 		sim.step(DT)
@@ -310,13 +315,16 @@ func _play_coop(lv: int, difficulty: int) -> Sim:
 		if think > 0:
 			continue
 		think = BOT_THINK
-		for p: int in [0, 2]:
+		for p: int in ids:
 			if sim.players[p].out:
 				continue
 			var home := sim.base_pos(p)
 			for i in sim.nodes.size():
-				var other := sim.base_pos(2 - p)
-				if sim.nodes[i].distance_to(home) < sim.nodes[i].distance_to(other):
+				var mine := true
+				for q in ids:
+					if q != p and sim.nodes[i].distance_to(sim.base_pos(q)) < sim.nodes[i].distance_to(home):
+						mine = false
+				if mine:
 					sim.apply({"player": p, "type": "build_extractor", "node": i})
 			var own: Array[int] = []
 			for i in sim.lanes.size():
@@ -420,6 +428,14 @@ func _set_stance(sim: Sim, strategy: String) -> void:
 				_cmd(sim, {"type": "set_stance", "stance": "defend"})
 
 
+## Gracze mapy coop po `add_player` (0, 2, 3…) — przed dodaniem: numery baz graczy.
+func _coop_players(sim: Sim) -> Array[int]:
+	var out: Array[int] = [0]
+	for k in range(1, sim.level["players"]):
+		out.append(k + 1)
+	return out
+
+
 ## Kotwica planu bota dla gracza coop: Vector3 (ścieżka, s, bok) na jego ścieżce o tym numerze,
 ## Vector2 przesunięte do jego bazy (dla dolnej bazy odbite w pionie).
 func _coop_cell(sim: Sim, player: int, anchor: Variant) -> Vector2:
@@ -432,6 +448,9 @@ func _coop_cell(sim: Sim, player: int, anchor: Variant) -> Vector2:
 	var p: Vector2
 	if anchor is Vector2:
 		var off: Vector2 = anchor - Vector2(90, 450)  # plany botów są pisane względem bazy map solo
+		if sim.level["players"] > 2:  # mapa promienista: klin gracza obrócony w stronę fortecy
+			off = off.rotated((sim.e_base - base).angle())
+			flip = 1.0
 		p = base + Vector2(off.x, off.y * flip)
 	else:
 		var lane := sim.lanes[own[int(anchor.x) % own.size()]]
@@ -514,7 +533,9 @@ func _test_map_layout(lv: int) -> void:
 			_check(lane.point_at(lane.length).distance_to(sim.base_pos(lane.entry)) < 1.0, "%s: łącznik kończy się w drugiej bazie" % name)
 		else:
 			_check(lane.point_at(lane.length).distance_to(sim.e_base) < 1.0, "%s: ścieżka %s kończy się w bazie wroga" % [name, lane.name])
-			_check(lane.length > 1400.0, "%s: ścieżka %s jest kręta i długa" % [name, lane.name])
+			# mapy promieniste (3–4 graczy): forteca w środku, krótsze ścieżki — fala dzieli się na wszystkich
+			var min_len := 1200.0 if Levels.level(lv).get("players", 1) > 2 else 1400.0
+			_check(lane.length > min_len, "%s: ścieżka %s jest kręta i długa (%.0f)" % [name, lane.name, lane.length])
 		# zakręty tej samej ścieżki nie mogą na siebie nachodzić
 		var pts := lane.curve.get_baked_points()
 		var worst := INF
@@ -523,7 +544,7 @@ func _test_map_layout(lv: int) -> void:
 				worst = minf(worst, pts[a].distance_to(pts[b]))
 		_check(worst >= Cfg.PATH_HALF * 2 + 10, "%s: pętle ścieżki %s nie nachodzą na siebie (%.0f px)" % [name, lane.name, worst])
 	if Levels.level(lv).get("coop", false):
-		for pl in [0, 2]:  # strefa budowy każdego gracza ma miejsce na plan bota
+		for pl in _coop_players(sim):  # strefa budowy każdego gracza ma miejsce na plan bota
 			var free := 0
 			for p in BALANCED_PLAN:
 				if _coop_cell(sim, pl, p[1]) != Vector2.INF:
@@ -1795,16 +1816,20 @@ func _test_coop() -> void:
 	for lv in Levels.coop_indices():
 		var sim := Sim.new(1, 5, lv, "sapper")
 		var who: String = sim.level["name"]
+		var n: int = sim.level["players"]
 		var p2 := sim.add_player("iron_grip")
+		for k in range(2, n):
+			sim.add_player("magma")
 		sim.wave_timer = INF
 		_check(p2 == 2 and sim.has_base(2) and sim.base_of(2) == 2 and sim.base_of(0) == 0, "coop: gracz 2 ma własną bazę (%s)" % who)
 		_check(sim.hero(2).pos.distance_to(sim.base_pos(2)) < 80.0 and sim.hero(0).pos.distance_to(sim.base_pos(0)) < 80.0,
 			"coop: dowódca startuje przy swojej bazie (%s)" % who)
 		var guns := sim.buildings.filter(func(b: Sim.Building) -> bool: return b.kind == "basegun")
-		_check(guns.size() == 3, "coop: działko w każdej bazie (%s)" % who)
-		for p in [0, 2]:
+		_check(guns.size() == n + 1, "coop: działko w każdej bazie (%s)" % who)
+		for p in _coop_players(sim):
 			sim.players[p].gold = 5000.0
-		var cell_b := sim.free_cell_near(sim.base_pos(2) + Vector2(160, 0), 200.0, 2)
+			_check(sim.has_base(p) and sim.base_of(p) == p, "coop: gracz %d ma własną bazę (%s)" % [p, who])
+		var cell_b := sim.free_cell_near(sim.base_pos(2) + (sim.e_base - sim.base_pos(2)).normalized() * 160.0, 200.0, 2)
 		_check(cell_b != Vector2.INF and not sim.can_place(cell_b, 0) and sim.can_place(cell_b, 2), "coop: strefa budowy per gracz (%s)" % who)
 		_check(sim.apply({"player": 2, "type": "build", "kind": "barracks", "cell": cell_b}), "coop: gracz 2 buduje u siebie (%s)" % who)
 		var bar := sim.building_at(cell_b, 0)
@@ -1814,12 +1839,13 @@ func _test_coop() -> void:
 			if sim.lane_of_player(i, 0):
 				foreign = i
 		_check(not sim.set_lane(bar, foreign, 2), "coop: nie da się kierować produkcji na ścieżkę partnera (%s)" % who)
-		_check(sim.wave_lane_count() == 4 and sim.lanes.size() == 6, "coop: 4 ścieżki + łącznik w dwie strony (%s)" % who)
+		_check(sim.wave_lane_count() == 2 * n and sim.lanes.size() - sim.wave_lane_count() == 2 * sim.level["connectors"].size(),
+			"coop: 2 ścieżki na gracza + łączniki w dwie strony (%s)" % who)
 		var planned := sim._plan_lanes(Cfg.WAVE_SPLIT_2)
 		var bases_hit := {}
 		for li in planned:
 			bases_hit[sim.lanes[li].base] = true
-		_check(bases_hit.size() == 2, "coop: fala planowana na ścieżki obu graczy (%s)" % who)
+		_check(bases_hit.size() == n, "coop: fala planowana na ścieżki wszystkich graczy (%s)" % who)
 
 		# upadek bazy B: gracz 2 tylko ogląda, gra trwa
 		sim._damage_base(2, 1e9)
@@ -1836,15 +1862,21 @@ func _test_coop() -> void:
 				lane_b = i
 		sim._spawn_unit(1, "grunt", 1, 100.0, lane_b, 60.0)
 		var g: Sim.Unit = sim.units[-1]
-		var hp_a := sim.base_hp[0]
+		var alive_hp := func() -> float:
+			var s := 0.0
+			for i in sim.alive_player_bases():
+				s += sim.base_hp[i]
+			return s
+		var hp_a: float = alive_hp.call()
 		var t := 0
-		while t < 30 * 90 and sim.base_hp[0] >= hp_a and g.hp > 0:
+		while t < 30 * 120 and alive_hp.call() >= hp_a and g.hp > 0:
 			sim.step(DT)
 			t += 1
-		_check(sim.lanes[g.lane].connector and sim.base_hp[0] < hp_a, "coop: wróg z poległej bazy idzie łącznikiem i bije bazę partnera (%s)" % who)
-		sim._damage_base(0, 1e9)
+		_check(sim.lanes[g.lane].connector and alive_hp.call() < hp_a, "coop: wróg z poległej bazy idzie łącznikiem i bije bazę partnera (%s)" % who)
+		for i in sim.alive_player_bases():
+			sim._damage_base(i, 1e9)
 		sim.step(DT)
-		_check(sim.result == -1, "coop: przegrana, gdy padną obie bazy (%s)" % who)
+		_check(sim.result == -1, "coop: przegrana, gdy padną wszystkie bazy (%s)" % who)
 
 	# fala ×1,6 przy dwóch graczach
 	var solo := Sim.new(1, 9, Levels.coop_indices()[0])

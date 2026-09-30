@@ -231,6 +231,7 @@ var lanes: Array[Lane] = []
 var river: Curve2D = null
 var bridges: Array[Dictionary] = []
 var base_hp: Array[float] = [Cfg.BASE_HP[0], Cfg.BASE_HP[1]]
+var base_max: Array[float] = [Cfg.BASE_HP[0], Cfg.BASE_HP[1]]  ## pełne HP baz (forteca rośnie z liczbą graczy coop)
 ## Bazy po indeksie: 0 = gracz 0, 1 = wróg, 2+ = bazy graczy coop (indeks bazy = numer gracza).
 ## Brak bazy = Vector2.INF (np. gracz coop na mapie solo — dzieli bazę 0). `base_hp` ma te same indeksy.
 var bases: Array[Vector2] = []
@@ -314,16 +315,20 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 	for k in range(1, p_bases.size()):  # bazy kolejnych graczy coop: indeks k + 1 (gracz 2, 3…)
 		bases.append(p_bases[k])
 		base_hp.append(Cfg.BASE_HP[0])
+		base_max.append(Cfg.BASE_HP[0])
 		build_zones[k + 1] = level["build_rects"][k]
 	for l in level["lanes"]:
 		var lane := Lane.new(l["name"], l["points"])
 		var home: int = l.get("home", 0)
 		lane.base = 0 if home == 0 else home + 1
 		lanes.append(lane)
-	for c: Array in level.get("connectors", []):  # łącznik A → B: dwa kierunki, s = 0 przy bazie docelowej
-		var rev := c.duplicate()
+	for c: Dictionary in level.get("connectors", []):  # łącznik baz a–b: dwa kierunki, s = 0 przy bazie docelowej
+		var pts: Array = c["points"]
+		var rev := pts.duplicate()
 		rev.reverse()
-		for dir in [[rev, 2, 0], [c, 0, 2]]:
+		var ba: int = 0 if c["a"] == 0 else c["a"] + 1  # „home” (kolejność baz w mapie) → indeks bazy
+		var bb: int = 0 if c["b"] == 0 else c["b"] + 1
+		for dir in [[rev, bb, ba], [pts, ba, bb]]:
 			var lane := Lane.new("Łącznik", dir[0])
 			lane.base = dir[1]
 			lane.entry = dir[2]
@@ -368,6 +373,9 @@ func _new_player(team: int, commander_id: String) -> Player:
 ## Kolejny gracz kooperacji w drużynie 0 (przed pierwszym krokiem). Zwraca jego indeks.
 func add_player(commander_id := "") -> int:
 	var p := _new_player(0, commander_id)
+	# forteca wroga rośnie jak fale: ×(1 + 0,6 na każdego gracza ponad pierwszego)
+	base_max[1] = Cfg.BASE_HP[1] * (1.0 + Cfg.COOP_WAVE_PER_PLAYER * (team_players(0).size() - 1)) * level.get("fortress_mult", 1.0)
+	base_hp[1] = base_max[1]
 	if commander_id != "":
 		p.hero = _make_hero(p.id, commander_id)
 	return p.id
@@ -1138,7 +1146,7 @@ func use_ability(ability: String, at := Vector2.ZERO, player := 0) -> bool:
 					b.hp = minf(b.max_hp, b.hp + b.max_hp * cfg["heal"])
 			var bi := base_of(player)
 			if base_hp[bi] > 0:
-				base_hp[bi] = minf(Cfg.BASE_HP[team], base_hp[bi] + cfg["base_heal"])
+				base_hp[bi] = minf(base_max[bi], base_hp[bi] + cfg["base_heal"])
 		"zone":
 			zones.append({"pos": at, "left": cfg["duration"], "tick": 0.0, "team": team, "cfg": cfg, "hero": by_hero})
 		"summon_building":

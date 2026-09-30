@@ -151,7 +151,9 @@ static func coop_indices() -> Array[int]:
 ##   p_bases        — bazy graczy [A, B] (A = gracz 0, B = gracz 2 — pierwszy gość)
 ##   lanes[].home   — czyja to ścieżka: 0 = baza A, 1 = baza B
 ##   build_rects    — strefa budowy każdego gracza [A, B]
-##   connectors     — łącznik A → B: gdy baza padnie, wrogowie z jej ścieżek idą nim do żywej
+##   connectors     — łączniki baz {a, b, points}: gdy baza padnie, wrogowie z jej ścieżek idą nim do żywej
+##   players        — ilu graczy (lobby startuje przy komplecie)
+##   fortress_mult  — (opcjonalnie) dodatkowy mnożnik HP fortecy wroga
 ## Sloty wież wroga: indeksy ścieżek jak w `lanes` (A: 0, 1; B: 2, 3).
 
 const COOP_SIZE := Vector2(1900, 1250)
@@ -224,7 +226,100 @@ static var COOP: Array[Dictionary] = [
 		"enemy_slots": [Vector3(1, 260, 1), Vector3(1, 520, -1), Vector3(0, 200, 1), Vector3(1, 420, 1)],
 		"build_rect": Rect2(40, 60, 700, 500),
 	}),
+	# --- 3 i 4 graczy: forteca w środku, gracze dookoła (ten sam klin obrócony) ---
+	_ring_coop({
+		"id": "coop3_trojzab", "name": "Trójząb", "players": 3, "angle": PI,
+		"desc": "Trzech graczy wokół fortecy. Proste ścieżki do środka, łączniki po obwodzie.",
+		"lanes": RING_STRAIGHT, "nodes": RING_STRAIGHT_NODES,
+	}),
+	_ring_coop({
+		"id": "coop3_wir", "name": "Wir (3)", "players": 3, "angle": PI,
+		"desc": "Trzech graczy, ścieżki skręcają jak wir — lewa skrzydłowa jest długa i kręta.",
+		"lanes": RING_SWIRL, "nodes": RING_SWIRL_NODES,
+	}),
+	_ring_coop({
+		"id": "coop4_krzyz", "name": "Krzyż", "players": 4, "angle": PI * 1.25,
+		"desc": "Czterech graczy w rogach, forteca w środku. Proste ścieżki, łączniki wzdłuż brzegów.",
+		"lanes": RING_STRAIGHT, "nodes": RING_STRAIGHT_NODES,
+	}),
+	_ring_coop({
+		"id": "coop4_wir", "name": "Wir (4)", "players": 4, "angle": PI * 1.25,
+		"desc": "Czterech graczy, ścieżki skręcają jak wir.",
+		"lanes": RING_SWIRL, "nodes": RING_SWIRL_NODES,
+	}),
 ]
+
+
+# ---------------------------------------------------------------- mapy promieniste (3–4 graczy)
+## Klin gracza w układzie lokalnym: x — od bazy (0) do fortecy w środku (RING_R), y — w bok.
+## `_ring_coop` obraca go dla każdego gracza, więc wszyscy mają te same warunki.
+
+const RING_SIZE := Vector2(2600, 2600)
+const RING_R := 900.0  ## w jednostkach klina; w świecie × RING_SCALE
+const RING_SCALE := 1.3
+const RING_STRAIGHT := [
+	[Vector2(0, 0), Vector2(150, -90), Vector2(320, -150), Vector2(500, -150), Vector2(660, -100), Vector2(790, -40), Vector2(RING_R, 0)],
+	[Vector2(0, 0), Vector2(150, 90), Vector2(320, 150), Vector2(500, 150), Vector2(660, 100), Vector2(790, 40), Vector2(RING_R, 0)],
+]
+const RING_STRAIGHT_NODES := [[Vector2(170, -200), 1.0], [Vector2(170, 200), 1.0], [Vector2(400, 0), 1.0], [Vector2(620, 0), 1.6]]
+const RING_SWIRL := [
+	[Vector2(0, 0), Vector2(140, -120), Vector2(320, -230), Vector2(520, -240), Vector2(700, -150), Vector2(830, -50), Vector2(RING_R, 0)],
+	[Vector2(0, 0), Vector2(170, 70), Vector2(360, 110), Vector2(560, 90), Vector2(740, 40), Vector2(RING_R, 0)],
+]
+const RING_SWIRL_NODES := [[Vector2(180, -30), 1.0], [Vector2(170, 190), 1.0], [Vector2(420, -60), 1.0], [Vector2(620, -80), 1.6]]
+
+
+## Mapa promienista: n baz na okręgu wokół fortecy (środek mapy), każdy klin to samo w obrocie; łączniki
+## między sąsiednimi bazami po obwodzie (wypchnięte na zewnątrz). Sloty wież wroga: po jednym na ścieżkę.
+static func _ring_coop(d: Dictionary) -> Dictionary:
+	var n: int = d["players"]
+	var c := RING_SIZE / 2.0
+	var bases: Array = []
+	var lanes: Array = []
+	var nodes: Array = []
+	var richness: Array = []
+	var slots: Array = []
+	var rects: Array = []
+	for k in n:
+		var dir := Vector2.from_angle(d["angle"] + TAU * k / n)  # od środka do bazy
+		var base := c + dir * RING_R * RING_SCALE
+		var fwd := -dir * RING_SCALE
+		var side := fwd.orthogonal()
+		bases.append(base)
+		for j in 2:
+			var pts: Array = []
+			for p: Vector2 in d["lanes"][j]:
+				pts.append((base + fwd * p.x + side * p.y).round())
+			lanes.append({"name": "%s %d" % [["Lewa", "Prawa"][j], k + 1], "points": pts, "home": k})
+			slots.append(Vector3(k * 2 + j, 330, 1 if j == 0 else -1))
+	slots.sort_custom(func(x: Vector3, y: Vector3) -> bool: return int(x.x) % 2 < int(y.x) % 2 or (int(x.x) % 2 == int(y.x) % 2 and x.x < y.x))  # startowe wieże: po jednej u każdego
+	for k in n:
+		var dir := Vector2.from_angle(d["angle"] + TAU * k / n)
+		var base: Vector2 = bases[k]
+		var fwd := -dir * RING_SCALE
+		var side := fwd.orthogonal()
+		for nd: Array in d["nodes"]:
+			nodes.append((base + fwd * nd[0].x + side * nd[0].y).round())
+			richness.append(nd[1])
+		var zc := base + fwd * 190.0
+		rects.append(Rect2(zc - Vector2(280, 280), Vector2(560, 560)))
+	var connectors: Array = []
+	for k in n:
+		var a: Vector2 = bases[k]
+		var b: Vector2 = bases[(k + 1) % n]
+		var out := ((a + b) / 2.0 - c).normalized()
+		var mid := (a + b) / 2.0 + out * 250.0  # łuk na zewnątrz — z dala od złóż i ścieżek klina
+		var ra := a + (a - c).normalized() * 120.0
+		var rb := b + (b - c).normalized() * 120.0
+		connectors.append({"a": k, "b": (k + 1) % n, "points": [a, ra, ra.lerp(mid, 0.5) + out * 80.0, mid, rb.lerp(mid, 0.5) + out * 80.0, rb, b]})
+	return {
+		"id": d["id"], "name": d["name"], "desc": d["desc"], "coop": true, "players": n,
+		"size": RING_SIZE, "p_base": bases[0], "e_base": c, "p_bases": bases,
+		"lanes": lanes, "river": [], "nodes": nodes, "richness": richness,
+		"enemy_slots": slots, "enemy_start_towers": n,
+		"fortress_mult": 5.0,  # forteca w środku, bita z 6–8 ścieżek naraz — bez tego partia trwa 2 minuty
+		"build_rect": rects[0], "build_rects": rects, "rally_s": 300.0, "connectors": connectors,
+	}
 
 
 static func _flip(p: Vector2) -> Vector2:
@@ -267,6 +362,7 @@ static func _mirror_coop(half: Dictionary) -> Dictionary:
 		"lanes": lanes, "river": river, "nodes": nodes, "richness": richness,
 		"enemy_slots": slots, "enemy_start_towers": 4,
 		"build_rect": ra, "build_rects": [ra, rb], "rally_s": 300.0,
-		"connectors": [[a, Vector2(a.x - 30, a.y + (mid.y - a.y) * 0.5), Vector2(a.x - 40, mid.y),
-			Vector2(b.x - 30, b.y - (b.y - mid.y) * 0.5), b]],
+		"players": 2,
+		"connectors": [{"a": 0, "b": 1, "points": [a, Vector2(a.x - 30, a.y + (mid.y - a.y) * 0.5), Vector2(a.x - 40, mid.y),
+			Vector2(b.x - 30, b.y - (b.y - mid.y) * 0.5), b]}],
 	}

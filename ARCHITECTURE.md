@@ -93,6 +93,9 @@ Test od menu do końca: `tests/net_ui_test.gd`.
 `base` (baza przy s = 0); wróg idzie do bazy swojej ścieżki, a gdy ta padła — `_reroute` na łącznik (`Lane.connector`,
 `entry` = baza wejścia) do żywej. `base_of(player)`, `lane_of_player`, strefy `build_zones` per baza. Upadek bazy
 coop (`_fall_base`): gracz `out` — bez budynków, armii, dowódcy i rozkazów. Przegrana, gdy nie ma żywej bazy gracza.
+Mapy na 2–4 graczy (`Levels.level(i)["players"]`); łączniki łączą dowolne pary baz (na mapach promienistych —
+sąsiadów po obwodzie, więc wróg z poległej bazy idzie do najbliższej żywej). Fale i HP fortecy ×(1 + 0,6 na
+gracza ponad pierwszego), mapy promieniste dodatkowo `fortress_mult`. Lobby: do 3 gości, start przy komplecie.
 
 ```
  input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
