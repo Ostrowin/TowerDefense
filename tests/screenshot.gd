@@ -3,6 +3,8 @@ extends Node
 ## zrzut całej mapy i zbliżenia. Okno musi się renderować (bez --headless):
 ##
 ##   godot --path . -- --bench res://tests/screenshot.gd [--out <folder>] [--map N] [--race hyena] [--rival gibbon]
+##       [--partner wolf]   (drugi gracz drużyny 0 tej rasy — podgląd coopa: jego armia i pociski w jego stylu)
+##       [--wake]           (cele mapy, np. smok, budzą się od razu; zbliżenie celuje w legowisko)
 ##
 ## Pliki: <folder>/shot_full.png, shot_zoom.png, shot_zoom_enemy.png (domyślnie user://).
 
@@ -12,6 +14,8 @@ var out := "user://"
 var race := ""
 var rival := ""
 var map := 0
+var partner := ""
+var wake := false
 
 
 func _ready() -> void:
@@ -26,6 +30,8 @@ func _ready() -> void:
 			"--map": map = int(args[i + 1])
 			"--race": race = args[i + 1]
 			"--rival": rival = args[i + 1]
+			"--partner": partner = args[i + 1]
+	wake = args.has("--wake")
 
 
 func _race_index(id: String) -> int:
@@ -55,7 +61,18 @@ func _process(_delta: float) -> void:
 			var c := sim.free_cell_near(Vector2(260, 450), 400)
 			if sim.build(kinds[i], c) and Cfg.is_production(kinds[i]):
 				sim.set_lane(sim.building_at(c, 0), i % sim.lanes.size())
+		if partner != "":
+			var pi := sim.add_player(Races.commanders(_race_index(partner))[0])
+			sim.players[pi].gold = 5000
+			for i in 6:
+				var kind: String = ["barracks", "range", "tower"][i % 3]
+				var c := sim.free_cell_near(Vector2(260, 450), 400)
+				if sim.build(kind, c, pi) and Cfg.is_production(kind):
+					sim.set_lane(sim.building_at(c, 0), i % sim.lanes.size(), pi)
 		sim.wave_timer = 1.0
+		if wake:
+			for o in sim.objectives:
+				o.wake_at = 2.0
 		Engine.time_scale = 3.0
 	if frame == 3 + 60 * 14:  # ~40 s gry
 		Engine.time_scale = 1.0
@@ -66,7 +83,7 @@ func _process(_delta: float) -> void:
 		_shot("shot_full.png")
 	if frame == 3 + 60 * 14 + 32:  # zrzut czeka na koniec klatki — kamerę ruszamy dopiero potem
 		main.camera.zoom = Vector2.ONE * main.ZOOM_MAX
-		main.camera.position = _front(0)
+		main.camera.position = _front(0) if main.sim.objectives.is_empty() else main.sim.objectives[0].pos + Vector2(0, 80)
 		main.clamp_camera()
 	if frame == 3 + 60 * 14 + 40:
 		_shot("shot_zoom.png")

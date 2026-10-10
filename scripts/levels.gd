@@ -15,6 +15,12 @@ extends RefCounted
 ##   enemy_start_towers  — ile pierwszych slotów jest zajętych od startu
 ##   build_rect          — prostokąt, w którym mogą leżeć środki pól budowy
 ##   rally_s             — linia zbiórki (postawa „Obrona"), odległość od bazy gracza wzdłuż ścieżki
+##   big                 — (opcjonalnie) wielka mapa: partia 15–20 min, poza wyzwaniem dnia i macierzą botów
+##                         pełnego testu (`bot_test.gd -- --big`)
+##   fortress_mult       — (opcjonalnie) mnożnik HP fortecy wroga
+##   mods                — (opcjonalnie) tempo mapy: te same klucze co Cfg.DAILY_MODS (np. enemy_hp_mult)
+##   objectives          — (opcjonalnie) cele mapy: {kind (Cfg.MONSTERS), pos, radius (legowisko), wake_at (s),
+##                         zone (strefa budowy dla zdobywcy z drużyny 0), enemy_slots (wieże, gdy zdobędzie wróg), gold}
 ##
 ## Każda mapa ma 3 ścieżki (Północ/Środek/Południe liczone od strony gracza).
 ## Po zmianie punktów odpal tests/bot_test.gd — sprawdza, czy złoża i sloty nie leżą
@@ -117,7 +123,65 @@ const ALL: Array[Dictionary] = [
 		"build_rect": Rect2(40, 100, 700, 700),
 		"rally_s": 300.0,
 	},
+	# --- wielka mapa (szkic użytkownika 2026-10-10, docs/designs/wielka-mapa-smok.md) ---
+	# Partia 15–20 min: Północ zygzakiem przez legowisko smoka (smok — następny krok), Środek prosto,
+	# Południe serpentyną. Strefa budowy to cały pas gracza, także za bazą.
+	{
+		"id": "smocza_dolina",
+		"name": "Smocza dolina",
+		"desc": "Wielka mapa. Północ prowadzi przez dolinę smoka, Środek faluje, Południe wije się serpentyną.",
+		"big": true,
+		"size": Vector2(3200, 1800),
+		"p_base": Vector2(320, 900),
+		"e_base": Vector2(2880, 900),
+		# połowa wroga to lustro połowy gracza (x → 3200 − x): obie strony mają te same warunki
+		"lanes": [
+			{"name": "Północ", "points": [
+				Vector2(320, 900), Vector2(400, 650), Vector2(520, 450), Vector2(690, 320), Vector2(880, 300),
+				Vector2(1040, 400), Vector2(1180, 500), Vector2(1330, 430), Vector2(1450, 300), Vector2(1600, 250),
+				Vector2(1750, 300), Vector2(1870, 430), Vector2(2020, 500), Vector2(2160, 400), Vector2(2320, 300),
+				Vector2(2510, 320), Vector2(2680, 450), Vector2(2800, 650), Vector2(2880, 900)]},
+			{"name": "Środek", "points": [
+				Vector2(320, 900), Vector2(500, 1060), Vector2(720, 1100), Vector2(900, 960), Vector2(1060, 760),
+				Vector2(1260, 700), Vector2(1450, 780), Vector2(1600, 900), Vector2(1750, 780), Vector2(1940, 700),
+				Vector2(2140, 760), Vector2(2300, 960), Vector2(2480, 1100), Vector2(2700, 1060), Vector2(2880, 900)]},
+			{"name": "Południe", "points": [
+				Vector2(320, 900), Vector2(400, 1160), Vector2(520, 1380), Vector2(690, 1530), Vector2(880, 1510),
+				Vector2(990, 1360), Vector2(1060, 1200), Vector2(1190, 1110), Vector2(1330, 1180), Vector2(1390, 1360),
+				Vector2(1460, 1520), Vector2(1600, 1580), Vector2(1740, 1520), Vector2(1810, 1360), Vector2(1870, 1180),
+				Vector2(2010, 1110), Vector2(2140, 1200), Vector2(2210, 1360), Vector2(2320, 1510), Vector2(2510, 1530),
+				Vector2(2680, 1380), Vector2(2800, 1160), Vector2(2880, 900)]},
+		],
+		"river": [],
+		"nodes": [Vector2(180, 520), Vector2(180, 1280), Vector2(620, 700), Vector2(700, 1260),
+			Vector2(1200, 960), Vector2(1600, 1250), Vector2(1600, 520), Vector2(1380, 150)],
+		"richness": [1.0, 1.0, 1.0, 1.0, 1.3, 1.3, 1.6, 1.6],
+		"enemy_slots": [
+			Vector3(1, 400, 1), Vector3(0, 500, -1), Vector3(2, 500, 1),
+			Vector3(1, 800, -1), Vector3(0, 900, 1), Vector3(2, 900, -1)],
+		"enemy_start_towers": 3,
+		# tempo mapy (te same klucze co modyfikatory wyzwania dnia, Sim.mod): strojone botami pod 15–20 min
+		"fortress_mult": 3.0,
+		"mods": {"enemy_hp_mult": 1.3, "wave_interval_mult": 0.9},
+		"build_rect": Rect2(40, 60, 820, 1680),  # pas gracza z bazą w środku (za bazą 280 px)
+		# smok śpi nad Północą w środku mapy; zdobywca dostaje strefę między Północą a Środkiem
+		"objectives": [{
+			"kind": "dragon", "pos": Vector2(1600, 170), "radius": 200.0, "wake_at": 150.0, "gold": 250,
+			"zone": Rect2(1380, 470, 440, 260),
+			"enemy_slots": [Vector2(1500, 600), Vector2(1700, 600), Vector2(1600, 700)],
+		}],
+		"rally_s": 450.0,
+	},
 ]
+
+
+## Indeksy map solo bez wielkich (`big`) — do wyzwania dnia i meczów botów w pełnym teście.
+static func small_indices() -> Array[int]:
+	var out: Array[int] = []
+	for i in ALL.size():
+		if not ALL[i].get("big", false):
+			out.append(i)
+	return out
 
 
 static func index_of(id: String) -> int:
@@ -254,9 +318,11 @@ static var COOP: Array[Dictionary] = [
 ## Klin gracza w układzie lokalnym: x — od bazy (0) do fortecy w środku (RING_R), y — w bok.
 ## `_ring_coop` obraca go dla każdego gracza, więc wszyscy mają te same warunki.
 
-const RING_SIZE := Vector2(2600, 2600)
+const RING_SIZE := Vector2(3600, 3600)
 const RING_R := 900.0  ## w jednostkach klina; w świecie × RING_SCALE
-const RING_SCALE := 1.3
+const RING_SCALE := 1.7  ## 1,3 dawało za krótkie ścieżki — Normalny kończył się w ~3 min (2026-10-10)
+const RING_ARC_OUT := 140.0  ## łącznik: łuk tyle za okręgiem baz
+const RING_ARC_POINTS := 8  ## odcinki łuku łącznika między sąsiednimi bazami
 const RING_STRAIGHT := [
 	[Vector2(0, 0), Vector2(150, -90), Vector2(320, -150), Vector2(500, -150), Vector2(660, -100), Vector2(790, -40), Vector2(RING_R, 0)],
 	[Vector2(0, 0), Vector2(150, 90), Vector2(320, 150), Vector2(500, 150), Vector2(660, 100), Vector2(790, 40), Vector2(RING_R, 0)],
@@ -270,7 +336,7 @@ const RING_SWIRL_NODES := [[Vector2(180, -30), 1.0], [Vector2(170, 190), 1.0], [
 
 
 ## Mapa promienista: n baz na okręgu wokół fortecy (środek mapy), każdy klin to samo w obrocie; łączniki
-## między sąsiednimi bazami po obwodzie (wypchnięte na zewnątrz). Sloty wież wroga: po jednym na ścieżkę.
+## między sąsiednimi bazami po łuku okręgu za bazami. Sloty wież wroga: po jednym na ścieżkę.
 static func _ring_coop(d: Dictionary) -> Dictionary:
 	var n: int = d["players"]
 	var c := RING_SIZE / 2.0
@@ -305,19 +371,19 @@ static func _ring_coop(d: Dictionary) -> Dictionary:
 		rects.append(Rect2(zc - Vector2(280, 280), Vector2(560, 560)))
 	var connectors: Array = []
 	for k in n:
-		var a: Vector2 = bases[k]
-		var b: Vector2 = bases[(k + 1) % n]
-		var out := ((a + b) / 2.0 - c).normalized()
-		var mid := (a + b) / 2.0 + out * 250.0  # łuk na zewnątrz — z dala od złóż i ścieżek klina
-		var ra := a + (a - c).normalized() * 120.0
-		var rb := b + (b - c).normalized() * 120.0
-		connectors.append({"a": k, "b": (k + 1) % n, "points": [a, ra, ra.lerp(mid, 0.5) + out * 80.0, mid, rb.lerp(mid, 0.5) + out * 80.0, rb, b]})
+		# łuk okręgu tuż za bazami — z dala od złóż i ścieżek klina (te idą do środka)
+		var a0: float = d["angle"] + TAU * k / n
+		var pts: Array = [bases[k]]
+		for i in RING_ARC_POINTS + 1:
+			pts.append((c + Vector2.from_angle(a0 + TAU / n * i / RING_ARC_POINTS) * (RING_R * RING_SCALE + RING_ARC_OUT)).round())
+		pts.append(bases[(k + 1) % n])
+		connectors.append({"a": k, "b": (k + 1) % n, "points": pts})
 	return {
 		"id": d["id"], "name": d["name"], "desc": d["desc"], "coop": true, "players": n,
 		"size": RING_SIZE, "p_base": bases[0], "e_base": c, "p_bases": bases,
 		"lanes": lanes, "river": [], "nodes": nodes, "richness": richness,
 		"enemy_slots": slots, "enemy_start_towers": n,
-		"fortress_mult": 5.0,  # forteca w środku, bita z 6–8 ścieżek naraz — bez tego partia trwa 2 minuty
+		"fortress_mult": 4.0,  # forteca w środku, bita z 6–8 ścieżek naraz — bez tego partia trwa 2 minuty
 		"build_rect": rects[0], "build_rects": rects, "rally_s": 300.0, "connectors": connectors,
 	}
 

@@ -43,16 +43,35 @@ const MAX_ENEMIES := 150
 ## Coop: fala i HP fortecy wroga rosną o tyle na każdego gracza ponad pierwszego (2 graczy = ×1,6; docs/designs/multiplayer.md).
 const COOP_WAVE_PER_PLAYER := 0.6
 const MAX_SPAWN_QUEUE := 40
+## Coop na 3–4 graczy: kolejka fal dłuższa o tyle na każdego gracza ponad dwóch. Bez tego dokładka fali
+## przepadała i 4 graczy miało łatwiej niż 3; przy pełnym ×(1 + 0,6 na gracza) boty przegrywały Trudny wszędzie.
+const COOP_QUEUE_PER_PLAYER := 10
 const SELL_REFUND := 0.6
 const MAX_LEVEL := 3
 
 ## enemy_commander: wróg ma dowódcę rasy rywala sterowanego przez AI (EnemyCommander).
+## monster_hp: mnożnik HP neutralnych potworów celów mapy (smok) — trudniejszy dla obu stron, nie dla jednej.
+## enemy_hero: mnożnik HP i obrażeń dowódcy wroga (też po awansach); enemy_ability_cd: mnożnik odnowienia jego umiejętności.
 const DIFFICULTIES: Array[Dictionary] = [
-	{"name": "Łatwy", "start_gold": 220, "enemy_hp": 0.8, "wave_interval": 1.15, "first_wave": 30.0},
-	{"name": "Normalny", "start_gold": 160, "enemy_hp": 1.0, "wave_interval": 1.0, "first_wave": 22.0},
+	{"name": "Łatwy", "start_gold": 220, "enemy_hp": 0.8, "wave_interval": 1.15, "first_wave": 30.0,
+		"enemy_commander": true, "enemy_hero": 0.6, "enemy_ability_cd": 1.6, "monster_hp": 0.7},
+	{"name": "Normalny", "start_gold": 160, "enemy_hp": 1.0, "wave_interval": 1.0, "first_wave": 22.0,
+		"enemy_commander": true, "enemy_hero": 0.8, "enemy_ability_cd": 1.25, "monster_hp": 1.0},
 	{"name": "Trudny", "start_gold": 130, "enemy_hp": 1.25, "wave_interval": 0.85, "first_wave": 18.0,
-		"enemy_commander": true},
+		"enemy_commander": true, "monster_hp": 1.3},
 ]
+
+# ---------------------------------------------------------------- cele mapy (Levels: objectives)
+# Neutralne potwory w legowiskach (docs/designs/wielka-mapa-smok.md). Ranią je tylko zwykłe ataki dowódców;
+# zdobywa drużyna dowódcy z ostatnim ciosem. Oddech bije jednostki i dowódców obu drużyn (bez latających)
+# i nie daje nikomu nagród. Wartości startowe — do strojenia botami (`bot_test.gd -- --big`).
+#   hp — przed mnożnikiem trudności `monster_hp` · dmg/splash/cd — oddech · r — promień ciała (zasięg ciosu)
+#   xp — doświadczenie dla dowódcy z ostatnim ciosem
+const MONSTERS := {
+	"dragon": {"name": "Smok", "hp": 1500.0, "dmg": 20.0, "splash": 60.0, "cd": 2.5, "r": 40.0, "xp": 400.0},
+}
+## Zapowiedź przebudzenia celu (baner, minimapa) tyle sekund przed `wake_at`.
+const OBJECTIVE_WAKE_WARN := 30.0
 
 # ---------------------------------------------------------------- jednostki
 # projectile: "" = cios wręcz, inaczej rodzaj pocisku (arrow / rock).
@@ -529,6 +548,10 @@ const COMMANDER_RESPAWN_MAX := 40.0
 const COMMANDER_INVULNERABLE := 2.0
 ## Jak daleko od punktu postoju dowódca goni wroga.
 const COMMANDER_LEASH := 120.0
+## Leczenie pod bazą (jak fontanna w MOBA): dowódca, który nie walczy, w tym promieniu od własnej bazy odzyskuje
+## taką część maks. HP na sekundę. Bez tego ranny dowódca stał pod bazą do końca partii (wielka mapa, 2026-10-10).
+const HERO_REGEN := 0.03
+const HERO_REGEN_RADIUS := 200.0
 ## Dowódca bije budynki słabiej niż jednostki; bazy nie bije wcale.
 const COMMANDER_BUILDING_MULT := 0.5
 ## Zabicie dowódcy wroga: złoto dla gracza i doświadczenie dla dowódcy, który był blisko (jak za jednostkę).
@@ -697,7 +720,7 @@ static func daily(date: String) -> Dictionary:
 	return {
 		"date": date,
 		"seed": seed_value,
-		"map": rng.randi_range(0, Levels.ALL.size() - 1),
+		"map": Levels.small_indices()[rng.randi_range(0, Levels.small_indices().size() - 1)],  # bez wielkich map (15–20 min)
 		"mode": "survival" if rng.randf() < 0.5 else "battle",
 		"race": pick["race"],
 		"commander": pick["commander"],

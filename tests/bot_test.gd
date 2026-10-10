@@ -46,16 +46,44 @@ func _init() -> void:
 	Progress.reset_cache()
 	var args := OS.get_cmdline_user_args()
 	if args.has("--coop"):
-		# coop (gra ze znajomym): dwa boty z dowódcami na mapach coop — strojenie fal ×1,6
+		# coop (gra ze znajomym): boty z dowódcami na mapach coop — strojenie fal ×1,6
+		# opcjonalnie: --maps 3,4 (numery w Levels.COOP, nie w Levels.level) --diffs 1,2
 		var diffs := _int_list(args, "--diffs", Cfg.DIFFICULTIES.size())
+		var coop_maps := _int_list(args, "--maps", Levels.COOP.size())
 		print("%-20s %-9s %-9s %6s %5s %6s %8s %s" % ["mapa coop", "trudność", "wynik", "czas", "fala", "zabici", "stracone", "HP baz graczy"])
-		for lv in Levels.coop_indices():
+		for ci in coop_maps:
+			var lv: int = Levels.coop_indices()[ci]
 			for d in diffs:
 				var r := _play_coop(lv, d)
 				print("%-20s %-9s %-9s %5ds %5d %6d %8d %s" % [Levels.level(lv)["name"], Cfg.DIFFICULTIES[d]["name"],
 					["przegrana", "remis", "WYGRANA"][r.result + 1], int(r.elapsed), r.wave, r.stats["kills"], r.stats["buildings_lost"],
 					"/".join(_coop_players(r).map(func(p: int) -> String: return str(int(r.base_hp[p]))))])
 		quit()
+		return
+	if args.has("--objectives"):  # same testy celów mapy (smok), ~kilkanaście sekund
+		_test_objectives()
+		print("\n%s" % ("OK" if failures == 0 else "BŁĘDY: %d" % failures))
+		quit(1 if failures > 0 else 0)
+		return
+	if args.has("--big"):
+		# wielkie mapy (`big`): mecze botów i macierz dowódców R11 poza pełnym testem (partia 15–20 min)
+		# opcjonalnie: --diffs 1,2 --commander sapper (jeden dowódca)
+		var diffs: Array[int] = [1]  # domyślnie Normalny
+		if args.has("--diffs"):
+			diffs = _int_list(args, "--diffs", 0)
+		var only := args[args.find("--commander") + 1] if args.has("--commander") else ""
+		_print_header()
+		for lv in Levels.ALL.size():
+			if not Levels.ALL[lv].get("big", false):
+				continue
+			for d in diffs:
+				if only == "":
+					_report(lv, d, "balanced")
+				for commander in Cfg.COMMANDER_ORDER:
+					if commander != "veteran" and Cfg.commander_ready(commander) and (only == "" or only == commander):
+						_report(lv, d, "balanced", commander)
+		print("\n%s" % ("OK" if failures == 0 else "BŁĘDY: %d" % failures))
+		quit(1 if failures > 0 else 0)
 		return
 	if args.has("--balance"):
 		# opcjonalnie: --maps 0,2 --diffs 1,2 --bot mass (np. żeby puścić kilka procesów równolegle)
@@ -102,6 +130,8 @@ func _init() -> void:
 	_test_hare_otter_kinds()
 	_test_thorns()
 	_test_enemy_commander()
+	_test_hero_regen()
+	_test_objectives()
 	for n in [2, 3, 4]:
 		_test_players(n)
 	_test_commands()
@@ -119,6 +149,9 @@ func _init() -> void:
 		print("\n== mecze botów ==")
 		_print_header()
 		for lv in Levels.ALL.size():
+			if Levels.ALL[lv].get("big", false):
+				_report(lv, 1, "balanced")  # wielka mapa: jeden mecz wzorcowy (15–20 min), macierz w --big
+				continue
 			_report(lv, 1, "idle")
 			if lv == 0:
 				_report(lv, 1, "turtle")
@@ -132,7 +165,7 @@ func _init() -> void:
 		_print_header()
 		for commander in Cfg.COMMANDER_ORDER:
 			if commander != "veteran" and Cfg.commander_ready(commander):
-				for lv in Levels.ALL.size():
+				for lv in Levels.small_indices():  # wielkie mapy: `-- --big`
 					_report(lv, 1, "balanced", commander)
 
 	print("\n%s" % ("OK" if failures == 0 else "BŁĘDY: %d" % failures))
@@ -179,8 +212,10 @@ func _report(lv: int, d: int, strategy: String, commander := "") -> void:
 	var row := "%-11s %-9s %-9s %-9s %5ds %5d %6d %6d %6d %8d" % [
 		Levels.ALL[lv]["name"], Cfg.DIFFICULTIES[d]["name"], strategy, ["przegrana", "remis", "WYGRANA"][r.result + 1],
 		int(r.elapsed), r.wave, r.stats["kills"], r.stats["units_made"], r.stats["towers_razed"], r.stats["buildings_lost"]]
+	for o in r.objectives:  # cel mapy (smok): kto i kiedy zdobył — tylko w raporcie, nie we wzorcu
+		row += "   smok: %s" % (["gracz", "wróg"][o.owner_team] + " %ds" % int(o.taken_at) if o.owner_team >= 0 else "— (%d%% HP)" % int(100.0 * o.hp / o.max_hp))
 	if commander == "":
-		rows.append(row)  # do tabeli wzorcowej tylko gra bez dowódcy (D8)
+		rows.append(row.get_slice("   smok:", 0))  # do tabeli wzorcowej tylko gra bez dowódcy (D8)
 	else:
 		row += "   %s: umiejętności %d, zgonów %d, XP %d, awanse %s" % [commander, r.stats["abilities_used"], r.stats.get("hero_deaths", 0), int(r.hero().xp),
 			"/".join(level_times.map(func(t: int) -> String: return "%ds" % t)) if not level_times.is_empty() else "—"]
@@ -190,7 +225,7 @@ func _report(lv: int, d: int, strategy: String, commander := "") -> void:
 		_check(r.result == -1, "bezczynny gracz musi przegrać (%s)" % where)
 	if r.mode == "survival":
 		# przetrwanie: forteca stoi, partia kończy się upadkiem bazy gracza — wynik to fala
-		_check(r.result == -1 and r.base_hp[1] == Cfg.BASE_HP[1], "przetrwanie kończy się porażką, forteca cała (%s)" % where)
+		_check(r.result == -1 and r.base_hp[1] == r.base_max[1], "przetrwanie kończy się porażką, forteca cała (%s)" % where)
 	elif strategy == "balanced" and d <= 1:
 		_check(r.result == 1, "bot balanced powinien wygrać (%s)" % where)
 	if strategy == "balanced" or strategy == "mass":
@@ -386,7 +421,7 @@ func _hero_bot(sim: Sim, strategy: String) -> void:
 		AbilityRules.cast_racial(sim, 0, sim.players[0].stance == "attack")
 		return
 	var post := sim._hero_spawn_pos(0)
-	if strategy != "turtle" and h.hp >= h.max_hp * 0.3:
+	if strategy != "turtle" and not EnemyCommander.healing(sim, h):
 		var lane := sim.lanes[sim.next_wave_lanes[0]]
 		post = lane.point_at(sim.rally_s)
 		# w natarciu: tuż za czołem własnej armii na ścieżce natarcia (tam jest walka)
@@ -397,6 +432,9 @@ func _hero_bot(sim: Sim, strategy: String) -> void:
 					front = maxf(front, u.s)
 			if front > sim.rally_s:
 				post = sim.lanes[PUSH_LANE].point_at(front - 50.0)
+		var lair := EnemyCommander.objective_post(sim, h)  # smok: ta sama reguła co AI wroga
+		if lair != Vector2.INF:
+			post = lair
 	if h.post.distance_to(post) > 40.0 and h.state != "march":
 		_cmd(sim, {"type": "order_hero", "at": post})
 	AbilityRules.cast_hero_abilities(sim, 0)
@@ -481,7 +519,12 @@ func _expand(sim: Sim) -> void:
 	var kind: String = kinds[sim.stats["units_made"] % kinds.size()]
 	if sim.players[0].gold < Cfg.BUILDINGS[kind]["cost"] + 100:
 		return
-	var cell := sim.free_cell_near(sim.p_base + Vector2(200, 0), 500.0)
+	var near := sim.p_base + Vector2(200, 0)
+	for z in sim.objective_zones:  # strefa po smoku: co druga rozbudowa tam (wieże bliżej wroga)
+		if z["team"] == 0 and sim.stats["units_made"] % 2 == 0:
+			near = z["rect"].get_center()
+			kind = "tower" if sim.stats["units_made"] % 4 == 0 else "barracks"
+	var cell := sim.free_cell_near(near, 500.0)
 	if cell != Vector2.INF and _cmd(sim, {"type": "build", "kind": kind, "cell": cell}):
 		_cmd(sim, {"type": "set_lane", "at": cell, "lane": PUSH_LANE})
 
@@ -738,14 +781,14 @@ func _test_lane_following() -> void:
 			u.hp = 1e6
 			var lane := sim.lanes[lane_i]
 			var worst := 0.0
-			for i in 30 * 80:
+			for i in 30 * (240 if Levels.ALL[lv].get("big", false) else 80):  # wielka mapa: ścieżki ~2× dłuższe
 				sim.step(DT)
 				worst = maxf(worst, lane.distance_to(u.pos))
-				if sim.base_hp[1] < Cfg.BASE_HP[1]:
+				if sim.base_hp[1] < sim.base_max[1]:
 					break
 			var name := "%s/%s" % [Levels.ALL[lv]["name"], lane.name]
 			_check(worst <= Cfg.PATH_HALF, "jednostka trzyma się ścieżki %s (max %.1f px)" % [name, worst])
-			_check(sim.base_hp[1] < Cfg.BASE_HP[1], "jednostka dochodzi ścieżką %s do bazy wroga" % name)
+			_check(sim.base_hp[1] < sim.base_max[1], "jednostka dochodzi ścieżką %s do bazy wroga" % name)
 
 
 ## Na Serpentynie jednostka zepchnięta z pętli wraca na TĘ SAMĄ pętlę, nie przeskakuje.
@@ -1554,12 +1597,30 @@ func _test_thorns() -> void:
 			"kłębek: pancerz i kolce dowódcy (%s)" % who)
 
 
-## AI dowódcy wroga: tylko na trudności z `enemy_commander`, dowódca z rasy rywala, powtarzalne
-## z ziarnem, broni ścieżki, na którą weszła armia gracza, każdy dowódca rzuca umiejętności po stronie
-## wroga, zabicie go daje złoto.
+## AI dowódcy wroga: na każdej trudności (Łatwy/Normalny słabszy: `enemy_hero`, `enemy_ability_cd`), dowódca
+## z rasy rywala, powtarzalne z ziarnem, broni ścieżki, na którą weszła armia gracza, każdy dowódca rzuca
+## umiejętności po stronie wroga, zabicie go daje złoto.
 func _test_enemy_commander() -> void:
-	var normal := Sim.new(1, 7, 0, "", "battle", [], "mole")
-	_check(normal.hero(1) == null and normal.ai == null, "Normalny: wróg bez dowódcy")
+	for d in Cfg.DIFFICULTIES.size():
+		var diff: Dictionary = Cfg.DIFFICULTIES[d]
+		var s := Sim.new(d, 7, 0, "", "battle", [], "mole")
+		if not diff.get("enemy_commander", false):
+			_check(s.hero(1) == null and s.ai == null, "%s: wróg bez dowódcy" % diff["name"])
+			continue
+		var h := s.hero(1)
+		_check(h != null and s.ai != null, "%s: wróg ma dowódcę" % diff["name"])
+		var c: Dictionary = Cfg.COMMANDERS[s.players[1].commander]
+		var mult: float = diff.get("enemy_hero", 1.0)
+		_check(is_equal_approx(h.max_hp, c["hp"] * mult) and is_equal_approx(h.dmg, c["dmg"] * mult),
+			"%s: siła dowódcy wroga ×%.2f" % [diff["name"], mult])
+		s._gain_xp(h, Cfg.HERO_XP[0])
+		_check(h.hero_level == 2 and is_equal_approx(h.max_hp, c["hp"] * (1.0 + Cfg.HERO_STAT_PER_LEVEL) * mult),
+			"%s: awans dowódcy wroga zachowuje mnożnik" % diff["name"])
+		var racial: String = Cfg.RACIAL["mole"]
+		var at := s.lanes[0].point_at(s.lanes[0].length * 0.5)
+		_check(s.use_ability(racial, at, 1) and is_equal_approx(s.players[1].ability_cd[racial],
+			Cfg.ABILITIES[racial]["cooldown"] * diff.get("enemy_ability_cd", 1.0)),
+			"%s: odnowienie umiejętności wroga ×%.2f" % [diff["name"], diff.get("enemy_ability_cd", 1.0)])
 	var hard := Sim.new(2, 7, 0, "", "battle", [], "mole")
 	_check(hard.hero(1) != null and Cfg.COMMANDERS[hard.players[1].commander]["race"] == "mole", "Trudny: dowódca wroga z rasy rywala")
 	_check(hard.players[1].ability_order.has(Cfg.RACIAL["mole"]), "dowódca wroga ma umiejętność rasy")
@@ -2051,6 +2112,280 @@ func _test_daily() -> void:
 
 
 ## Sim do testów typów efektów: obie drużyny mają gotowe wszystkie umiejętności z Cfg.
+## Leczenie pod bazą (Cfg.HERO_REGEN): dowódca obu drużyn, który nie walczy, przy własnej bazie odzyskuje HP;
+## daleko od bazy — nie. Odwrót AI/bota trzyma go pod bazą do HEALED_HP.
+func _test_hero_regen() -> void:
+	for team in 2:
+		var sim := _empty_sim(0, "sapper")
+		var h := sim.hero(0) if team == 0 else sim._make_hero(1, "alpha")
+		if team == 1:
+			sim.players[1].hero = h
+		h.pos = sim._hero_spawn_pos(team)
+		h.post = h.pos
+		h.hp = h.max_hp * 0.25
+		_check(EnemyCommander.healing(sim, h), "leczenie: ranny dowódca drużyny %d wraca pod bazę" % team)
+		for i in int(10.0 / DT):
+			sim.step(DT)
+		_check(h.hp > h.max_hp * 0.5, "leczenie: dowódca drużyny %d leczy się pod bazą (%.0f%%)" % [team, 100.0 * h.hp / h.max_hp])
+		_check(EnemyCommander.healing(sim, h) == (h.hp < h.max_hp * EnemyCommander.HEALED_HP), "leczenie: czeka pod bazą do %d%% HP" % int(EnemyCommander.HEALED_HP * 100))
+		var lane: Sim.Lane = sim.lanes[1]
+		h.pos = lane.point_at(lane.length * 0.5)
+		h.post = h.pos
+		h.hp = h.max_hp * 0.5
+		for i in int(5.0 / DT):
+			sim.step(DT)
+		_check(is_equal_approx(h.hp, h.max_hp * 0.5), "leczenie: z dala od bazy dowódca drużyny %d się nie leczy" % team)
+
+
+## Cele mapy (smok, docs/designs/wielka-mapa-smok.md): dane mapy, sen, przebudzenie, oddech bez nagród,
+## smoka ranią tylko dowódcy, remis ostatniego ciosu, zdobycie przez drużynę 0 i 1, koszary w strefie,
+## pocisk do martwego smoka, suma kontrolna, reguła postoju AI i krótki lockstep.
+func _test_objectives() -> void:
+	for lv in Levels.count():
+		for d: Dictionary in Levels.level(lv).get("objectives", []):
+			_test_objective_layout(lv, d)
+	var lv := Levels.index_of("smocza_dolina")
+	_check(lv >= 0, "jest mapa ze smokiem")
+	if lv < 0:
+		return
+
+	# sen i przebudzenie
+	var sim := _empty_sim(lv, "sapper")
+	var o: Sim.Objective = sim.objectives[0]
+	var h := sim.hero()
+	h.pos = o.pos + Vector2(0, 60)
+	h.post = h.pos
+	for i in int((o.wake_at - Cfg.OBJECTIVE_WAKE_WARN - 1.0) / DT):
+		sim.step(DT)
+	_check(o.state == "sleep" and not o.warned and is_equal_approx(o.hp, o.max_hp), "smok: śpi i jest nietykalny przed przebudzeniem")
+	_check(sim.lair_at(h.post) == null, "smok: śpiące legowisko nie jest celem dowódcy")
+	var warned := false
+	var woke := false
+	for i in int((Cfg.OBJECTIVE_WAKE_WARN + 2.0) / DT):
+		sim.step(DT)
+		for e in sim.events:
+			warned = warned or e["type"] == "objective_warn"
+			woke = woke or e["type"] == "objective_wake"
+		sim.events.clear()
+	_check(warned and woke and o.state == "awake", "smok: zapowiedź i przebudzenie o czasie")
+
+	# oddech: obie drużyny, bez latających, bez nagród; jednostki nie ranią smoka
+	sim = _empty_sim(lv)
+	o = sim.objectives[0]
+	o.state = "awake"
+	o.cd_left = 0.0
+	var lane: Sim.Lane = sim.lanes[0]
+	var s_lair := lane.offset_of(o.pos)
+	sim._spawn_unit(0, "soldier", 1, 1.0, 0, s_lair)
+	sim._spawn_unit(1, "grunt", 1, 1.0, 0, s_lair + 10.0)
+	sim._spawn_unit(1, "bat", 1, 1.0, 0, s_lair)
+	var ours: Sim.Unit = sim.units[0]
+	var theirs: Sim.Unit = sim.units[1]
+	var bat: Sim.Unit = sim.units[2]
+	for u in sim.units:
+		u.base_speed = 0.0
+	var gold := sim.players[0].gold
+	sim.step(DT)
+	_check(ours.hp < ours.max_hp and theirs.hp < theirs.max_hp, "smok: oddech rani jednostki obu drużyn")
+	_check(bat.hp == bat.max_hp, "smok: oddech nie dotyczy latających")
+	theirs.hp = 1.0
+	o.cd_left = 0.0
+	sim.step(DT)
+	_check(theirs.hp <= 0.0 and sim.stats["kills"] == 0 and is_equal_approx(sim.players[0].gold, gold + sim.income(0) * DT * 2.0),
+		"smok: ofiary oddechu nie dają nagrody ani zabicia")
+	_check(is_equal_approx(o.hp, o.max_hp), "smok: zwykłe jednostki go nie ranią")
+
+	# wybór celu: najbliższy, przy równej odległości niższa drużyna
+	sim = _empty_sim(lv)
+	o = sim.objectives[0]
+	o.state = "awake"
+	o.cd_left = 0.0
+	sim._spawn_unit(1, "brute", 1, 1.0, 0, sim.lanes[0].offset_of(o.pos))
+	sim._spawn_unit(0, "brute", 1, 1.0, 0, sim.lanes[0].offset_of(o.pos))
+	sim.units[0].pos = o.pos + Vector2(80, 0)
+	sim.units[1].pos = o.pos + Vector2(-80, 0)
+	for u in sim.units:
+		u.base_speed = 0.0
+	sim._rebuild_grid()
+	sim._objective_breath(o)
+	var breath := sim.events.filter(func(e: Dictionary) -> bool: return e["type"] == "objective_breath")
+	_check(not breath.is_empty() and breath[0]["pos"] == o.pos + Vector2(-80, 0), "smok: remis odległości — cel z niższej drużyny")
+
+	# dowódca w legowisku bije smoka (melee), a dystansowy pociskiem
+	for id in ["sapper", "sniper"]:
+		sim = _empty_sim(lv, id)
+		o = sim.objectives[0]
+		o.state = "awake"
+		o.cd_left = INF
+		h = sim.hero()
+		h.pos = o.pos + Vector2(0, 80)
+		h.post = h.pos
+		for i in int(8.0 / DT):
+			sim.step(DT)
+		_check(o.hp < o.max_hp, "smok: %s w legowisku zadaje mu obrażenia" % id)
+
+	# remis ostatniego ciosu w jednym kroku → drużyna 0 (kolejność graczy), bez względu na kolejność trafień
+	sim = _empty_sim(lv)
+	o = sim.objectives[0]
+	o.state = "awake"
+	o.hp = 10.0
+	o.hits = [[1, 0, 50.0], [0, 1, 50.0]]
+	sim._resolve_objective_hits(o)
+	_check(o.state == "taken" and o.owner_team == 0, "smok: remis ostatniego ciosu w kroku — zdobywa drużyna 0")
+
+	# zdobycie przez drużynę 0: strefa budowy (tylko po zdobyciu), złoto, koszary w strefie wpuszczają w połowie ścieżki
+	sim = _empty_sim(lv)
+	o = sim.objectives[0]
+	var cell := _free_in_zone(sim, o.zone)
+	_check(cell != Vector2.INF, "smok: w strefie jest wolne pole")
+	_check(not sim.can_place(cell, 0), "smok: przed zdobyciem gracz nie buduje w strefie")
+	o.state = "awake"
+	o.hp = 1.0
+	gold = sim.players[0].gold
+	o.hits = [[0, 0, 5.0]]
+	sim._resolve_objective_hits(o)
+	_check(o.owner_team == 0 and sim.can_place(cell, 0) and sim.players[0].gold >= gold + o.gold, "smok: zdobycie daje graczowi strefę i złoto")
+	sim.players[0].gold = 1000.0
+	_check(sim.apply({"player": 0, "type": "build", "kind": "barracks", "cell": cell}), "smok: koszary w strefie po smoku")
+	var bar := sim.building_at(cell, 0)
+	sim.apply({"player": 0, "type": "set_lane", "at": cell, "lane": 1})
+	for i in int((sim.production_period("barracks", 1) + 1.0) / DT):
+		sim.step(DT)
+	var spawned := sim.units.filter(func(u: Sim.Unit) -> bool: return u.team == 0 and not u.is_hero)
+	_check(not spawned.is_empty() and spawned[0].s > sim.lanes[1].length * 0.3, "smok: jednostki z koszar w strefie wchodzą w połowie ścieżki (s=%.0f)" % (spawned[0].s if not spawned.is_empty() else -1.0))
+	_check(bar != null, "smok: koszary stoją")
+
+	# zdobycie przez drużynę 1: wieża wroga od razu w strefie, gracz tam nie buduje
+	sim = _empty_sim(lv)
+	o = sim.objectives[0]
+	var eh := sim._make_hero(1, "alpha")
+	sim.players[1].hero = eh
+	o.state = "awake"
+	o.hp = 1.0
+	var slots := sim.enemy_slot_count()
+	o.hits = [[1, 0, 5.0]]
+	sim._resolve_objective_hits(o)
+	var tower := sim.buildings.filter(func(b: Sim.Building) -> bool: return b.team == 1 and b.kind == "tower" and b.pos.distance_to(o.enemy_slots[0]) < 1.0)
+	_check(o.owner_team == 1 and not tower.is_empty() and sim.enemy_slot_count() == slots + o.enemy_slots.size(), "smok: zdobycie przez wroga daje mu wieżę i sloty w strefie")
+	_check(not sim.can_place(_free_in_zone(sim, o.zone), 0), "smok: po zdobyciu przez wroga gracz nie buduje w strefie")
+	_check(eh.xp >= Cfg.MONSTERS["dragon"]["xp"], "smok: dowódca z ostatnim ciosem dostaje XP")
+
+	# pocisk w locie do smoka, który padł, znika bez efektu
+	sim = _empty_sim(lv)
+	o = sim.objectives[0]
+	o.state = "awake"
+	var sh := sim._fire(0, "arrow", o.pos + Vector2(0, 150), o.pos, 999.0, 0.0)
+	sh.target_objective = o
+	o.state = "taken"
+	sim.step(DT)
+	_check(sh.done and o.hits.is_empty(), "smok: pocisk do martwego smoka znika")
+
+	# suma kontrolna obejmuje cel
+	var a := _empty_sim(lv)
+	var b := _empty_sim(lv)
+	_check(a.checksum() == b.checksum(), "smok: te same partie — ta sama suma")
+	b.objectives[0].hp -= 1.0
+	_check(a.checksum() != b.checksum(), "smok: suma kontrolna obejmuje HP smoka")
+
+	# reguła postoju (AI wroga i bot): > 60% → legowisko; 30–60% zostaje tylko z postojem w legowisku
+	sim = _empty_sim(lv, "sapper")
+	o = sim.objectives[0]
+	h = sim.hero()
+	_check(EnemyCommander.objective_post(sim, h) == Vector2.INF, "postój: śpiący smok — brak celu")
+	o.state = "awake"
+	var lair_post := EnemyCommander.objective_post(sim, h)
+	_check(lair_post != Vector2.INF and lair_post.distance_to(o.pos) <= o.radius, "postój: pełne HP — do legowiska")
+	h.hp = h.max_hp * 0.45
+	_check(EnemyCommander.objective_post(sim, h) == Vector2.INF, "postój: 45% HP poza legowiskiem — nie idzie")
+	h.post = lair_post
+	_check(EnemyCommander.objective_post(sim, h) != Vector2.INF, "postój: 45% HP w legowisku — zostaje (histereza)")
+	h.hp = h.max_hp * 0.25
+	_check(EnemyCommander.objective_post(sim, h) == Vector2.INF, "postój: poniżej 30% — odwrót")
+
+	# krótki lockstep: 2 × Sim, smok budzi się wcześnie, dowódcy obu stron go biją, sumy zgodne do zdobycia + 30 s
+	var sa := Sim.new(1, 77, lv, "sapper", "battle", [], "wolf")
+	var sb := Sim.new(1, 77, lv, "sapper", "battle", [], "wolf")
+	for s in [sa, sb]:
+		s.objectives[0].wake_at = 3.0
+		s.objectives[0].hp = 800.0  # krótki przebieg
+	var same := true
+	var after := -1.0
+	var steps := 0
+	while sa.result == 0 and sa.elapsed < 400.0 and (after < 0.0 or sa.elapsed < after + 30.0):
+		if steps % 15 == 0:  # bot gracza: ta sama reguła postoju co AI wroga, w obu symulacjach
+			for s in [sa, sb]:
+				var post := EnemyCommander.objective_post(s, s.hero()) if s.hero_alive() else Vector2.INF
+				if post != Vector2.INF and s.hero().post.distance_to(post) > 40.0 and s.hero().state != "march":
+					s.apply({"player": 0, "type": "order_hero", "at": post})
+		sa.step(DT)
+		sb.step(DT)
+		sa.events.clear()
+		sb.events.clear()
+		steps += 1
+		if steps % 30 == 0:
+			same = same and sa.checksum() == sb.checksum()
+		if after < 0.0 and sa.objectives[0].state == "taken":
+			after = sa.elapsed
+	_check(same and sa.checksum() == sb.checksum(), "smok: lockstep — zgodne sumy kontrolne przez zdobycie")
+	_check(after > 0.0 and sb.objectives[0].owner_team == sa.objectives[0].owner_team, "smok: zdobyty w krótkim przebiegu (%.0f s, drużyna %d)" % [after, sa.objectives[0].owner_team])
+
+
+## Dane celu mapy: legowisko i strefa w granicach mapy, strefa i sloty wroga z dala od ścieżek i legowiska,
+## w strefie miejsce na kilka budowli.
+func _test_objective_layout(lv: int, d: Dictionary) -> void:
+	var sim := Sim.new(1, 1, lv)
+	var name: String = Levels.level(lv)["name"]
+	var bounds := Rect2(Vector2.ZERO, sim.size)
+	var zone: Rect2 = d["zone"]
+	_check(bounds.encloses(zone) and bounds.has_point(d["pos"]), "%s: legowisko i strefa w granicach mapy" % name)
+	_check(not zone.intersects(sim.build_rect), "%s: strefa po smoku poza strefą startową" % name)
+	for slot: Vector2 in d.get("enemy_slots", []):
+		var near := INF
+		for l in sim.lanes:
+			near = minf(near, l.distance_to(slot))
+		_check(near > Cfg.PATH_CLEARANCE and slot.distance_to(d["pos"]) > d["radius"], "%s: slot wroga %s z dala od ścieżek i legowiska" % [name, str(slot)])
+	var free := 0
+	for x in range(int(zone.position.x), int(zone.end.x) + 1, int(Cfg.GRID)):
+		for y in range(int(zone.position.y), int(zone.end.y) + 1, int(Cfg.GRID)):
+			var c := Cfg.snap(Vector2(x, y))
+			if not Sim._in_zone(c, zone) or c.distance_to(d["pos"]) < d["radius"]:
+				continue
+			var ok := true
+			for l in sim.lanes:
+				ok = ok and l.distance_to(c) >= Cfg.PATH_CLEARANCE
+			for n in sim.nodes:
+				ok = ok and c.distance_to(n) >= Cfg.GRID
+			if ok:
+				free += 1
+	_check(free >= 6, "%s: w strefie po smoku jest miejsce na budowle (%d pól)" % [name, free])
+
+
+## Pierwsze wolne pole w strefie (ścieżki, złoża, legowisko, budynki) bez sprawdzania, czyja to strefa.
+func _free_in_zone(sim: Sim, zone: Rect2) -> Vector2:
+	for x in range(int(zone.position.x), int(zone.end.x) + 1, int(Cfg.GRID)):
+		for y in range(int(zone.position.y), int(zone.end.y) + 1, int(Cfg.GRID)):
+			var c := Cfg.snap(Vector2(x, y))
+			if Sim._in_zone(c, zone) and _cell_clear(sim, c):
+				return c
+	return Vector2.INF
+
+
+func _cell_clear(sim: Sim, c: Vector2) -> bool:
+	for o in sim.objectives:
+		if c.distance_to(o.pos) < o.radius:
+			return false
+	for l in sim.lanes:
+		if l.distance_to(c) < Cfg.PATH_CLEARANCE:
+			return false
+	for n in sim.nodes:
+		if c.distance_to(n) < Cfg.GRID:
+			return false
+	for b in sim.buildings:
+		if b.pos.distance_to(c) < Cfg.GRID:
+			return false
+	return true
+
+
 func _fx_sim(lv := 0) -> Sim:
 	var sim := _empty_sim(lv)
 	for team in 2:

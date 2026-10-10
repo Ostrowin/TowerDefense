@@ -233,6 +233,34 @@ func _process(_delta: float) -> bool:
 			main.start(1)
 		60:
 			_check(main.state == main.State.PLAY and sim.mods.is_empty() and sim.players[0].commander == "warbeat", "zwykła gra po wyzwaniu bez modyfikatorów")
+			# wielka mapa ze smokiem: przebudzenie i zdobycie przez gracza, potem przez wroga (widok, banery, minimapa)
+			main.level_index = Levels.index_of("smocza_dolina")
+			main.start(1)
+		62:
+			_check(sim.objectives.size() == 1, "smok: wielka mapa ma cel")
+			sim.objectives[0].wake_at = sim.elapsed + 0.3
+			main.camera.zoom = Vector2.ONE * main.ZOOM_MAX  # zbliżenie: rysowanie smoka i minimapa
+			main.camera.position = sim.objectives[0].pos
+			main.clamp_camera()
+		90:
+			_check(sim.objectives[0].state == "awake", "smok: przebudzony w widoku")
+			sim.objectives[0].hp = 1.0
+			sim.objectives[0].hits = [[0, 0, 5.0]]
+		100:
+			_check(sim.objectives[0].owner_team == 0 and main.banner_text == "Smok pokonany!", "smok: zdobycie przez gracza — baner")
+			main.start(1)
+		102:
+			sim.objectives[0].wake_at = sim.elapsed + 0.3
+			main.camera.position = sim.objectives[0].pos
+		130:
+			sim.objectives[0].hp = 1.0
+			sim.objectives[0].hits = [[1, 0, 5.0]]
+		140:
+			_check(sim.objectives[0].owner_team == 1 and main.banner_text == "Wróg zdobył smoka!", "smok: zdobycie przez wroga — baner")
+			main.level_index = 2
+			main.start(1)
+		142:
+			_check(main.state == main.State.PLAY and sim.level_index == 2, "po wielkiej mapie zwykła gra na Serpentynie")
 		1200:
 			# dokładamy gospodarkę i armię, żeby dojść do końca partii
 			sim.players[0].gold += 8000

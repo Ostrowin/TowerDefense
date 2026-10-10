@@ -178,6 +178,7 @@ class Player:
 
 class Shot:
 	var team: int
+	var owner := -1  ## gracz, którego wieża/jednostka strzeliła (widok: styl pocisku jego rasy)
 	var kind: String  ## arrow / cannonball / rock / frost
 	var start: Vector2
 	var pos: Vector2
@@ -194,7 +195,32 @@ class Shot:
 	var speed: float
 	var no_base := false  ## pocisk dowódcy — nie rani bazy (R4)
 	var from_hero := -1  ## gracz, którego dowódca wystrzelił (zabicie osobiste → więcej XP)
+	var target_objective: Objective = null  ## pocisk dowódcy w smoka (cel mapy)
 	var done := false
+
+
+## Cel mapy (Levels: objectives, Cfg.MONSTERS) — dziś smok w legowisku (docs/designs/wielka-mapa-smok.md).
+##   sleep ──(wake_at)──▶ awake ──(hp ≤ 0)──▶ taken (na zawsze; zdobywca dostaje strefę albo sloty wież)
+## Śpiący jest nietykalny. Przebudzony zieje na najbliższą jednostkę albo dowódcę obu drużyn w legowisku.
+## Ranią go tylko zwykłe ataki dowódców; trafienia z kroku trafiają do `hits` i są rozliczane na końcu
+## kroku w kolejności graczy — remis ostatniego ciosu wygrywa niższy indeks gracza (lockstep).
+class Objective:
+	var kind: String
+	var pos: Vector2
+	var radius: float  ## legowisko: smok bije w nim wszystkich, dowódca z postojem w nim bije smoka
+	var wake_at: float
+	var zone: Rect2  ## strefa budowy dla zdobywcy z drużyny 0
+	var enemy_slots: Array[Vector2] = []  ## sloty wież, gdy zdobędzie go wróg
+	var gold := 0
+	var state := "sleep"
+	var warned := false
+	var hp := 0.0
+	var max_hp := 0.0
+	var cd_left := 0.0
+	var owner_team := -1  ## drużyna zdobywcy (-1 = jeszcze nikt)
+	var taken_at := -1.0  ## czas gry zdobycia (raport botów, widok)
+	var flash := 0.0
+	var hits: Array = []  ## [gracz, kolejność, obrażenia] z bieżącego kroku
 
 
 const BUILDING_R := 16.0
@@ -273,6 +299,11 @@ var rng := RandomNumberGenerator.new()
 var profile := false
 var prof_data := {}
 var _next_id := 1
+## Cele mapy (smok) z `level["objectives"]`; zdobyte strefy budowy {team, rect} i sloty wież wroga z celów.
+var objectives: Array[Objective] = []
+var objective_zones: Array[Dictionary] = []
+var _objective_slots: Array[Vector2] = []
+var _neutral_blow := false  ## obrażenia zadaje potwór — zabici nie dają nagród ani XP
 ## Siatka przestrzenna jednostek per drużyna: Vector2i komórki → Array[Unit].
 ## Przebudowywana raz na krok; jednostki przesuwają się w kroku o ~1–2 px, więc
 ## nieaktualność w obrębie kroku nie ma znaczenia.
@@ -310,6 +341,8 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 	build_rect = level["build_rect"]
 	rally_s = level["rally_s"]
 	bases = [p_base, e_base]
+	base_max[1] = Cfg.BASE_HP[1] * level.get("fortress_mult", 1.0)  # wielka mapa: forteca trzyma do drugiej fazy
+	base_hp[1] = base_max[1]
 	build_zones[0] = build_rect
 	var p_bases: Array = level.get("p_bases", [p_base])
 	for k in range(1, p_bases.size()):  # bazy kolejnych graczy coop: indeks k + 1 (gracz 2, 3…)
@@ -346,6 +379,18 @@ func _init(difficulty_index: int = 1, seed_value: int = -1, level_idx: int = 0, 
 		gun.level = Cfg.BASE_GUN_LEVEL[base_team(i)]
 	for i in level["enemy_start_towers"]:
 		_add_building(1, "tower", enemy_slot_pos(i))
+	for d: Dictionary in level.get("objectives", []):
+		var o := Objective.new()
+		o.kind = d["kind"]
+		o.pos = d["pos"]
+		o.radius = d["radius"]
+		o.wake_at = d["wake_at"]
+		o.zone = d["zone"]
+		o.enemy_slots.assign(d.get("enemy_slots", []))
+		o.gold = d.get("gold", 0)
+		o.max_hp = Cfg.MONSTERS[o.kind]["hp"] * difficulty.get("monster_hp", 1.0)
+		o.hp = o.max_hp
+		objectives.append(o)
 	next_wave_lanes = _plan_lanes(1)
 	for p in players:
 		if p.commander != "":
@@ -373,12 +418,17 @@ func _new_player(team: int, commander_id: String) -> Player:
 ## Kolejny gracz kooperacji w drużynie 0 (przed pierwszym krokiem). Zwraca jego indeks.
 func add_player(commander_id := "") -> int:
 	var p := _new_player(0, commander_id)
-	# forteca wroga rośnie jak fale: ×(1 + 0,6 na każdego gracza ponad pierwszego)
-	base_max[1] = Cfg.BASE_HP[1] * (1.0 + Cfg.COOP_WAVE_PER_PLAYER * (team_players(0).size() - 1)) * level.get("fortress_mult", 1.0)
+	# forteca wroga rośnie jak fale
+	base_max[1] = Cfg.BASE_HP[1] * coop_mult() * level.get("fortress_mult", 1.0)
 	base_hp[1] = base_max[1]
 	if commander_id != "":
 		p.hero = _make_hero(p.id, commander_id)
 	return p.id
+
+
+## Coop: mnożnik fal, kolejki fal i HP fortecy wroga — ×(1 + 0,6 na każdego gracza ponad pierwszego). Solo ×1.
+func coop_mult() -> float:
+	return 1.0 + Cfg.COOP_WAVE_PER_PLAYER * (team_players(0).size() - 1)
 
 
 ## Gracze drużyny (kolejność = indeksy — deterministyczna).
@@ -419,9 +469,9 @@ func extractor_income(node_index: int, lvl: int) -> float:
 	return Cfg.BUILDINGS["extractor"]["income"][lvl - 1] * richness[node_index] * mod("income_mult")
 
 
-## Iloczyn wartości `key` ze wszystkich aktywnych modyfikatorów dnia (1.0 bez modyfikatorów).
+## Iloczyn wartości `key`: tempo mapy (`level["mods"]`) × wszystkie aktywne modyfikatory dnia (1.0 bez nich).
 func mod(key: String) -> float:
-	var m := 1.0
+	var m: float = level.get("mods", {}).get(key, 1.0)  # tempo mapy (np. wielka mapa) — te same klucze
 	for id in mods:
 		m *= Cfg.DAILY_MODS[id].get(key, 1.0)
 	return m
@@ -469,11 +519,15 @@ func wave_lane_count() -> int:
 	return n
 
 
+## Sloty wież wroga: z mapy, potem zdobyte wraz z celami mapy (`_objective_slots`).
 func enemy_slot_count() -> int:
-	return level["enemy_slots"].size()
+	return level["enemy_slots"].size() + _objective_slots.size()
 
 
 func enemy_slot_pos(i: int) -> Vector2:
+	var n: int = level["enemy_slots"].size()
+	if i >= n:
+		return _objective_slots[i - n]
 	var slot: Vector3 = level["enemy_slots"][i]
 	var lane := lanes[int(slot.x)]
 	return lane.slot_at(lane.length - slot.y, slot.z * Cfg.ENEMY_TOWER_OFFSET).round()
@@ -529,11 +583,12 @@ func army_size(team: int) -> int:
 
 
 func can_place(cell: Vector2, player := 0) -> bool:
-	var zone: Rect2 = build_zones.get(base_of(player), build_rect)
-	if cell.x < zone.position.x or cell.x > zone.end.x:
+	var team := players[player].team if player < players.size() else 0  # coop: strefa gracza przed add_player
+	if not _in_zone(cell, build_zones.get(base_of(player), build_rect)) and not in_objective_zone(cell, team):
 		return false
-	if cell.y < zone.position.y or cell.y > zone.end.y:
-		return false
+	for o in objectives:
+		if cell.distance_to(o.pos) < o.radius:
+			return false  # w legowisku nie da się budować
 	for i in bases.size():
 		if i != 1 and has_base(i) and cell.distance_to(bases[i]) < Cfg.BASE_R + Cfg.GRID:
 			return false
@@ -547,6 +602,19 @@ func can_place(cell: Vector2, player := 0) -> bool:
 		if lane.distance_to(cell) < Cfg.PATH_CLEARANCE:
 			return false
 	return true
+
+
+## Prostokąt strefy budowy z brzegami włącznie (środki pól mogą leżeć na krawędzi).
+static func _in_zone(cell: Vector2, zone: Rect2) -> bool:
+	return cell.x >= zone.position.x and cell.x <= zone.end.x and cell.y >= zone.position.y and cell.y <= zone.end.y
+
+
+## Czy pole leży w strefie zdobytej przez drużynę `team` wraz z celem mapy.
+func in_objective_zone(cell: Vector2, team: int) -> bool:
+	for z in objective_zones:
+		if z["team"] == team and _in_zone(cell, z["rect"]):
+			return true
+	return false
 
 
 ## Najbliższe wolne pole budowy w promieniu `max_r` od `p` (Vector2.INF, gdy brak).
@@ -840,14 +908,18 @@ func _gain_xp(h: Hero, amount: float) -> void:
 		h.hero_level += 1
 		var c: Dictionary = Cfg.COMMANDERS[h.commander]
 		var mult := 1.0 + Cfg.HERO_STAT_PER_LEVEL * (h.hero_level - 1)
-		var hero_mult := mod("hero_mult") if h.team == 0 else 1.0
-		var new_max: float = c["hp"] * mult * hero_mult
+		var new_max: float = c["hp"] * mult * hero_mult(h.team)
 		h.hp += new_max - h.max_hp
 		h.max_hp = new_max
-		h.dmg = c["dmg"] * mult * hero_mult
+		h.dmg = c["dmg"] * mult * hero_mult(h.team)
 		h.building_dmg = h.dmg * h.building_mult
 		players[h.owner].hero_offers.append(_make_offer(h.owner))
 		events.append({"type": "hero_level", "team": h.team, "player": h.owner, "level": h.hero_level, "pos": h.pos})
+
+
+## Mnożnik HP i obrażeń dowódcy drużyny: gracza — modyfikator wyzwania dnia, wroga — trudność (`enemy_hero`).
+func hero_mult(team: int) -> float:
+	return mod("hero_mult") if team == 0 else float(difficulty.get("enemy_hero", 1.0))
 
 
 ## Dowódca gracza (null = bez dowódcy). Martwy ma `state == "dead"` i nie ma go w `units`.
@@ -972,6 +1044,9 @@ func checksum() -> int:
 			_q(b.cd_left), b.lane, b.invested, _q(b.life)])
 	for s in shots:
 		n.append_array([s.kind.hash(), _q(s.pos.x), _q(s.pos.y), _q(s.dmg)])
+	for o in objectives:
+		n.append_array([o.state.hash(), int(o.warned), _q(o.hp), _q(o.cd_left), o.owner_team])
+	n.append_array([objective_zones.size(), _objective_slots.size()])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_MD5)
 	ctx.update(n.to_byte_array())
@@ -1235,7 +1310,7 @@ func use_ability(ability: String, at := Vector2.ZERO, player := 0) -> bool:
 			_damage_building(target, cfg["building_dmg"])
 			events.append({"type": "explosion", "pos": target.pos, "radius": 30.0})
 	_hero_blow = -1
-	p.ability_cd[ability] = cfg["cooldown"] * (mod("cooldown_mult") if team == 0 else 1.0)
+	p.ability_cd[ability] = cfg["cooldown"] * (mod("cooldown_mult") if team == 0 else difficulty.get("enemy_ability_cd", 1.0))
 	if team == 0:
 		stats["abilities_used"] += 1
 	events.append({"type": "ability", "name": ability, "team": team, "player": player, "pos": at if cfg["target"] else base_pos(base_of(player))})
@@ -1397,6 +1472,8 @@ func step(dt: float) -> void:
 	t = _prof("jednostki", t)
 	_update_shots(dt)
 	t = _prof("pociski", t)
+	if not objectives.is_empty():
+		_update_objectives(dt)
 
 	units = units.filter(func(u: Unit) -> bool: return u.hp > 0)
 	var building_count := buildings.size()
@@ -1417,6 +1494,92 @@ func step(dt: float) -> void:
 		result = -1
 	if result != 0:
 		events.append({"type": "end", "result": result})
+
+
+## Cele mapy: zapowiedź i przebudzenie o czasie, oddech co `cd`, rozliczenie trafień z kroku.
+func _update_objectives(dt: float) -> void:
+	for o in objectives:
+		match o.state:
+			"sleep":
+				if not o.warned and elapsed >= o.wake_at - Cfg.OBJECTIVE_WAKE_WARN:
+					o.warned = true
+					events.append({"type": "objective_warn", "kind": o.kind, "pos": o.pos})
+				if elapsed >= o.wake_at:
+					o.state = "awake"
+					o.cd_left = Cfg.MONSTERS[o.kind]["cd"]
+					events.append({"type": "objective_wake", "kind": o.kind, "pos": o.pos})
+			"awake":
+				o.flash = maxf(0.0, o.flash - dt)
+				o.cd_left -= dt
+				if o.cd_left <= 0.0:
+					_objective_breath(o)
+				_resolve_objective_hits(o)
+
+
+## Oddech: najbliższa jednostka albo dowódca obu drużyn w legowisku (bez latających; remis odległości →
+## niższa drużyna, potem niższe id), rozprysk na obie drużyny. Zabici nie dają nikomu nagród.
+func _objective_breath(o: Objective) -> void:
+	var cfg: Dictionary = Cfg.MONSTERS[o.kind]
+	var best: Unit = null
+	var best_d := INF
+	for team in 2:
+		for u in _units_near(team, o.pos, o.radius, false):
+			if u.burrow > 0.0:
+				continue
+			var d := u.pos.distance_to(o.pos)
+			if best == null or d < best_d - 0.01 or (absf(d - best_d) <= 0.01 and (u.team < best.team or (u.team == best.team and u.id < best.id))):
+				best = u
+				best_d = d
+	if best == null:
+		o.cd_left = 0.5  # nikogo w legowisku — rozgląda się częściej
+		return
+	o.cd_left = cfg["cd"]
+	var at := best.pos
+	events.append({"type": "objective_breath", "kind": o.kind, "from": o.pos, "pos": at, "radius": cfg["splash"]})
+	_neutral_blow = true
+	for team in 2:
+		for u in _units_near(team, at, cfg["splash"], false):
+			_damage_unit(u, cfg["dmg"], "breath")
+	_neutral_blow = false
+
+
+## Trafienia z kroku w kolejności graczy (stabilnie: gracz, potem kolejność trafienia); pierwsze, które
+## zbije HP do zera, zdobywa cel — reszta przepada.
+func _resolve_objective_hits(o: Objective) -> void:
+	if o.hits.is_empty():
+		return
+	var order := o.hits.duplicate()
+	order.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
+	o.hits.clear()
+	for hit: Array in order:
+		o.hp -= hit[2]
+		o.flash = 0.12
+		if o.hp <= 0.0:
+			_capture(o, hit[0])
+			return
+
+
+## Zdobycie celu przez gracza `player`: XP jego dowódcy; drużyna 0 — strefa budowy i złoto, drużyna 1 — sloty
+## wież w strefie i od razu pierwsza wieża (żeby zdobycie było widać).
+func _capture(o: Objective, player: int) -> void:
+	var team := players[player].team
+	o.state = "taken"
+	o.hp = 0.0
+	o.owner_team = team
+	o.taken_at = elapsed
+	if hero_alive(player):
+		_gain_xp(players[player].hero, Cfg.MONSTERS[o.kind]["xp"])
+	if team == 0:
+		objective_zones.append({"team": 0, "rect": o.zone})
+		_earn(o.gold, o.pos, player)
+	elif not o.enemy_slots.is_empty():
+		_objective_slots.append_array(o.enemy_slots)
+		var t := _add_building(1, "tower", o.enemy_slots[0])
+		while t.level < mini(1 + wave / 8, Cfg.MAX_LEVEL):
+			_level_up(t)
+		events.append({"type": "enemy_build", "pos": t.pos})
+	layout_version += 1
+	events.append({"type": "objective_taken", "kind": o.kind, "team": team, "player": player, "pos": o.pos})
 
 
 ## Profiler faz kroku (tylko gdy `profile`): dopisuje czas od `t0` w µs do `prof_data[key]`.
@@ -1466,15 +1629,18 @@ func _update_waves(dt: float) -> void:
 		for i in extra:
 			if comp[i] != "warlord":
 				comp.append(comp[i])
-		var coop := int(comp.size() * Cfg.COOP_WAVE_PER_PLAYER * (team_players(0).size() - 1))  # coop: ×1,6 przy 2
-		for i in mini(coop, comp.size()):
-			if comp[i] != "warlord":
-				comp.append(comp[i])
+		var coop := int(comp.size() * (coop_mult() - 1.0))  # coop: ×1,6 przy 2, ×2,8 przy 4
+		var size := comp.size()
+		for i in coop:
+			if comp[i % size] != "warlord":
+				comp.append(comp[i % size])
 		var wave_lanes := next_wave_lanes
 		for i in comp.size():
 			spawn_queue.append({"kind": comp[i], "lane": wave_lanes[i % wave_lanes.size()]})
-		if spawn_queue.size() > Cfg.MAX_SPAWN_QUEUE:
-			spawn_queue.resize(Cfg.MAX_SPAWN_QUEUE)  # nadmiar najnowszej fali przepada
+		# coop na 3–4 graczy: dłuższa kolejka (więcej ścieżek wypuszcza naraz), solo i 2 graczy — jak dotąd
+		var queue_max := Cfg.MAX_SPAWN_QUEUE + Cfg.COOP_QUEUE_PER_PLAYER * maxi(0, team_players(0).size() - 2)
+		if spawn_queue.size() > queue_max:
+			spawn_queue.resize(queue_max)  # nadmiar najnowszej fali przepada
 		events.append({"type": "wave", "n": wave, "boss": comp.has("warlord"), "count": comp.size(), "lanes": wave_lanes, "fury": wave == (Cfg.SURVIVAL_FURY_WAVE if mode == "survival" else Cfg.ENEMY_FURY_WAVE)})
 		next_wave_lanes = _plan_lanes(wave + 1)
 		if wave % Cfg.ENEMY_BUILD_EVERY == 0:
@@ -1598,6 +1764,7 @@ func _update_building(b: Building, dt: float) -> void:
 		b.cd_left = ts["cd"]
 		b.aim = (target.pos - b.pos).angle()
 		var s := _fire(b.team, ts["projectile"], b.pos, target.pos, ts["dmg"], ts["splash"])
+		s.owner = b.owner
 		s.target_unit = target
 		s.slow = ts["slow"]
 		s.slow_time = ts["slow_time"]
@@ -1607,7 +1774,11 @@ func _update_building(b: Building, dt: float) -> void:
 		# na limicie armii budynek czeka z gotową jednostką, aż zwolni się miejsce
 		if b.timer >= period and team_count[b.team] < Cfg.MAX_ARMY:
 			b.timer = 0.0
-			_spawn_unit(b.team, Cfg.BUILDINGS[b.kind]["unit"], b.level, 1.0, b.lane, -1.0, b.owner)
+			# koszary poza strefą startową (strefa po smoku) wpuszczają jednostki w najbliższym punkcie ścieżki
+			var at_s := -1.0
+			if b.team == 0 and not _in_zone(b.pos, build_zones.get(base_of(b.owner), build_rect)):
+				at_s = lanes[b.lane].offset_of(b.pos)
+			_spawn_unit(b.team, Cfg.BUILDINGS[b.kind]["unit"], b.level, 1.0, b.lane, at_s, b.owner)
 
 
 ## Puls budowli tymczasowej: totem leczy swoich, odpychacz cofa wrogów naziemnych.
@@ -1765,6 +1936,8 @@ func _update_hero(h: Hero, dt: float) -> void:
 		h.slow_timer -= dt
 		if h.slow_timer <= 0.0:
 			h.slow_factor = 0.0
+	if h.state != "fight" and h.hp < h.max_hp and h.pos.distance_to(base_pos(base_of(h.owner))) <= Cfg.HERO_REGEN_RADIUS:
+		h.hp = minf(h.max_hp, h.hp + h.max_hp * Cfg.HERO_REGEN * dt)  # leczenie pod własną bazą
 	var step_len := h.base_speed * (1.0 - h.slow_factor) * h.speed_mult * dt
 	var foe_team := 1 - h.team
 	match h.state:
@@ -1776,7 +1949,12 @@ func _update_hero(h: Hero, dt: float) -> void:
 				h.state = "idle"
 		"idle", "fight":
 			var sight := h.attack_range + Cfg.AGGRO
-			var foe := _nearest_unit(foe_team, h.pos, sight, h.anti_air)
+			# w legowisku przebudzonego smoka: wrogi dowódca → smok → zwykłe jednostki (te idą ścieżką obok)
+			var lair := lair_at(h.post)
+			var foe: Unit = _nearest_enemy_hero(h, sight) if lair != null else _nearest_unit(foe_team, h.pos, sight, h.anti_air)
+			if lair != null and foe == null:
+				_hero_hit_objective(h, lair, step_len)
+				return
 			if foe != null and foe.pos.distance_to(h.post) > Cfg.COMMANDER_LEASH + h.attack_range:
 				foe = null  # za daleko od punktu — nie goni
 			var tb: Building = null
@@ -1811,6 +1989,49 @@ func _update_hero(h: Hero, dt: float) -> void:
 					events.append({"type": "hit", "pos": target_pos})
 				else:
 					_ranged_attack(h, target_pos, foe, tb, -1)
+
+
+## Przebudzony cel mapy, w którego legowisku leży punkt `p` (null = żaden).
+func lair_at(p: Vector2) -> Objective:
+	for o in objectives:
+		if o.state == "awake" and p.distance_to(o.pos) <= o.radius:
+			return o
+	return null
+
+
+## Najbliższy żywy dowódca drugiej drużyny w zasięgu wzroku `h` (null = brak).
+func _nearest_enemy_hero(h: Hero, sight: float) -> Hero:
+	var best: Hero = null
+	for p in players:
+		if p.team == h.team or not hero_alive(p.id) or p.hero.invulnerable > 0.0:
+			continue
+		var d := p.hero.pos.distance_to(h.pos)
+		if d <= sight + p.hero.radius and (best == null or d < best.pos.distance_to(h.pos)):
+			best = p.hero
+	return best
+
+
+## Dowódca bije smoka: podchodzi na zasięg ciosu, cios wręcz trafia od razu do bufora celu, dystansowy
+## leci pociskiem (`Shot.target_objective`). Rozliczenie na końcu kroku (`_resolve_objective_hits`).
+func _hero_hit_objective(h: Hero, o: Objective, step_len: float) -> void:
+	h.state = "fight"
+	var body: float = Cfg.MONSTERS[o.kind]["r"]
+	if h.pos.distance_to(o.pos) > h.attack_range + h.radius + body:
+		h.pos = h.pos.move_toward(o.pos, step_len)
+		return
+	if h.cd_left > 0:
+		return
+	h.cd_left = h.cooldown / h.attack_speed
+	var dmg := h.dmg * h.dmg_mult
+	if h.melee:
+		o.hits.append([h.owner, o.hits.size(), dmg])
+		events.append({"type": "hit", "pos": o.pos})
+	else:
+		var sh := _fire(h.team, h.projectile, h.pos, o.pos, dmg, 0.0)
+		sh.owner = h.owner
+		sh.target_objective = o
+		sh.no_base = true
+		sh.from_hero = h.owner
 
 
 ## Powrót do punktu postoju trasą (ignoruje wrogów, żeby nie szarpać się na granicy smyczy).
@@ -1880,9 +2101,9 @@ func _make_hero(player: int, id: String) -> Hero:
 	h.melee = h.projectile == ""
 	h.anti_air = c["anti_air"]
 	h.armor = c["armor"]
-	h.max_hp = c["hp"] * (mod("hero_mult") if team == 0 else 1.0)
+	h.max_hp = c["hp"] * hero_mult(team)
 	h.hp = h.max_hp
-	h.dmg = c["dmg"] * (mod("hero_mult") if team == 0 else 1.0)
+	h.dmg = c["dmg"] * hero_mult(team)
 	h.building_mult = c.get("building_mult", Cfg.COMMANDER_BUILDING_MULT)
 	h.building_dmg = h.dmg * h.building_mult
 	h.lane = 0
@@ -1984,6 +2205,7 @@ func _ranged_attack(u: Unit, at: Vector2, unit: Unit, building: Building, base_t
 		return
 	u.cd_left = u.cooldown / u.attack_speed
 	var s := _fire(u.team, u.projectile, u.pos, at, u.dmg * u.dmg_mult, u.splash)
+	s.owner = u.owner
 	s.building_dmg = u.building_dmg * u.dmg_mult
 	s.target_unit = unit
 	s.target_building = building
@@ -2066,6 +2288,11 @@ func _update_shots(dt: float) -> void:
 		if s.target_building != null and s.target_building.hp <= 0 and s.splash <= 0:
 			s.done = true
 			continue
+		if s.target_objective != null:
+			if s.target_objective.state != "awake":
+				s.done = true  # smok padł albo śpi — pocisk znika bez efektu
+				continue
+			s.target_pos = s.target_objective.pos
 		s.pos = s.pos.move_toward(s.target_pos, s.speed * dt)
 		if s.pos.distance_squared_to(s.target_pos) < 4.0:
 			s.done = true
@@ -2079,6 +2306,11 @@ func _impact(s: Shot) -> void:
 
 
 func _impact_hit(s: Shot) -> void:
+	if s.target_objective != null:
+		var o := s.target_objective
+		o.hits.append([s.from_hero if s.from_hero >= 0 else s.owner, o.hits.size(), s.dmg])
+		events.append({"type": "hit", "pos": s.target_pos})
+		return
 	var foe_team := 1 - s.team
 	if s.splash > 0:
 		var hits_air := Cfg.ANTI_AIR.has(s.kind)
@@ -2128,13 +2360,16 @@ func _damage_unit(u: Unit, dmg: float, kind: String) -> void:
 		h.respawn = Cfg.commander_respawn(wave)
 		if h.team == 0:
 			stats["hero_deaths"] += 1
-		else:
+		elif not _neutral_blow:
 			stats["kills"] += 1
 			_earn_bounty(Cfg.COMMANDER_KILL_BOUNTY, h.pos)
-		_award_hero_kill_xp(h)
+		if not _neutral_blow:
+			_award_hero_kill_xp(h)
 		events.append({"type": "hero_died", "pos": h.pos, "team": h.team, "respawn": h.respawn})
 		return
 	events.append({"type": "death", "pos": u.pos, "team": u.team, "kind": u.kind})
+	if _neutral_blow:
+		return  # ofiara potwora: bez nagrody, XP i wskrzeszeń
 	_award_xp(u)
 	if not raises.is_empty():
 		_check_raise(u)

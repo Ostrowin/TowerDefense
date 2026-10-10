@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 200" width="256" height="200" data-anchor="128 186" data-world="0.62">
+  <!-- Smok (fantasy, cel mapy): przebudzony, głowa w górze, skrzydła rozłożone, żar w paszczy i oczach. -->
+  <ellipse cx="128" cy="184" rx="96" ry="12" fill="#000000" opacity="0.28"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M112 94 L92 30 Q78 46 64 34 Q62 56 42 50 Q50 70 34 76 Q60 98 112 94 Z" fill="#5a1a12"/>
+    <path d="M112 94 L92 30 M92 30 L64 34 M92 30 L42 50 M92 30 L34 76" stroke-width="2.5" fill="none"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M86 150 C60 156 34 150 22 134 C14 122 18 108 30 104 C26 116 30 128 44 134 C58 140 74 138 88 134 Z" fill="#521208"/>
+    <path d="M22 134 L6 128 L18 140 Z" fill="#d8cdb4"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M84 140 L78 172 L70 182 L94 182 L94 170 L100 146 Z" fill="#521208"/>
+    <path d="M150 138 L156 168 L150 182 L172 182 L170 166 L166 136 Z" fill="#521208"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M70 128 C66 104 88 88 118 86 C150 84 176 96 180 118 C184 142 162 158 126 160 C96 162 74 150 70 128 Z" fill="#7a1e14"/>
+  </g>
+  <path d="M86 108 C98 96 126 92 150 98 C134 98 108 102 92 114 Z" fill="#a8382a" opacity="0.8"/>
+  <path d="M92 148 C110 156 146 156 166 144 C160 136 150 132 140 134 C120 140 104 140 92 148 Z" fill="#d89a4a" stroke="#1a120c" stroke-width="2"/>
+  <path d="M108 142 L110 152 M124 140 L124 154 M140 138 L140 152 M154 136 L156 148" stroke="#a8702e" stroke-width="2"/>  <path d="M92 92 L98 80 L104 92 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M110 86 L116 74 L122 86 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M130 84 L136 72 L142 84 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M150 88 L156 76 L162 88 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M140 94 L150 14 Q128 32 112 22 Q114 46 92 46 Q104 66 86 74 Q110 98 140 94 Z" fill="#7a2a1c"/>
+    <path d="M140 94 L150 14 M150 14 L112 22 M150 14 L92 46 M150 14 L86 74" stroke-width="3" fill="none"/>
+  </g>
+  <path d="M148 22 L156 8" stroke="#1a120c" stroke-width="3" stroke-linecap="round"/>
+  <path d="M150 14 L154 6 L158 14 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="1.5"/>
+  <path d="M136 34 Q124 44 112 40 M128 58 Q114 64 104 62" stroke="#a8382a" stroke-width="2" fill="none" opacity="0.6"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M166 112 C176 96 178 76 190 62 C198 52 210 50 216 58 C206 64 200 76 196 92 C192 108 186 124 176 132 Z" fill="#7a1e14"/>
+  </g>
+  <path d="M176 104 C182 90 186 76 194 66" stroke="#d89a4a" stroke-width="6" fill="none" stroke-linecap="round"/>  <path d="M176 92 L182 80 L188 92 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M184 74 L190 62 L196 74 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M196 42 C206 30 228 30 240 40 L252 48 L246 54 L236 54 L242 62 L230 66 C220 70 204 66 198 58 Z" fill="#7a1e14"/>
+    <path d="M204 38 L196 16 L212 34 Z M216 34 L214 10 L226 34 Z" fill="#d8cdb4"/>
+  </g>
+  <path d="M200 44 C210 36 226 36 236 42" stroke="#a8382a" stroke-width="3" fill="none"/>
+  <path d="M236 54 L242 62 L230 66 Z" fill="#ffb02a" stroke="#1a120c" stroke-width="1.5"/>
+  <circle cx="246" cy="58" r="6" fill="#ffb02a" opacity="0.35"/>
+  <circle cx="250" cy="56" r="3" fill="#fff0a0" opacity="0.7"/>
+  <path d="M216 44 C220 41 226 41 228 45 C224 48 219 48 216 44 Z" fill="#ffb02a" stroke="#1a120c" stroke-width="1.2"/>
+  <circle cx="222" cy="45" r="7" fill="#ffb02a" opacity="0.25"/>
+  <path d="M240 46 L246 47" stroke="#1a120c" stroke-width="1.5"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 146 L96 172 L88 184 L116 184 L114 172 L120 150 Z" fill="#7a1e14"/>
+    <path d="M160 132 L170 160 L168 184 L194 184 L188 168 L178 130 Z" fill="#7a1e14"/>
+  </g>
+  <path d="M88 184 L84 188 M96 184 L94 189 M104 184 L104 189 M168 184 L164 189 M176 184 L174 189 M184 184 L184 189" stroke="#d8cdb4" stroke-width="3" stroke-linecap="round"/>
+</svg>

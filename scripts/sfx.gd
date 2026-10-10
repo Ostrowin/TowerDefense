@@ -67,6 +67,11 @@ func _ready() -> void:
 	_streams["base_hit"] = _synth(0.3, func(t: float) -> float:
 		return (sin(_sweep(t, 140, 45, 0.3)) * 0.8 + randf_range(-1, 1) * 0.2) * exp(-t * 8.0))
 	_streams["wave"] = _synth(0.7, func(t: float) -> float: return _horn(t, 220.0) * 0.35)
+	_streams["roar"] = _synth(1.2, func(t: float) -> float:  # smok: niski, chrapliwy ryk
+		return (sin(_sweep(t, 95, 55, 1.2)) * 0.7 + randf_range(-1, 1) * 0.35 * (0.5 + 0.5 * sin(TAU * 23.0 * t))) \
+			* minf(1.0, t * 6.0) * exp(-t * 1.6) * 0.6)
+	_streams["breath"] = _synth(0.5, func(t: float) -> float:  # oddech: szum ognia
+		return randf_range(-1, 1) * (0.6 + 0.4 * sin(TAU * 9.0 * t)) * minf(1.0, t * 12.0) * exp(-t * 4.0) * 0.4)
 	_streams["boss"] = _synth(1.3, func(t: float) -> float: return _horn(t, 110.0) * 0.5)
 	_streams["win"] = _synth(1.0, func(t: float) -> float:
 		return sin(TAU * _arp(t, 0.16, [523.0, 659.0, 784.0, 1047.0]) * t) * 0.35)

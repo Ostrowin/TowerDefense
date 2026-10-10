@@ -225,5 +225,53 @@ z każdym dowódcą). AI po stronie symulacji, bez losowania i bez własnego sta
 sieciowej (lockstep) drugi gracz zastąpi AI tymi samymi rozkazami. Jedna implementacja reguł dla AI i bota.
 **Kompromis:** AI nie odróżnia dowódców (ruch jest wspólny) i nie gra ekonomią wroga — fale zostają skryptem.
 Rywal meczów botów zależy od mapy i trudności (`_bot_rival`), więc wiersze Trudnego we wzorcu się zmieniły.
-Łatwy i Normalny bez dowódcy wroga — do decyzji po graniu.
+Łatwy i Normalny bez dowódcy wroga — do decyzji po graniu (rozszerzone w D34).
 **Status:** aktywna. Granie 2026-09-28 (desktop): Trudny wygrany „ledwo co” — poziom dobry, bez zmian liczb.
+
+### D34 — Dowódca wroga na każdej trudności (2026-10-10)
+**Decyzja:** `enemy_commander` także na Łatwym i Normalnym, ale słabszy: `enemy_hero` (mnożnik HP i obrażeń,
+także po awansach — `Sim.hero_mult`) i `enemy_ability_cd` (mnożnik odnowienia umiejętności): Łatwy ×0,6 / ×1,6,
+Normalny ×0,8 / ×1,25, Trudny ×1 / ×1. Ten sam `EnemyCommander` — trudność zmienia tylko liczby.
+**Dlaczego:** wybór użytkownika — dowódca po obu stronach to rdzeń gry, nie dodatek Trudnego. Bot (bez dowódcy)
+dalej wygrywa wszystko: Łatwy 190–237 s (było 187–211), Normalny 297–402 s (było 313–361).
+**Kompromis:** obejmuje też coop: na mapach 2 graczy Łatwy trwa ~4–5 min (było 2–3,5), Normalny 6–8 min.
+Wiersze Łatwego i Normalnego we wzorcu botów się zmieniły (nadpisany świadomie).
+**Status:** aktywna — do sprawdzenia graniem, czy Łatwy nie jest teraz za długi dla nowego gracza.
+
+### D35 — Coop na 3–4 graczy: dłuższe kliny, pełna dokładka fal (2026-10-10)
+**Decyzja:** mapy promieniste większe (`RING_SCALE` 1,3 → 1,7, mapa 2600 → 3600), łączniki po łuku okręgu za
+bazami (stałe przesunięcia nie skalowały się i wpadały na złoża), forteca ×4 (było ×5). Dokładka fali w coopie bez
+obcięcia do jednej fali (było: najwyżej ×2, więc 3 i 4 graczy dostawało tyle samo), kolejka fal dłuższa o
+`COOP_QUEUE_PER_PLAYER` (10) na każdego gracza ponad dwóch — solo i 2 graczy bez zmian.
+**Dlaczego:** boty kończyły Normalny w 2,5–4 min (fala 7–11), a 4 graczy miało łatwiej niż 3. Teraz (z D34):
+Normalny 269–287 s (fala 14–15), Trudny wygrany na 3 z 4 map — jak mapy 2 graczy (2 z 3).
+**Kompromis:** pełna kolejka (×2,2/×2,8 jak fale) dawała przegraną Trudnego wszędzie, więc dokładkę i tak w
+części zjada limit kolejki. Limity populacji (armia 200 na drużynę, wróg 150) bez zmian — eksperyment z armią 320
+nie zmienił wyników, a podniósłby koszt klatki na telefonach.
+**Status:** aktywna — strojone botami, czeka na partię z ludźmi.
+
+### D36 — Wielka mapa ze smokiem; cele mapy jako dane (2026-10-10)
+**Decyzja:** mapa „Smocza dolina” (3200×1800, połowy lustrzane, `big`) z pierwszym celem mapy — smokiem
+(`Levels: objectives`, `Cfg.MONSTERS`, `Sim.Objective`). Śpi do `wake_at`, potem zieje na najbliższą jednostkę
+albo dowódcę obu drużyn w legowisku (bez nagród dla nikogo). Ranią go tylko zwykłe ataki dowódców; trafienia
+z kroku rozliczane na końcu kroku w kolejności graczy (remis → drużyna 0). Zdobywca: drużyna 0 dostaje strefę
+budowy (`objective_zones`, osobno od `build_zones`) i złoto, drużyna 1 — sloty wież w strefie i od razu jedną
+wieżę. Koszary poza strefą startową wpuszczają jednostki w najbliższym punkcie ścieżki. AI wroga i bot gracza
+idą do smoka wspólną regułą `EnemyCommander.objective_post` (> 60% HP, przy smoku zostaje do 30%). Tempo mapy:
+`fortress_mult` ×3 i `mods` (HP wrogów ×1,3, fale ×0,9). Projekt i przegląd: docs/designs/wielka-mapa-smok.md.
+**Dlaczego:** office hours z użytkownikiem — kampania jako kręgosłup, pierwszy kawałek to wielka mapa z celem
+w połowie drogi; cele jako dane dają kampanii język misji. Obrażenia tylko od dowódców, bo ostatni cios
+przypadkowej jednostki byłby loterią.
+**Kompromis:** partia trwa dziś 5–7 min (cel 15–20), smok budzi się w 150. s; boty zdobywają go rzadko (2/12
+meczów wróg, czasem gracz), bo dowódcy biją się też na froncie. Strojone dalej graniem. Bez coopa na tej mapie.
+**Status:** aktywna — do grania na telefonie.
+
+### D37 — Leczenie dowódców pod bazą (2026-10-10)
+**Decyzja:** dowódca, który nie walczy, w promieniu `Cfg.HERO_REGEN_RADIUS` (200) od własnej bazy odzyskuje
+`HERO_REGEN` (3%) maks. HP na sekundę; obie drużyny, wszystkie mapy. Odwrót AI i bota (`EnemyCommander.healing`)
+trzyma go pod bazą do 80% HP.
+**Dlaczego:** wybór użytkownika (D8 w implementacji smoka): bez leczenia ranny dowódca stał pod bazą do końca
+partii (bot: 0 zgonów, 0 walki), więc wyścig o smoka się nie zdarzał; to samo psuło grę na zwykłych mapach.
+**Kompromis:** zmienia mecze na wszystkich mapach (dowódca wroga też się leczy) — wzorzec botów nadpisany
+świadomie.
+**Status:** aktywna.

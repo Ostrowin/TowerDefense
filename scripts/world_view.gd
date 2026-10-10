@@ -58,9 +58,12 @@ var lane_strips: Array[Array] = []  ## per ścieżka: [trójkąty, UV] pasa nawi
 var river_strip: Array = []
 var warn_lines: Array[Node2D] = []  ## podświetlenie ścieżki nadchodzącej fali (per ścieżka)
 var pick_lines: Array[Node2D] = []  ## podświetlenie wybranej ścieżki produkcji (per ścieżka)
-## Sprite'y jednostek per drużyna: rodzaj → [nazwa, skala, wysokość] (z UNIT_ART i ras drużyn).
-var unit_art: Array[Dictionary] = [{}, {}]
-var _art_key := -1  ## rasy, dla których policzono unit_art (zmiana = przeliczenie)
+## Sprite'y jednostek per rasa: id rasy → {rodzaj → [nazwa, skala, wysokość]} (z UNIT_ART), liczone przy pierwszym użyciu.
+var race_art := {}
+## Rasa każdego gracza (indeks w `sim.players`) — w coopie partner ma swoją rasę, nie moją.
+var _owner_race: Array[String] = []
+var _art_key := -1  ## rasy gracza i rywala, dla których policzono _owner_race (zmiana = przeliczenie)
+var _art_sim: Sim = null  ## …i partia (nowa partia = nowi gracze)
 var _hero_art := {}  ## id dowódcy → [nazwa, skala, wysokość]
 ## Budynki od góry do dołu (rzut 3/4: niższy zasłania wyższy) — sortowane po zmianie układu.
 var _buildings_sorted: Array[Sim.Building] = []
@@ -127,6 +130,9 @@ func make_terrain() -> void:
 	for i in m.sim.enemy_slot_count():
 		slots.append(m.sim.enemy_slot_pos(i))
 	var zones: Array = m.sim.build_zones.values()
+	for o in m.sim.objectives:
+		zones.append(o.zone)
+		zones.append(Rect2(o.pos - Vector2.ONE * o.radius, Vector2.ONE * o.radius * 2.0))
 	var tries := 0
 	while trees.size() < 70 and tries < 5000:
 		tries += 1
@@ -265,7 +271,7 @@ func near_any(p: Vector2, points: Array[Vector2], dist: float) -> bool:
 ## kadrem są pomijane.
 func draw() -> void:
 	pen.clear()
-	if _art_key != m.race_index * 100 + m.rival_index:
+	if _art_key != m.race_index * 100 + m.rival_index or _art_sim != m.sim or _owner_race.size() != m.sim.players.size():
 		refresh_art()
 	var view := Rect2(m.to_world(Vector2.ZERO), m.view_size / m.camera.zoom.x).grow(60.0)
 	low_detail = m.sim.units.size() > LOD_UNITS and not m.is_zoomed_in()
@@ -273,6 +279,8 @@ func draw() -> void:
 	draw_zones()
 	for n in m.sim.nodes:
 		draw_resource_node(n)
+	for o in m.sim.objectives:
+		draw_lair(o)
 	for i in m.sim.bases.size():
 		if m.sim.has_base(i):
 			draw_base(i)
@@ -282,6 +290,9 @@ func draw() -> void:
 	for u in m.sim.units:
 		if not u.flying and view.has_point(u.pos):
 			draw_unit(u)
+	for o in m.sim.objectives:
+		if view.grow(o.radius).has_point(o.pos):
+			draw_dragon(o)
 	for s in m.sim.shots:
 		if view.has_point(s.pos):
 			draw_shot(s)
@@ -379,15 +390,19 @@ func draw_overlays() -> void:
 		if _build_cells_version != m.sim.layout_version:
 			_build_cells_version = m.sim.layout_version
 			_build_cells.clear()
-			var zone: Rect2 = m.sim.build_zones.get(m.sim.base_of(m.me), m.sim.build_rect)
-			var y := Cfg.GRID / 2
-			while y <= zone.end.y:
-				var x := Cfg.GRID / 2
-				while x <= zone.end.x:
-					if m.sim.can_place(Vector2(x, y), m.me):
-						_build_cells.append(Vector2(x, y))
-					x += Cfg.GRID
-				y += Cfg.GRID
+			var rects: Array[Rect2] = [m.sim.build_zones.get(m.sim.base_of(m.me), m.sim.build_rect)]
+			for z in m.sim.objective_zones:
+				if z["team"] == m.sim.players[m.me].team:
+					rects.append(z["rect"])
+			for zone in rects:
+				var y := Cfg.snap(zone.position).y
+				while y <= zone.end.y:
+					var x := Cfg.snap(zone.position).x
+					while x <= zone.end.x:
+						if m.sim.can_place(Vector2(x, y), m.me):
+							_build_cells.append(Vector2(x, y))
+						x += Cfg.GRID
+					y += Cfg.GRID
 		for c in _build_cells:
 			pen.rect(Rect2(c - Vector2(18, 18), Vector2(36, 36)), Color(1, 1, 1, 0.07))
 
@@ -623,7 +638,7 @@ func draw_unit(u: Sim.Unit) -> void:
 	var r := u.radius
 	var dir := 1.0 if u.team == 0 else -1.0
 	var at := u.prev_pos.lerp(u.pos, m.render_alpha)  # interpolacja między krokami sima
-	var art: Array = unit_art[u.team].get(u.kind, [])
+	var art: Array = unit_art(owner_race(u.owner, u.team)).get(u.kind, [])
 	if not art.is_empty():
 		var top := draw_unit_sprite(u, at, art)
 		draw_unit_status(u, at, top)
@@ -760,6 +775,83 @@ func sorted_buildings() -> Array[Sim.Building]:
 	return _buildings_sorted
 
 
+## Legowisko celu mapy (pod budynkami i jednostkami) i strefa-nagroda: przed zdobyciem złota przerywana ramka,
+## po zdobyciu ramka w kolorze zdobywcy.
+func draw_lair(o: Sim.Objective) -> void:
+	var pulse := 0.5 + 0.5 * sin(m.time * 3.0)
+	pen.circle(o.pos, o.radius, Color(0.32, 0.16, 0.08, 0.22))
+	pen.circle(o.pos, o.radius * 0.55, Color(0.28, 0.12, 0.06, 0.18))
+	var ring := Color(0.85, 0.75, 0.55, 0.35)
+	if o.state == "awake":
+		ring = Color(1.0, 0.35, 0.15, 0.5 + 0.35 * pulse)
+	elif o.state == "taken":
+		ring = Color(Main.TEAM_COLORS[o.owner_team], 0.45)
+	pen.arc(o.pos, o.radius, 0, TAU, 56, ring, 3.0)
+	var z := o.zone
+	var col := Color(Main.GOLD_COLOR, 0.35 + 0.2 * pulse) if o.state != "taken" else Color(Main.TEAM_COLORS[o.owner_team], 0.6)
+	var corners := [z.position, Vector2(z.end.x, z.position.y), z.end, Vector2(z.position.x, z.end.y)]
+	for i in 4:
+		if o.state == "taken":
+			pen.line(corners[i], corners[(i + 1) % 4], col, 3.0)
+		else:
+			pen.dashed_line(corners[i], corners[(i + 1) % 4], col, 2.0, 12.0)
+	if o.state == "taken":
+		pen.rect(z, Color(Main.TEAM_COLORS[o.owner_team], 0.06))
+
+
+## Smok: sprite `monster_dragon`, a bez niego rysunek z kształtów (D30: brakujący sprite = kształty).
+## Śpi zwinięty z „z” nad głową, przebudzony unosi głowę i ma pasek HP; po zdobyciu zostaje szkielet.
+func draw_dragon(o: Sim.Objective) -> void:
+	var p := o.pos
+	if o.state == "taken":
+		pen.ellipse(p + Vector2(0, 14), Vector2(46, 14), Color(0, 0, 0, 0.25))
+		for i in 5:
+			pen.line(p + Vector2(-30 + i * 14, 4), p + Vector2(-34 + i * 14, 18), Color(0.85, 0.82, 0.72), 3.0)
+		pen.circle(p + Vector2(36, 6), 9, Color(0.85, 0.82, 0.72))
+		return
+	var awake := o.state == "awake"
+	var tint := Color(1, 1, 1).lerp(Color(1, 0.6, 0.6), o.flash * 6.0)
+	var sprite := "monster_dragon" if awake else "monster_dragon_sleep"
+	if Art.has(sprite):
+		var lift := sin(m.time * (4.0 if awake else 1.2)) * (2.0 if awake else 1.0)  # oddech: lekkie unoszenie
+		Art.draw(pen, sprite, p + Vector2(0, 30), 1.0, false, tint, Color.WHITE, 0.0, Vector2(1.0, 1.0 + lift * 0.01))
+	else:
+		var breathe := sin(m.time * (5.0 if awake else 1.5)) * 2.0
+		var body := Color(0.55, 0.12, 0.08) * tint
+		var belly := Color(0.85, 0.55, 0.25) * tint
+		var outline := Color("#1a120c")
+		pen.ellipse(p + Vector2(4, 30), Vector2(58, 14), Color(0, 0, 0, 0.28))
+		# skrzydła
+		var wing_up := -26.0 if awake else -8.0
+		for side in [-1.0, 1.0]:
+			var root := p + Vector2(side * 10, -4)
+			pen.polygon(PackedVector2Array([root, root + Vector2(side * 52, wing_up - 20 + breathe), root + Vector2(side * 40, 14)]), outline)
+			pen.polygon(PackedVector2Array([root + Vector2(side * 2, 0), root + Vector2(side * 48, wing_up - 16 + breathe), root + Vector2(side * 36, 11)]), body.darkened(0.15))
+		# ogon i tułów
+		pen.polygon(PackedVector2Array([p + Vector2(-30, 8), p + Vector2(-70, 22), p + Vector2(-28, 20)]), body)
+		pen.ellipse(p + Vector2(0, 6 + breathe * 0.5), Vector2(38, 24), outline)
+		pen.ellipse(p + Vector2(0, 6 + breathe * 0.5), Vector2(35, 21), body)
+		pen.ellipse(p + Vector2(4, 14), Vector2(22, 10), belly)
+		# szyja i głowa
+		var head := p + (Vector2(40, -30 + breathe) if awake else Vector2(34, 10))
+		pen.line(p + Vector2(20, 0), head, outline, 16.0)
+		pen.line(p + Vector2(20, 0), head, body, 12.0)
+		pen.circle(head, 14, outline)
+		pen.circle(head, 12, body)
+		pen.polygon(PackedVector2Array([head + Vector2(-6, -10), head + Vector2(-12, -24), head + Vector2(0, -12)]), belly)
+		if awake:
+			pen.circle(head + Vector2(5, -3), 3, Color(1.0, 0.85, 0.2))
+		else:
+			pen.line(head + Vector2(2, -3), head + Vector2(8, -3), outline, 2.0)
+	if awake:
+		hp_bar(p + Vector2(0, -104 if Art.has(sprite) else -64), 90, o.hp / o.max_hp, 7)
+	elif o.state == "sleep":
+		for i in 3:
+			var t := fmod(m.time * 0.6 + i / 3.0, 1.0)
+			pen.text(m.font, p + Vector2(40 + t * 22, -26 - t * 40), "z", HORIZONTAL_ALIGNMENT_LEFT, 30, 14 + i * 4,
+				Color(1, 1, 1, 0.8 * (1.0 - t)))
+
+
 ## Rasa drużyny (id z Races). W menu rywal nie jest jeszcze wylosowany — pierwsza inna grywalna.
 func team_race(team: int) -> String:
 	var i := m.race_index if team == 0 else m.rival_index
@@ -771,18 +863,37 @@ func team_race(team: int) -> String:
 	return Races.ALL[maxi(i, 0)]["id"]
 
 
+## Rasa gracza `owner`: w drużynie 0 rasa jego dowódcy (coop: każdy swoją), bez dowódcy — rasa drużyny.
+func owner_race(owner: int, team: int) -> String:
+	if owner >= 0 and owner < _owner_race.size() and m.sim.players[owner].team == team:
+		return _owner_race[owner]
+	return team_race(team)
+
+
 func refresh_art() -> void:
 	_art_key = m.race_index * 100 + m.rival_index
+	_art_sim = m.sim
 	_hero_art.clear()
-	for team in 2:
-		var race := team_race(team)
-		var m := {}
-		for kind in UNIT_ART:
-			var a: Array = UNIT_ART[kind]
-			var name := "%s_%s" % [race, a[0]]
-			if Art.has(name):
-				m[kind] = [name, a[1], Art.height(name, a[1])]
-		unit_art[team] = m
+	_owner_race.clear()
+	for p in m.sim.players:
+		var race := team_race(p.team)
+		if p.team == 0 and p.commander != "":
+			race = Cfg.COMMANDERS[p.commander]["race"]
+		_owner_race.append(race)
+
+
+## Sprite'y jednostek rasy: rodzaj → [nazwa, skala, wysokość]; brak sprite'a = rodzaju nie ma w słowniku.
+func unit_art(race: String) -> Dictionary:
+	if race_art.has(race):
+		return race_art[race]
+	var out := {}
+	for kind in UNIT_ART:
+		var a: Array = UNIT_ART[kind]
+		var name := "%s_%s" % [race, a[0]]
+		if Art.has(name):
+			out[kind] = [name, a[1], Art.height(name, a[1])]
+	race_art[race] = out
+	return out
 
 
 ## Sprite dowódcy: `cmd_<id>`, a bez niego piechur jego rasy w powiększeniu. Pusty = stary rysunek.
@@ -794,7 +905,7 @@ func hero_sprite(h: Sim.Hero) -> Array:
 	if Art.has(name):
 		out = [name, 1.0, Art.height(name)]
 	else:
-		var soldier: Array = unit_art[h.team].get("soldier", [])
+		var soldier: Array = unit_art(owner_race(h.owner, h.team)).get("soldier", [])
 		if not soldier.is_empty():
 			out = [soldier[0], 1.35, Art.height(soldier[0], 1.35)]
 	_hero_art[h.commander] = out
@@ -867,7 +978,7 @@ func draw_zones() -> void:
 ## wydry — harpuny i bańki wody. Armata to plazma, mróz — lodowy odłamek.
 func draw_shot(s: Sim.Shot) -> void:
 	var at := s.prev_pos.lerp(s.pos, m.render_alpha)
-	var race := team_race(s.team)
+	var race := owner_race(s.owner, s.team)
 	var col: Array = SHOT_COLORS.get(race, SHOT_COLORS["hyena"])
 	var glow: Color = col[0]
 	var core: Color = col[1]

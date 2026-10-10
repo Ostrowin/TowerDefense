@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 200" width="256" height="200" data-anchor="128 186" data-world="0.62">
+  <!-- Smok (fantasy, cel mapy): śpi zwinięty, głowa na łapach, skrzydło złożone, dym z nozdrzy. -->
+  <ellipse cx="128" cy="184" rx="100" ry="12" fill="#000000" opacity="0.28"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M70 156 C48 168 40 182 70 186 C110 190 160 188 196 180 C170 178 120 180 90 176 C80 174 76 168 84 162 Z" fill="#521208"/>
+    <path d="M196 180 L214 172 L206 186 Z" fill="#d8cdb4"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M62 140 C58 112 86 96 122 96 C158 96 186 112 186 138 C186 160 160 172 124 172 C88 172 66 162 62 140 Z" fill="#7a1e14"/>
+  </g>
+  <path d="M80 118 C96 106 124 102 150 106 C130 108 104 112 88 124 Z" fill="#a8382a" opacity="0.8"/>
+  <path d="M86 162 C110 170 150 170 172 158 C166 150 154 146 144 148 C122 154 104 154 86 162 Z" fill="#d89a4a" stroke="#1a120c" stroke-width="2"/>  <path d="M84 102 L90 90 L96 102 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M104 96 L110 84 L116 96 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M126 94 L132 82 L138 94 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M148 96 L154 84 L160 96 Z" fill="#d8cdb4" stroke="#1a120c" stroke-width="2" stroke-linejoin="round"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M84 104 C100 70 140 60 176 74 C164 84 156 96 150 110 C128 112 104 112 84 104 Z" fill="#7a2a1c"/>
+    <path d="M90 102 C110 80 140 72 172 76 M110 108 C122 90 140 82 160 84" stroke-width="2.5" fill="none"/>
+  </g>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M168 160 L176 176 L172 184 L206 184 L202 172 L186 158 Z" fill="#7a1e14"/>
+  </g>
+  <path d="M206 184 L210 188 M198 184 L200 189 M190 184 L190 189" stroke="#d8cdb4" stroke-width="3" stroke-linecap="round"/>
+  <g stroke="#1a120c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M176 150 C182 136 200 132 216 138 L236 150 L232 160 L214 166 C198 170 182 166 176 150 Z" fill="#7a1e14"/>
+    <path d="M186 142 L172 128 L192 138 Z M198 138 L190 120 L206 136 Z" fill="#d8cdb4"/>
+  </g>
+  <path d="M184 144 C194 138 208 138 218 142" stroke="#a8382a" stroke-width="3" fill="none"/>
+  <path d="M200 148 C204 151 210 151 214 148" stroke="#1a120c" stroke-width="2" fill="none"/>
+  <path d="M232 154 L238 154" stroke="#1a120c" stroke-width="1.5"/>
+  <circle cx="242" cy="150" r="3" fill="#cfcfcf" opacity="0.5"/>
+  <circle cx="248" cy="142" r="2" fill="#cfcfcf" opacity="0.35"/>
+</svg>

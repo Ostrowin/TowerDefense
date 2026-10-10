@@ -660,6 +660,29 @@ func _consume_events() -> void:
 				else:
 					banner("Fala %d — %s" % [e["n"], where], "%d wrogów" % e["count"])
 					sfx.play("wave", 0.0)
+			"objective_warn":
+				banner("Smok się budzi", "Za %d s w dolinie — wyślij dowódcę, zanim zrobi to wróg" % int(Cfg.OBJECTIVE_WAKE_WARN))
+				sfx.play("roar", 0.0)
+			"objective_wake":
+				banner("Smok przebudzony!", "Dowódca w legowisku bije smoka — ostatni cios zdobywa strefę w dolinie")
+				shake = maxf(shake, 8.0)
+				burst(pos, 30, Color(1.0, 0.45, 0.15), 160.0, 0.8)
+				sfx.play("roar", 0.0)
+			"objective_breath":
+				burst(pos, 16, Color(1.0, 0.5, 0.12), 120.0, 0.45)
+				ring(pos, e["radius"], Color(1.0, 0.6, 0.2))
+				sfx.play("breath", 0.25)
+			"objective_taken":
+				burst(pos, 50, Color(1.0, 0.6, 0.2), 240.0, 1.0)
+				ring(pos, 120.0, TEAM_COLORS[e["team"]])
+				shake = maxf(shake, 12.0)
+				if e["team"] == 0:
+					var who := "Twój dowódca" if e["player"] == me else "Dowódca partnera"
+					banner("Smok pokonany!", "%s zadał ostatni cios · nowa strefa budowy w dolinie" % who)
+					sfx.play("win", 0.0)
+				else:
+					banner("Wróg zdobył smoka!", "Stawia wieże w dolinie — odbij środek mapy")
+					sfx.play("lose", 0.0)
 			"enemy_build":
 				float_text(pos, "Wróg stawia wieżę!", TEAM_COLORS[1])
 				burst(pos, 12, Color(0.7, 0.6, 0.5), 80.0)

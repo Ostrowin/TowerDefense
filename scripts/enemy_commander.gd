@@ -5,8 +5,9 @@ extends RefCounted
 ## po prostu zajmie jego miejsce.
 ##
 ## Gdzie stoi (punkt postoju; sam dowódca walczy z tym, co podejdzie — smycz COMMANDER_LEASH):
-##   HP < RETREAT_HP             → pod własną bazą (dowódca się nie leczy; tam pomaga działko i wieże)
+##   HP < RETREAT_HP             → pod własną bazą, aż wyleczy się do HEALED_HP (Cfg.HERO_REGEN)
 ##   armia gracza na naszej połowie → na tej ścieżce, między jej czołem a naszą bazą (obrona)
+##   przebudzony smok (cel mapy)  → w legowisku, bliżej własnej bazy (objective_post, też bot gracza)
 ##   nasza fala na mapie          → za czołem fali na ścieżce, gdzie idzie jej najwięcej (natarcie)
 ##   inaczej                      → przed bazą, na ścieżce następnej fali (czeka)
 ## Natarcie kończy się MIN_S od bazy gracza — dowódca nie wchodzi pod jego fortecę.
@@ -16,6 +17,8 @@ const RETREAT_HP := 0.3
 const MIN_S := 350.0  ## najbliżej bazy gracza (wzdłuż ścieżki)
 const GUARD_S := 250.0  ## czekanie: tyle przed własną bazą
 const REORDER := 60.0  ## nowy rozkaz, gdy punkt postoju zmienia się o więcej
+const HEALED_HP := 0.8  ## po odwrocie czeka pod bazą (leczenie, Cfg.HERO_REGEN), aż odzyska tyle HP
+const ENGAGE_HP := 0.6  ## do smoka dopiero powyżej tego HP; przy smoku zostaje do RETREAT_HP (histereza)
 
 ## Sim przychodzi w każdym wywołaniu, nie jest polem: Sim trzyma AI, a cykl referencji między
 ## dwoma RefCounted nigdy by się nie zwolnił (każda partia zostawałaby w pamięci).
@@ -40,8 +43,8 @@ func think(sim: Sim) -> void:
 
 func _desired_post(sim: Sim, h: Sim.Hero) -> Vector2:
 	var team := h.team
-	if h.hp < h.max_hp * RETREAT_HP:
-		return sim._hero_spawn_pos(team)
+	if healing(sim, h):
+		return sim._hero_spawn_pos(sim.base_of(h.owner))
 	# odległość wzdłuż ścieżki mierzona od bazy gracza (s), nasza baza na końcu (length)
 	var foe_count := {}
 	var foe_front := {}  # ścieżka → największe s wroga (najbliżej nas)
@@ -65,6 +68,10 @@ func _desired_post(sim: Sim, h: Sim.Hero) -> Vector2:
 	if threat >= 0:
 		var lane: Sim.Lane = sim.lanes[threat]
 		return lane.point_at(minf(foe_front[threat] + 40.0, lane.length - GUARD_S * 0.5))
+	# cel mapy: przebudzony smok (wyścig dowódców o wysuniętą strefę)
+	var lair := objective_post(sim, h)
+	if lair != Vector2.INF:
+		return lair
 	# natarcie: tam, gdzie idzie najwięcej naszych
 	var push := -1
 	for li in own_count:
@@ -75,3 +82,25 @@ func _desired_post(sim: Sim, h: Sim.Hero) -> Vector2:
 		return lane.point_at(clampf(own_front[push] + 50.0, MIN_S, lane.length - GUARD_S))
 	var wait: Sim.Lane = sim.lanes[sim.next_wave_lanes[0]]
 	return wait.point_at(wait.length - GUARD_S)
+
+
+## Odwrót pod bazę: HP < RETREAT_HP, a z postojem pod bazą — do HEALED_HP (tam działa leczenie). Ze stanu Sim
+## (`h.post`), bez pamięci AI — wspólne dla AI wroga i bota testowego.
+static func healing(sim: Sim, h: Sim.Hero) -> bool:
+	var home := sim._hero_spawn_pos(sim.base_of(h.owner))
+	return h.hp < h.max_hp * RETREAT_HP or (h.post.distance_to(home) < 40.0 and h.hp < h.max_hp * HEALED_HP)
+
+
+## Postój przy celu mapy (smok): przebudzony i żywy, a HP dowódcy > ENGAGE_HP — albo dowódca już ma postój
+## w legowisku i HP ≥ RETREAT_HP (histereza: między progami nie wraca, ale też nie ucieka). Liczone ze stanu
+## Sim (`h.post`), bez losowania i własnej pamięci — wspólne dla AI wroga i bota testowego gracza.
+## Vector2.INF = brak celu.
+static func objective_post(sim: Sim, h: Sim.Hero) -> Vector2:
+	for o in sim.objectives:
+		if o.state != "awake":
+			continue
+		var at_lair := h.post.distance_to(o.pos) <= o.radius
+		if h.hp > h.max_hp * ENGAGE_HP or (at_lair and h.hp >= h.max_hp * RETREAT_HP):
+			var home := sim.base_pos(sim.base_of(h.owner))
+			return o.pos + (home - o.pos).normalized() * o.radius * 0.5
+	return Vector2.INF

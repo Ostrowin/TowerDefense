@@ -900,6 +900,10 @@ func draw_minimap() -> void:
 			c.draw_rect(Rect2(b.pos * k - Vector2(2, 2), Vector2(4, 4)), Main.TEAM_COLORS[b.team].lightened(0.3))
 	for u in m.sim.units:
 		c.draw_rect(Rect2(u.pos * k - Vector2(1, 1), Vector2(2, 2)), Main.TEAM_COLORS[u.team])
+	for o in m.sim.objectives:  # smok: pomarańczowy po przebudzeniu, szary śpiący, kolor zdobywcy po zdobyciu
+		var oc := Color(1.0, 0.45, 0.15) if o.state == "awake" else (Color(0.8, 0.75, 0.65) if o.state == "sleep" else Main.TEAM_COLORS[o.owner_team])
+		c.draw_circle(o.pos * k, 6.0 if o.state == "awake" else 5.0, oc)
+		c.draw_arc(o.pos * k, o.radius * k, 0, TAU, 24, Color(oc, 0.6), 1.0)
 	if m.sim.hero_alive(m.me):
 		c.draw_circle(m.sim.hero(m.me).pos * k, 4.0, Main.HERO_COLOR)
 	if m.sim.hero_alive(1):

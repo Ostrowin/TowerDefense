@@ -13,7 +13,8 @@ scripts/levels.gd        Levels   — mapy jako dane (ścieżki, bazy, rzeka, z�
 scripts/races.gd         Races    — 12 ras świata (id, nazwa, kolor, hasło, grywalna?) + losowanie przeciwnika,
                          dowódcy rasy (`commanders`) i jej umiejętność (`racial`)
 scripts/sim.gd           Sim      — logika gry: stan, rozkazy gracza, step(dt), zdarzenia. Zero węzłów i rysowania.
-scripts/enemy_commander.gd EnemyCommander — AI dowódcy wroga (Trudny): gdzie stoi, co rzuca; wołane z Sim.step
+scripts/enemy_commander.gd EnemyCommander — AI dowódcy wroga (każda trudność, siła wg `enemy_hero`): gdzie stoi, co rzuca; wołane z Sim.step;
+                           static objective_post/healing — reguły postoju (smok, leczenie pod bazą) wspólne z botem testów
 scripts/ability_rules.gd AbilityRules — kiedy i gdzie rzucić umiejętność (po typie efektu, dla obu drużyn);
                          używa go AI wroga i bot gracza w testach
 scripts/main.gd          Main     — scena: przebieg gry (stany), pętla sima, zdarzenia → efekty i dźwięk, samouczek, kamera
@@ -95,7 +96,8 @@ Test od menu do końca: `tests/net_ui_test.gd`.
 coop (`_fall_base`): gracz `out` — bez budynków, armii, dowódcy i rozkazów. Przegrana, gdy nie ma żywej bazy gracza.
 Mapy na 2–4 graczy (`Levels.level(i)["players"]`); łączniki łączą dowolne pary baz (na mapach promienistych —
 sąsiadów po obwodzie, więc wróg z poległej bazy idzie do najbliższej żywej). Fale i HP fortecy ×(1 + 0,6 na
-gracza ponad pierwszego), mapy promieniste dodatkowo `fortress_mult`. Lobby: do 3 gości, start przy komplecie.
+gracza ponad pierwszego, `Sim.coop_mult`), mapy promieniste dodatkowo `fortress_mult`; kolejka fal +10 na gracza
+ponad dwóch (`COOP_QUEUE_PER_PLAYER`, D35). Widok rysuje jednostki i pociski rasą właściciela (`owner_race`). Lobby: do 3 gości, start przy komplecie.
 
 ```
  input ──▶ main.gd ──(rozkazy)──▶ Sim.step(1/30) ──▶ stan (units, buildings, shots, gold…)
@@ -112,7 +114,7 @@ przepadają (gra chwilowo zwalnia zamiast wpaść w spiralę śmierci).
 ## Wydajność
 
 Najgorszy przypadek jest ograniczony **limitami populacji** (`Cfg.MAX_ARMY` 200,
-`Cfg.MAX_ENEMIES` 150, `MAX_SPAWN_QUEUE` 40) — bez nich w długiej partii jednostek
+`Cfg.MAX_ENEMIES` 150, `MAX_SPAWN_QUEUE` 40, w coopie 3–4 graczy +10 na gracza) — bez nich w długiej partii jednostek
 przybywało bez końca (fala 50: ~2800) i to było przyczyną „wieszania się" pod koniec gry.
 
 - Sim: cele szukane przez siatkę przestrzenną (`_grid`/`_bgrid`, komórki 150 px,

@@ -4,10 +4,10 @@ Gra **tower defense + strategia** (ekonomiczny lane-pusher). Cel: **fajna gra** 
 
 ## Struktura
 - `scripts/cfg.gd` (`Cfg`) — balans i konfiguracja (jednostki, budynki, umiejętności, fale). Strojenie = zmiana liczb tutaj.
-- `scripts/levels.gd` (`Levels`) — mapy jako dane (ścieżki, złoża, sloty). Nowa mapa = nowy wpis + pełny bot_test. Mapy coop (`COOP`, gra ze znajomym): na 2 graczy — górna połowa + lustro (`_mirror_coop`), na 3–4 — klin gracza obrócony wokół fortecy w środku (`_ring_coop`); indeks mapy: najpierw `ALL`, potem `COOP` (`Levels.level(i)`).
+- `scripts/levels.gd` (`Levels`) — mapy jako dane (ścieżki, złoża, sloty, cele mapy `objectives` — np. smok, D36). Nowa mapa = nowy wpis + pełny bot_test. Mapy coop (`COOP`, gra ze znajomym): na 2 graczy — górna połowa + lustro (`_mirror_coop`), na 3–4 — klin gracza obrócony wokół fortecy w środku (`_ring_coop`); indeks mapy: najpierw `ALL`, potem `COOP` (`Levels.level(i)`).
 - `scripts/races.gd` (`Races`) — rasy wspólne z innymi grami tego świata (id i kolory jak tam). Na razie tożsamość (nazwa, kolor, hasło, przeciwnik), bez statystyk; grywalne `playable`, reszta „Wkrótce".
 - `scripts/progress.gd`, `scripts/settings.gd` — zapis w `user://`; testy podmieniają `path`, żeby nie ruszać danych gracza.
-- `scripts/sim.gd` (`Sim`) — logika gry, **bez węzłów i rysowania**. Nowa mechanika trafia tu, z testem. Dowódcą wroga (Trudny) steruje `EnemyCommander`, umiejętności obu stron rzuca `AbilityRules` (reguły po typie efektu — nowy typ efektu = nowa reguła tam). AI bez losowania i bez własnego stanu gry — to warunek lockstepu w multiplayerze. Nowe pole stanu gry = dopisz je do `Sim.checksum()` (suma porównywana między telefonami). Zna też rzekę i mosty (`river`, `bridges`) oraz trasę po mapie dla dowódcy (`path_to`, A* omijający wodę).
+- `scripts/sim.gd` (`Sim`) — logika gry, **bez węzłów i rysowania**. Nowa mechanika trafia tu, z testem. Dowódcą wroga (każda trudność) steruje `EnemyCommander`, umiejętności obu stron rzuca `AbilityRules` (reguły po typie efektu — nowy typ efektu = nowa reguła tam). AI bez losowania i bez własnego stanu gry — to warunek lockstepu w multiplayerze. Nowe pole stanu gry = dopisz je do `Sim.checksum()` (suma porównywana między telefonami). Zna też rzekę i mosty (`river`, `bridges`) oraz trasę po mapie dla dowódcy (`path_to`, A* omijający wodę).
 - `scripts/main.gd` (`Main`) — widok: przebieg gry, pętla sima, efekty, samouczek, kamera. Części widoku: `world_view.gd` (`WorldView`, render świata), `hud.gd` (`Hud`, HUD/menu/nakładki z Control w kodzie), `controls.gd` (`Controls`, input i dowódca). Nie wkładaj tu reguł gry.
 - `scripts/net_session.gd` (`NetSession`) — gra sieciowa w lockstepie (ENet, tury, suma kontrolna, odkrywanie UDP); `scripts/lobby.gd` (`Lobby`) — tworzenie gry / dołączanie i start partii ze znajomym (`Main.start_net`).
 - `scripts/sfx.gd` (`Sfx`) — dźwięki syntezowane.
@@ -20,7 +20,8 @@ Godot z wingeta (nie ma go w PATH):
 - import (po dodaniu `class_name`/plików): `--headless --import --path .`
 - testy Sim + boty: `--headless --path . --script res://tests/bot_test.gd` (kod wyjścia 1 = błąd; ~25 min — z macierzą dowódców R11 na Normalnym; Łatwy i Trudny przez `--balance --commander`)
 - same mechaniki (~1 min — głównie test lockstepu: 2 Sim przez całą partię, i limity populacji): `... bot_test.gd -- --mechanics`
-- coop (2 boty z dowódcami na mapach coop, ~3 min): `... bot_test.gd -- --coop [--diffs 1,2]`
+- coop (2 boty z dowódcami na mapach coop, ~3 min): `... bot_test.gd -- --coop [--maps 3,4] [--diffs 1,2]`
+- wielkie mapy (`big`, np. Smocza dolina — w pełnym teście tylko jeden mecz): `... bot_test.gd -- --big [--commander sapper] [--diffs 1,2]`; same testy celów mapy (smok, ~20 s): `... bot_test.gd -- --objectives`
 - same mecze botów (strojenie): `--headless --path . --script res://tests/bot_test.gd -- --balance` (`--commander sapper` = bot gra dowódcą według R9; pełny bot_test puszcza macierz R11: każdy grywalny dowódca na Normalnym)
 - grafika po zmianie SVG: `--headless --path . --script res://tools/bake_art.gd`, potem **koniecznie** `--headless --import --path .` (inaczej gra czyta stary atlas i sprite'y są przesunięte/niewidoczne)
 - podgląd sprite'ów: `--headless --path . --script res://tools/art_sheet.gd -- <plik.png> [prefiks...] [--scale 2]`; zrzuty prawdziwej sceny (okno, nie headless): `--path . -- --bench res://tests/screenshot.gd --out <folder> [--race hyena --rival gibbon --map N]`

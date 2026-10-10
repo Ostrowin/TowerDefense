@@ -9,6 +9,18 @@
 - [x] **P4 — treść**: 3 mapy (Trzy drogi, Przesmyk, Serpentyna) jako dane w `Levels`, wybór w menu, rekordy i gwiazdki.
 - [~] **P5 — oprawa**: ✔ dźwięki i muzyka (synteza), efekty, menu/ustawienia/samouczek, teren, **grafika (D30)**: sprite'y SVG z brudem — 9 ras × 6 jednostek, 27 dowódców, budynki i budowle tymczasowe, forteca, teren z kafli, dekoracje, pociski w stylu ras. ✔ ikona aplikacji (kret w kasku, ikona adaptacyjna Androida). ✘ portrety dowódców (próba SVG odrzucona 2026-09-28 — tylko malowane).
 
+## Sesja 9 (2026-10-10) — coop: grafika partnera, mapy 3–4 graczy, dowódca wroga wszędzie
+
+Jednostki, pociski i dowódca partnera w barwach jego rasy (`WorldView.owner_race`, `Shot.owner`; zrzut coopa:
+`screenshot.gd --partner wolf`) · mapy promieniste dłuższe, łączniki po łuku, pełna dokładka fal przy 3–4 graczach (D35) ·
+dowódca wroga na Łatwym i Normalnym, słabszy (`enemy_hero`, `enemy_ability_cd`, D34) · office hours + eng review:
+wielka mapa ze smokiem ([docs/designs/wielka-mapa-smok.md](docs/designs/wielka-mapa-smok.md)) · krok 1: mapa „Smocza dolina”
+(3200×1800, połowy lustrzane, `big`, `fortress_mult`, tempo mapy `mods`; `bot_test.gd -- --big`), jeszcze bez smoka.
+Krok 2–5: smok (`Sim.Objective`, D36) — sen, oddech, zdobycie, strefa, sloty wroga, koszary w strefie, AI i bot,
+widok (sprite SVG `tools/svg_gen/monsters.py`, banery, minimapa, dźwięki), testy (`-- --objectives`, smoke) ·
+leczenie dowódców pod bazą (D37). Do zrobienia: granie i tempo (dziś 5–7 min, cel 15–20), perf_test na telefonie,
+krok samouczka przy smoku.
+
 ## Sesja 8 (2026-09-27) — podział widoku, zające, wydry, niedźwiedzie, wilki, jeże
 
 Podział `main.gd` na `world_view.gd` / `hud.gd` / `controls.gd` · zające i wydry grywalne (D31): 6 dowódców ze
@@ -91,7 +103,7 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 - [x] **Etap 2 — reszta dowódców:** ~~T10 Snajper, Magma~~ ✅ · ~~T11 gibony~~ ✅ · ~~T11b hieny i dziki~~ ✅
 - [x] **Etap 3 — domknięcie:** ~~T12 boss rywala~~ (usunięte, D5) · ~~T13 balans całości, kontrakt regresji, perf, dokumentacja~~ ✅ (telefon: p95 20,3 ms w późnej grze z Saperem, 2026-09-26)
 - [x] **Seria wydajności wszystkich dowódców na telefonie:** `perf_test --series all` (27 dowódców po kolei, tabela `[seria]`), `android.ps1 -BenchTimeout`. Przy okazji: `perf_test` nie wołał bota dowódcy (`_hero`), więc wcześniejsze pomiary „z dowódcą” miały go stojącego pod bazą. **Wynik (realme 8i, 2026-09-28, Serpentyna, Trudny x3, 4 min gry na dowódcę, --stress, z dowódcą wroga): wszyscy 27 — mediana 16,7 ms (limit 60 FPS), p95 19,3–19,9 ms, p99 ≤ 21,4 ms, maks 27–46 ms; do ~155 jednostek.** Argumenty podawać przez `pwsh -Command` — `pwsh -File` skleja listę `-BenchArgs` w jeden napis.
-- [ ] **Etap 4 — rozbudowa (CEO review):** ~~T14 awans dowódcy w partii~~ ✅ · ~~T15 tryb przetrwania~~ ✅ · ~~T16 wyzwanie dnia z modyfikatorami~~ ✅ · T17 multiplayer na osobnych telefonach — projekt: [docs/designs/multiplayer.md](docs/designs/multiplayer.md) (2026-09-28): coop w Wi-Fi, lockstep, osobne złoto/budynki/dowódca; PvP etap 2. Następny krok: /plan-eng-review
+- [ ] **Etap 4 — rozbudowa (CEO review):** ~~T14 awans dowódcy w partii~~ ✅ · ~~T15 tryb przetrwania~~ ✅ · ~~T16 wyzwanie dnia z modyfikatorami~~ ✅ · ~~T17 multiplayer na osobnych telefonach~~ ✅ (2026-09-30, [docs/designs/multiplayer.md](docs/designs/multiplayer.md)): coop w Wi-Fi na 2–4 graczy — lockstep (ENet, suma kontrolna), lobby z listą gier i IP, osobne bazy/złoto/budynki/dowódca, 7 map coop, upadek bazy = gracz ogląda. Przetestowane na 2 telefonach (pełna partia bez rozjazdu). Dalej: balans coop, PvP (etap 2) — w backlogu niżej
 
 ## Lore i rasy (do przemyślenia)
 
@@ -102,16 +114,17 @@ grywalne też hieny i dziki, przeciwnik losowy · katalog 12 dowódców: [docs/d
 
 ## Backlog (świadomie odroczone)
 
-- AI dowódcy wroga na Łatwym/Normalnym — dziś tylko Trudny (D33); decyzja po graniu na telefonie
 - **Balans coop (multiplayer):** strojenie po graniu — punkt startowy: osobne bazy, fala ×1,6, nagrody po równo
-  (`bot_test.gd -- --coop`: Łatwy/Normalny wygrane, Trudny 2/3). Mapy na 3–4 graczy (Trójząb, Wir, Krzyż): boty wygrywają
-  Normalny w ~2,5–4 min mimo fortecy ×5 (`fortress_mult`) — sprawdzić z ludźmi, ew. dłuższe ścieżki albo silniejsze fale. Jednostki partnera rysowane są grafiką mojej rasy
-  (sprite'y wg drużyny, nie gracza) — do poprawy. Dawny opis: fale przy 2 graczach, dochód pasywny na gracza, podział nagród. v1 startuje od
+  (`bot_test.gd -- --coop [--maps 3,4]`: Łatwy/Normalny wygrane, Trudny 2/3 na mapach 2 graczy). Mapy na 3–4 graczy
+  przestrojone botami (D35, 2026-10-10): Normalny ~4,5–5 min, Trudny 3/4 — sprawdzić z ludźmi. Dawny opis: fale przy 2 graczach, dochód pasywny na gracza, podział nagród. v1 startuje od
   fal ×1,6, dochodu pasywnego per gracz i nagrody dla właściciela zabójcy (Cfg); stroić po pierwszych partiach na dwóch
   telefonach. Zależy od: działającego coopa (docs/designs/multiplayer.md, eng review D7).
 - **Przetrwanie i wyzwanie dnia w coop:** tryby dla 2 graczy z rekordami drużynowymi w Progress. W v1 lobby oferuje
   tylko bitwę. Zależy od: coopa w bitwie (eng review D8).
 
+- **Reguły celów mapy osobno:** reguła postoju przy smoku żyje w `EnemyCommander` (static `objective_post`, woła ją też
+  bot testowy). Przy drugim rodzaju celu (kampania) wydzielić ją do `ObjectiveRules` obok `AbilityRules`
+  (eng review wielkiej mapy, 2026-10-10, D1/D5).
 - Multiplayer / netcode
 - Asymetryczne rasy (różne jednostki i mechaniki — wybór ras w menu już jest, patrz „Lore i rasy”)
 - Prawdziwe AI wroga (teraz skrypt fal + ważony wybór ścieżek)
